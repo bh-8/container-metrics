@@ -1,0 +1,3 @@
+#!/bin/bash
+docker run --rm --volume=$(realpath ./io):/home/container-metrics/io container-metrics "$@"
+exit $?
