@@ -4,16 +4,17 @@ import sys
 from pathlib import Path
 from metric_extractor import MetricExtractor
 
+HELP_PROG = "./container-metrics"
+
 class Main:
     def __init__(self) -> None:
         parser = argparse.ArgumentParser(
-            prog="container_metrics",
-            usage=f"container_metrics <command> [<args>]",
+            prog=f"{HELP_PROG}",
+            usage=f"{HELP_PROG} <command> [<args>]",
             description="""possible commands are:
-\textract       extract metrics of a given container file
-\tview          create formatted views of selected metrics
-\t<abs.path>    auto mode""",
-            epilog="", # [TODO]: credits o.a.
+  scan\textract and import metrics from container files into database""",
+#  export\texport views on selected metrics from the database""", # [TODO]: implementation missing
+            epilog=None, # [TODO]: credits o.a.
             formatter_class=argparse.RawDescriptionHelpFormatter
         )
 
@@ -26,21 +27,17 @@ class Main:
         args = parser.parse_args(sys.argv[1:2])
 
         # check whether this class contains a method for the requested command
-        if not hasattr(self, args.command):
-            if Path(args.command).is_absolute() and Path(args.command).exists() and Path(args.command).is_file():
-                print("ABSOLUTE PATH GIVEN AND EXISTS AND IS FILE!") # [TODO]: auto mode
-                return
-            else:
-                parser.print_help()
-                sys.exit(1)
+        if not hasattr(self, f"cmd_{args.command}"):
+            parser.print_help()
+            sys.exit(1)
 
         # call command method
-        getattr(self, args.command)()
-    def extract(self):
+        getattr(self, f"cmd_{args.command}")()
+    def cmd_scan(self):
         parser = argparse.ArgumentParser(
-            prog="container_metrics extract",
-            description="extract metrics of a given container file",
-            epilog=""
+            prog=f"{HELP_PROG} scan",
+            description="scan container files, extract and import metrics into database",
+            epilog=None
         )
 
         parser.add_argument("-i", "--input",
@@ -51,6 +48,7 @@ class Main:
             type=argparse.FileType("wb"),
             required=True
         )
+        #[TODO]: output not needed, replace with db connect string
         parser.add_argument("--magic",
             action="store_true",
             help="use libmagic to detect mime type instead of file extension"
@@ -69,9 +67,6 @@ class Main:
             print(f" > ERROR: metric extractor crashed!")
             raise e
             sys.exit(1)
-    def view(self):
-        # [TODO]: implementation missing
-        raise NotImplementedError("command view not implemented yet")
 
 if __name__ == "__main__":
     Main()
