@@ -20,7 +20,7 @@ class Main:
         # display help when no argument given
         if len(sys.argv) <= 1:
             parser.print_help()
-            sys.exit(1)
+            sys.exit(0)
 
         parser.add_argument("command", help="subcommand to run")
         args = parser.parse_args(sys.argv[1:2])
