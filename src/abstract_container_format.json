@@ -1,0 +1,14 @@
+{
+    "analysis_info": {
+        "analyst": null,
+        "timestamp_start" : null,
+        "timestamp_end": null
+    },
+    "file_info": {
+        "name": null,
+        "size": null,
+        "md5": null,
+        "sha1": null
+    },
+    "container_metrics": null
+}

@@ -111,6 +111,14 @@ class Main:
                 raise ConnectionError("could not verify mongo db connection")
             logger.info(f"connected to database via '{args.mongodb}'")
 
+            # go through supported files
+            for file_path in filtered_path_list:
+                logger.debug(f"scanning file '{file_path}'...")
+                # [TODO] progress bar
+                # [TODO] parser -> fill pre-defined json-structure
+                # [TODO] insert json structure into database
+                logger.info(f"created mapping in database for file '{file_path}'")
+
         except Exception as e:
             print(f"##################################################")
             print(f" > ERROR: metric extractor crashed!")

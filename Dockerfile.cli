@@ -1,16 +1,23 @@
 FROM debian AS container-metrics
-    RUN apt-get update && \
-        apt-get install -y \
+    RUN apt-get update && apt-get install -y \
         libmagic1 \
         python3 \
         python3-pip \
-        python3-magic \
-        python3-pymongo
+        python3-venv
+    RUN python3 -m venv /home/container-metrics/venv
+    RUN . /home/container-metrics/venv/bin/activate && pip3 install \
+        alive-progress \
+        pymongo \
+        python-magic \
+        && deactivate
 
     # create entrypoint
     RUN echo "#!/bin/bash">/home/entrypoint.sh
+    RUN echo ". /home/container-metrics/venv/bin/activate">>/home/entrypoint.sh
     RUN echo "python3 -u /home/container-metrics/container_metrics.py \"\$@\"">>/home/entrypoint.sh
-    RUN echo "exit \$?">>/home/entrypoint.sh
+    RUN echo "err_level=\$?">>/home/entrypoint.sh
+    RUN echo "deactivate">>/home/entrypoint.sh
+    RUN echo "exit \$err_level">>/home/entrypoint.sh
     RUN chmod +x /home/entrypoint.sh
 
     WORKDIR /home/container-metrics
