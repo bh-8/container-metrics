@@ -45,30 +45,25 @@ class Main:
             description="scan container files, extract and import metrics into database",
             epilog=None
         )
-
         parser.add_argument("mongodb",
             type=str,
             metavar="<mongodb>",
             help="mongodb connection string"
         )
-
         parser.add_argument("paths",
             type=str,
             metavar="<path>",
             nargs="+",
             help="one or more paths to container files/directories"
         )
-
         parser.add_argument("--recursive",
             action="store_true",
             help="traverse given directories recursively"
         )
-
         parser.add_argument("--magic",
             action="store_true",
             help="use libmagic to detect mime type instead of file extension"
         )
-
         parser.add_argument("--log",
             type=str,
             choices=["debug", "info", "warning", "error"],
@@ -116,10 +111,14 @@ class Main:
             with alive_bar(len(filtered_path_list), title="Scanning", length=25) as pbar:
                 for file_path in filtered_path_list:
                     logger.debug(f"scanning file '{file_path}'...")
+
+                    # [TODO] select parser by mime-type
                     # [TODO] parser -> fill pre-defined json-structure
                     # [TODO] insert json structure into database
+
                     logger.info(f"created mapping in database for file '{file_path}'")
                     pbar(1)
+            logger.info("done")
 
         except Exception as e:
             print(f"##################################################")
