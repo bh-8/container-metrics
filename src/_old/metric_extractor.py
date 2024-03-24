@@ -1,4 +1,4 @@
-from mime_type_detection import MIMETypeDetector
+from static_utils import MIMETypeDetector
 from pathlib import Path
 from typing import Callable
 

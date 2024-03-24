@@ -2,12 +2,14 @@ import argparse
 import sys
 
 from pathlib import Path
-from metric_extractor import MetricExtractor
+from static_utils import StaticLogger, MongoInterface, flatten_paths
 
-HELP_PROG = "./container-metrics"
+HELP_PROG = "container-metrics"
 
 class Main:
     def __init__(self) -> None:
+        # entry point
+
         parser = argparse.ArgumentParser(
             prog=f"{HELP_PROG}",
             usage=f"{HELP_PROG} <command> [<args>]",
@@ -23,36 +25,54 @@ class Main:
             parser.print_help()
             sys.exit(0)
 
+        # subcommand option
         parser.add_argument("command", help="subcommand to run")
         args = parser.parse_args(sys.argv[1:2])
 
-        # check whether this class contains a method for the requested command
-        if not hasattr(self, f"cmd_{args.command}"):
+        # check whether this class contains a method for the requested subcommand
+        if not hasattr(self, f"subcmd_{args.command}"):
             parser.print_help()
             sys.exit(1)
 
-        # call command method
-        getattr(self, f"cmd_{args.command}")()
-    def cmd_scan(self):
+        # call subcommand method
+        getattr(self, f"subcmd_{args.command}")()
+
+    # subcommand 'scan'
+    def subcmd_scan(self):
         parser = argparse.ArgumentParser(
             prog=f"{HELP_PROG} scan",
             description="scan container files, extract and import metrics into database",
             epilog=None
         )
 
-        parser.add_argument("-i", "--input",
-            type=argparse.FileType("rb"),
-            required=True
+        parser.add_argument("mongodb",
+            type=str,
+            metavar="<mongodb>",
+            help="mongodb connection string"
         )
-        parser.add_argument("-o", "--output",
-            type=argparse.FileType("wb"),
-            required=True
+
+        parser.add_argument("paths",
+            type=str,
+            metavar="<path>",
+            nargs="+",
+            help="one or more paths to container files/directories"
         )
-        #[TODO]: output not needed, replace with db connect string
+
+        parser.add_argument("--recursive",
+            action="store_true",
+            help="traverse given directories recursively"
+        )
+
         parser.add_argument("--magic",
             action="store_true",
             help="use libmagic to detect mime type instead of file extension"
         )
+
+        parser.add_argument("--log",
+            type=str,
+            choices=["debug", "info", "warning", "error"],
+            default="warning",
+            help="logging level")
 
         # display help when no argument given
         if len(sys.argv) <= 2:
@@ -60,13 +80,31 @@ class Main:
             sys.exit(1)
 
         try:
+            # subcommand arguments
             args = parser.parse_args(sys.argv[2:])
-            MetricExtractor.extract(args)
+
+            # init logger
+            StaticLogger.set_logger(HELP_PROG, args.log.upper())
+            logger = StaticLogger.get_logger()
+
+            # gather input files
+            logger.debug("resolving input paths...")
+            path_list = flatten_paths([Path(x).resolve() for x in args.paths], args.recursive)
+            logger.info(f"found {len(path_list)} file(s) to scan")
+
+            # test connection to mongo db instance
+            logger.debug(f"setting up connection to '{args.mongodb}'...")
+            MongoInterface.set_connection(args.mongodb)
+            if len(MongoInterface.get_connection()["admin"].list_collection_names()) != 2:
+                raise ConnectionError("could not verify mongo db connection")
+            logger.info(f"connected to database via '{args.mongodb}'")
+
         except Exception as e:
             print(f"##################################################")
             print(f" > ERROR: metric extractor crashed!")
             raise e
             sys.exit(1)
 
+# entry point
 if __name__ == "__main__":
     Main()

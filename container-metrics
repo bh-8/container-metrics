@@ -1,3 +1,3 @@
 #!/bin/bash
-docker run --rm --volume=$(pwd)/io:/home/container-metrics/io container-metrics-cli "$@"
+docker run --rm --network container-metrics_default --volume=$(pwd)/io:/home/container-metrics/io container-metrics-cli "$@"
 exit $?
