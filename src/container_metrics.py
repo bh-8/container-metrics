@@ -3,6 +3,7 @@ import sys
 
 from pathlib import Path
 from static_utils import *
+from alive_progress import alive_bar
 
 PROG_NAME = "container-metrics"
 
@@ -112,12 +113,13 @@ class Main:
             logger.info(f"connected to database via '{args.mongodb}'")
 
             # go through supported files
-            for file_path in filtered_path_list:
-                logger.debug(f"scanning file '{file_path}'...")
-                # [TODO] progress bar
-                # [TODO] parser -> fill pre-defined json-structure
-                # [TODO] insert json structure into database
-                logger.info(f"created mapping in database for file '{file_path}'")
+            with alive_bar(len(filtered_path_list), title="Scanning", length=25) as pbar:
+                for file_path in filtered_path_list:
+                    logger.debug(f"scanning file '{file_path}'...")
+                    # [TODO] parser -> fill pre-defined json-structure
+                    # [TODO] insert json structure into database
+                    logger.info(f"created mapping in database for file '{file_path}'")
+                    pbar(1)
 
         except Exception as e:
             print(f"##################################################")
