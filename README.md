@@ -1,9 +1,13 @@
 # container-metrics
 B.Sc. thesis project
+## getting started
+### requirements
+- docker engine (https://docs.docker.com/engine/)
+- build plugin (https://docs.docker.com/build/)
+- compose plugin (https://docs.docker.com/compose/)
+### installation/build
+- run `./build` to download and build all required images
 ### usage
-- mongodb services:
-    - `./db_up`: start database services
-    - `./db_down`: stop database services
-- cli-tool:
-    - `./build`: build command-line application
-    - `./container-metrics`: run and display help
+- start database services: `./db-up`
+- basic usage/help: `./container-metrics`
+- shutdown database services: `./db-down`
