@@ -1,5 +1,5 @@
-# container-metrics
-B.Sc. thesis project
+# **container-metrics**:
+an extensible framework for feature extraction of container format files
 ## getting started
 ### requirements
 - docker engine (https://docs.docker.com/engine/)
