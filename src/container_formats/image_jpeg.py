@@ -7,7 +7,6 @@ class ImageJpegFormat(AbstractContainerFormat):
         super().__init__(file_path, file_format_id, file_mime_type)
 
     def parse(self) -> None:
-        print(f"{self.format_structure}\n")
         pass
 
 #{

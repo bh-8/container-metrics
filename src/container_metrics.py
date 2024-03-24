@@ -120,6 +120,7 @@ class Main:
 
                     # [TODO] insert json structure into database
                     _file_structure = format_instance.get_format_structure()
+                    print(f"{_file_structure}\n")
 
                     logger.info(f"created mapping in database for file '{file_path}'")
                     pbar(1)
