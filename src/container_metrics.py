@@ -8,9 +8,8 @@ from alive_progress import alive_bar
 PROG_NAME = "container-metrics"
 
 class Main:
+    # entry point
     def __init__(self) -> None:
-        # entry point
-
         parser = argparse.ArgumentParser(
             prog=f"{PROG_NAME}",
             usage=f"{PROG_NAME} <command> [<args>]",
@@ -40,6 +39,7 @@ class Main:
 
     # subcommand 'scan'
     def subcmd_scan(self):
+        # initialize subcommand parser
         parser = argparse.ArgumentParser(
             prog=f"{PROG_NAME} scan",
             description="scan container files, extract and import metrics into database",
@@ -119,7 +119,6 @@ class Main:
                     logger.info(f"created mapping in database for file '{file_path}'")
                     pbar(1)
             logger.info("done")
-
         except Exception as e:
             print(f"##################################################")
             print(f" > ERROR: metric extractor crashed!")
