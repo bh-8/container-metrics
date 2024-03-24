@@ -1,5 +1,5 @@
 import mimetypes
-from typing import List
+from typing import Callable, List
 import magic
 from pathlib import Path
 import logging
@@ -40,14 +40,20 @@ class MongoInterface: # singleton
             raise TypeError("singleton instance uninitialized")
         return static_mongo
 
-class MIMETypeDetector:
+class MIMETypeFilter:
     @staticmethod
     def by_filename(path: Path) -> str | None:
-        return mimetypes.guess_type(path, False)[0]
+        mt = mimetypes.guess_type(path, False)[0]
+        if mt is None:
+            StaticLogger.get_logger().critical(f"could not determine mime-type by filename of file '{path}'")
+        return mt
 
     @staticmethod
     def by_content(path: Path) -> str | None:
-        return magic.from_file(path, mime=True)
+        mt = magic.from_file(path, mime=True)
+        if mt is None:
+            StaticLogger.get_logger().critical(f"could not determine mime-type by libmagic of file '{path}'")
+        return mt
 
 @staticmethod
 def flatten_paths(path_list: List[Path], recursive: bool = False) -> List[Path]:
@@ -81,3 +87,16 @@ def flatten_paths(path_list: List[Path], recursive: bool = False) -> List[Path]:
         raise FileNotFoundError(f"could not find any file at given position(s)")
 
     return list(dict.fromkeys(flattened_list))
+
+@staticmethod
+def filter_mime_types(path_list: List[Path], supported_mime_types: List[str], mime_type_filter: Callable[[str], str | None]) -> List[Path]:
+    filtered_path_list = [
+        f for f in path_list
+            if (mime_type_filter(f) is not None)
+                and (mime_type_filter(f) in supported_mime_types)
+    ]
+
+    if len(filtered_path_list) == 0:
+        raise FileNotFoundError(f"none of the given files is supported")
+
+    return filtered_path_list

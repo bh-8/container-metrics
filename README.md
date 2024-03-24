@@ -6,8 +6,10 @@ B.Sc. thesis project
 - build plugin (https://docs.docker.com/build/)
 - compose plugin (https://docs.docker.com/compose/)
 ### installation/build
-- run `./build` to download and build all required images
+- run `docker compose build` to download and build all required images
 ### usage
-- start database services: `./db-up`
+- start database services: `docker compose up --detach`
 - basic usage/help: `./container-metrics`
-- shutdown database services: `./db-down`
+- shutdown database services: `docker compose down`
+## references
+- Multimedia Authentication Testing: https://forensicworkinggroup.com/MAT.pdf

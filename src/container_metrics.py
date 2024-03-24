@@ -2,17 +2,18 @@ import argparse
 import sys
 
 from pathlib import Path
-from static_utils import StaticLogger, MongoInterface, flatten_paths
+from static_utils import *
 
-HELP_PROG = "container-metrics"
+PROG_NAME = "container-metrics"
+CONTAINER_FORMATS = "./container_formats"
 
 class Main:
     def __init__(self) -> None:
         # entry point
 
         parser = argparse.ArgumentParser(
-            prog=f"{HELP_PROG}",
-            usage=f"{HELP_PROG} <command> [<args>]",
+            prog=f"{PROG_NAME}",
+            usage=f"{PROG_NAME} <command> [<args>]",
             description="""possible commands are:
   scan\textract and import metrics from container files into database""",
 #  export\texport views on selected metrics from the database""", # [TODO]: implementation missing
@@ -40,7 +41,7 @@ class Main:
     # subcommand 'scan'
     def subcmd_scan(self):
         parser = argparse.ArgumentParser(
-            prog=f"{HELP_PROG} scan",
+            prog=f"{PROG_NAME} scan",
             description="scan container files, extract and import metrics into database",
             epilog=None
         )
@@ -84,13 +85,31 @@ class Main:
             args = parser.parse_args(sys.argv[2:])
 
             # init logger
-            StaticLogger.set_logger(HELP_PROG, args.log.upper())
+            StaticLogger.set_logger(PROG_NAME, args.log.upper())
             logger = StaticLogger.get_logger()
+
+            # gather supported mime types
+            supported_mime_types = [
+                str(f).split("/")[-1].replace("_", "/") for f
+                    in Path(CONTAINER_FORMATS).resolve().glob("*/")
+            ]
+            logger.info(f"supported mime types: {', '.join(supported_mime_types)}")
 
             # gather input files
             logger.debug("resolving input paths...")
-            path_list = flatten_paths([Path(x).resolve() for x in args.paths], args.recursive)
-            logger.info(f"found {len(path_list)} file(s) to scan")
+            path_list = flatten_paths(
+                [Path(x).resolve() for x in args.paths],
+                args.recursive
+            )
+            logger.info(f"found {len(path_list)} file(s) in total")
+
+            # filter unsupported mime-types
+            filtered_path_list = filter_mime_types(
+                path_list,
+                supported_mime_types,
+                MIMETypeFilter.by_content if args.magic else MIMETypeFilter.by_filename
+            )
+            logger.info(f"found {len(filtered_path_list)} file(s) with supported mime-types")
 
             # test connection to mongo db instance
             logger.debug(f"setting up connection to '{args.mongodb}'...")
