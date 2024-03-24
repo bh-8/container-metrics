@@ -11,5 +11,7 @@ B.Sc. thesis project
 - start database services: `docker compose up --detach`
 - basic usage/help: `./container-metrics`
 - shutdown database services: `docker compose down`
+### debugging
+- `./container-metrics scan mongodb://admin:admin@mongo-db:27017 io/input/ --log debug`
 ## references
 - Multimedia Authentication Testing: https://forensicworkinggroup.com/MAT.pdf
