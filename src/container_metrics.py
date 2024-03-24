@@ -95,17 +95,14 @@ class Main:
             )
             logger.info(f"found {len(path_list)} file(s) in total")
 
-            # gather supported mime types
-            supported_mime_types = get_supported_mime_types()
-            logger.info(f"supported mime types: {', '.join(supported_mime_types)}")
-
             # filter unsupported mime-types
+            mime_types = get_supported_mime_types()
             filtered_path_list = filter_mime_types(
                 path_list,
-                supported_mime_types,
+                mime_types,
                 MIMETypeFilter.by_content if args.magic else MIMETypeFilter.by_filename
             )
-            logger.info(f"found {len(filtered_path_list)} file(s) with supported mime-types")
+            logger.info(f"found {len(filtered_path_list)} file(s) with supported mime-types ({', '.join(mime_types)})")
 
             # test connection to mongo db instance
             logger.debug(f"setting up connection to '{args.mongodb}'...")

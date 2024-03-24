@@ -103,4 +103,4 @@ def filter_mime_types(path_list: List[Path], supported_mime_types: List[str], mi
 
 @staticmethod
 def get_supported_mime_types() -> List[str]:
-    return [f.stem.replace("_", "/") for f in Path("./container_formats").resolve().glob("*") if f.stem != "__init__" ]
+    return [f.stem.replace("_", "/") for f in Path("./container_formats").resolve().glob("*.py") if f.stem != "__init__"]
