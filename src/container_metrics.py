@@ -5,7 +5,6 @@ from pathlib import Path
 from static_utils import *
 
 PROG_NAME = "container-metrics"
-CONTAINER_FORMATS = "./container_formats"
 
 class Main:
     def __init__(self) -> None:
@@ -88,13 +87,6 @@ class Main:
             StaticLogger.set_logger(PROG_NAME, args.log.upper())
             logger = StaticLogger.get_logger()
 
-            # gather supported mime types
-            supported_mime_types = [
-                str(f).split("/")[-1].replace("_", "/") for f
-                    in Path(CONTAINER_FORMATS).resolve().glob("*/")
-            ]
-            logger.info(f"supported mime types: {', '.join(supported_mime_types)}")
-
             # gather input files
             logger.debug("resolving input paths...")
             path_list = flatten_paths(
@@ -102,6 +94,10 @@ class Main:
                 args.recursive
             )
             logger.info(f"found {len(path_list)} file(s) in total")
+
+            # gather supported mime types
+            supported_mime_types = get_supported_mime_types()
+            logger.info(f"supported mime types: {', '.join(supported_mime_types)}")
 
             # filter unsupported mime-types
             filtered_path_list = filter_mime_types(

@@ -100,3 +100,7 @@ def filter_mime_types(path_list: List[Path], supported_mime_types: List[str], mi
         raise FileNotFoundError(f"none of the given files is supported")
 
     return filtered_path_list
+
+@staticmethod
+def get_supported_mime_types() -> List[str]:
+    return [f.stem.replace("_", "/") for f in Path("./container_formats").resolve().glob("*") if f.stem != "__init__" ]
