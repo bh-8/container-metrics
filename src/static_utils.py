@@ -104,7 +104,3 @@ def filter_paths(path_list: List[Path], supported_mime_types: List[str], mime_ty
 @staticmethod
 def to_camel_case(string_with_underscores: str) -> str:
     return "".join([s.capitalize() for s in string_with_underscores.split("_")])
-
-@staticmethod
-def get_implemented_mime_types() -> List[str]:
-    return [f.stem.replace("_", "/") for f in Path("./container_formats").resolve().glob("*.py") if f.stem != "__init__"]
