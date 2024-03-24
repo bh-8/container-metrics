@@ -3,6 +3,7 @@ import sys
 
 from pathlib import Path
 from static_utils import *
+from container_formats import *
 from alive_progress import alive_bar
 
 PROG_NAME = "container-metrics"
@@ -85,20 +86,14 @@ class Main:
 
             # gather input files
             logger.debug("resolving input paths...")
-            path_list = flatten_paths(
-                [Path(x).resolve() for x in args.paths],
-                args.recursive
-            )
+            path_list = flatten_paths([Path(x).resolve() for x in args.paths], args.recursive)
             logger.info(f"found {len(path_list)} file(s) in total")
 
             # filter unsupported mime-types
-            mime_types = get_supported_mime_types()
-            filtered_path_list = filter_mime_types(
-                path_list,
-                mime_types,
-                MIMETypeFilter.by_content if args.magic else MIMETypeFilter.by_filename
-            )
-            logger.info(f"found {len(filtered_path_list)} file(s) with supported mime-types ({', '.join(mime_types)})")
+            implemented_mime_types = get_implemented_mime_types()
+            mime_type_determiner = MIMETypeFilter.by_content if args.magic else MIMETypeFilter.by_filename
+            filtered_path_list = filter_paths(path_list, implemented_mime_types, mime_type_determiner)
+            logger.info(f"found {len(filtered_path_list)} file(s) with supported mime-types ({', '.join(implemented_mime_types)})")
 
             # test connection to mongo db instance
             logger.debug(f"setting up connection to '{args.mongodb}'...")
@@ -112,9 +107,18 @@ class Main:
                 for file_path in filtered_path_list:
                     logger.debug(f"scanning file '{file_path}'...")
 
-                    # [TODO] select parser by mime-type
+                    # determine format class by mime-type
+                    _mime_type = mime_type_determiner(file_path)
+                    _format_class = globals()[f"{to_camel_case(_mime_type.replace('/', '_'))}Format"]
+                    _format_instance = _format_class(file_path)
+
+                    # use specific format class for parsing
                     # [TODO] parser -> fill pre-defined json-structure
+                    _format_instance.parse()
+
                     # [TODO] insert json structure into database
+                    _file_structure = _format_instance.get_format_structure()
+                    print(_file_structure)
 
                     logger.info(f"created mapping in database for file '{file_path}'")
                     pbar(1)

@@ -89,7 +89,7 @@ def flatten_paths(path_list: List[Path], recursive: bool = False) -> List[Path]:
     return list(dict.fromkeys(flattened_list))
 
 @staticmethod
-def filter_mime_types(path_list: List[Path], supported_mime_types: List[str], mime_type_filter: Callable[[str], str | None]) -> List[Path]:
+def filter_paths(path_list: List[Path], supported_mime_types: List[str], mime_type_filter: Callable[[str], str | None]) -> List[Path]:
     filtered_path_list = [
         f for f in path_list
             if (mime_type_filter(f) is not None)
@@ -102,5 +102,9 @@ def filter_mime_types(path_list: List[Path], supported_mime_types: List[str], mi
     return filtered_path_list
 
 @staticmethod
-def get_supported_mime_types() -> List[str]:
+def to_camel_case(string_with_underscores: str) -> str:
+    return "".join([s.capitalize() for s in string_with_underscores.split("_")])
+
+@staticmethod
+def get_implemented_mime_types() -> List[str]:
     return [f.stem.replace("_", "/") for f in Path("./container_formats").resolve().glob("*.py") if f.stem != "__init__"]
