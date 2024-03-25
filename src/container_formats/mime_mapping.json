@@ -1,4 +1,3 @@
 {
-    "image/jpeg": ["image_jpeg", "JPEG File Interchange Format"],
-    "application/pdf": ["image_jpeg", "Portable Document Format"]
+    "image/jpeg": ["image_jpeg", "JPEG File Interchange Format"]
 }

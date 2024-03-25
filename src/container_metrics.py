@@ -1,4 +1,5 @@
 import argparse
+import datetime
 import json
 from pathlib import Path
 import sys
@@ -78,6 +79,8 @@ class Main:
             parser.print_help()
             sys.exit(1)
 
+        db_name = f"examination-{int((datetime.datetime.now()-datetime.datetime(1970, 1, 1)).total_seconds())}"
+
         try:
             # subcommand arguments
             args = parser.parse_args(sys.argv[2:])
@@ -121,9 +124,11 @@ class Main:
                     # use specific format class for parsing
                     format_instance.parse()
 
-                    # [TODO] insert json structure into database
+                    # insert json structure into database
+                    logger.debug(f"storing metrics in database '{db_name}/{file_mime_info[0]}'")
                     format_dict: dict = format_instance.get_format_dict()
-                    print(f"  > {file_path}:\n\t{format_dict}\n")
+                    target_collection = MongoInterface.get_connection()[db_name][file_mime_info[0]]
+                    target_collection.insert_one(format_dict)
 
                     pbar(1)
             logger.info("done")
