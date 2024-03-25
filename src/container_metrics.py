@@ -115,8 +115,8 @@ class Main:
 
                     # load required format instance
                     class_label = f"{to_camel_case(file_mime_info[0])}Format"
-                    logger.debug(f"initializing instance {class_label}({file_path}, {file_mime_info}, {file_mime_type})")
-                    format_instance = globals()[class_label](file_path, file_mime_info, file_mime_type)
+                    logger.debug(f"initializing instance {class_label}({file_path}, {file_mime_type}, {file_mime_info})")
+                    format_instance = globals()[class_label](file_path, file_mime_type, file_mime_info)
 
                     # use specific format class for parsing
                     format_instance.parse()

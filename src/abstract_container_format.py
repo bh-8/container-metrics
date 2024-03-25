@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import List
 
 class AbstractContainerFormat(abc.ABC):
-    def __init__(self, file_path: Path, file_mime_info: List[str], file_mime_type: str) -> None:
+    def __init__(self, file_path: Path, file_mime_type: str, file_mime_info: List[str]) -> None:
         # abstract properties
         self.file_path: Path = file_path
         self.file_format_id: str = file_mime_info[0]
