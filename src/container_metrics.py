@@ -122,8 +122,8 @@ class Main:
                     format_instance.parse()
 
                     # [TODO] insert json structure into database
-                    _file_structure = format_instance.get_format_structure()
-                    print(f"  > {file_path}:\n\t{_file_structure}\n")
+                    format_dict: dict = format_instance.get_format_dict()
+                    print(f"  > {file_path}:\n\t{format_dict}\n")
 
                     pbar(1)
             logger.info("done")

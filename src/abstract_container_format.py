@@ -18,23 +18,23 @@ class AbstractContainerFormat(abc.ABC):
             self.file_data = file_handle.read()
         
         # read format structure preset
-        self.format_structure: dict = None
+        self.format_dict: dict = None
         with open("./abstract_container_format.json") as json_handle:
-            self.format_structure = json.loads(json_handle.read())
+            self.format_dict = json.loads(json_handle.read())
 
         # set format-specific preset
         with open(f"./container_formats/{self.file_format_id}.json") as json_handle:
-            self.format_structure["container_metrics"] = json.loads(json_handle.read())
+            self.format_dict["format_structure"] = json.loads(json_handle.read())
 
-        self.format_structure["examination"]["timestamp_t0"] = datetime.datetime.now().isoformat()
-        self.format_structure["examination"]["file_name"] = self.file_path.name
-        self.format_structure["examination"]["file_size"] = len(self.file_data)
-        self.format_structure["examination"]["mime_type"] = self.file_mime_type
-        self.format_structure["examination"]["format_name"] = self.file_format_name
+        self.format_dict["examination"]["timestamp_t0"] = datetime.datetime.now().isoformat()
+        self.format_dict["examination"]["file_name"] = self.file_path.name
+        self.format_dict["examination"]["file_size"] = len(self.file_data)
+        self.format_dict["examination"]["mime_type"] = self.file_mime_type
+        self.format_dict["examination"]["format_name"] = self.file_format_name
 
     def parse(self) -> None:
         raise NotImplementedError("parsing process unimplemented for this file type")
 
-    def get_format_structure(self) -> dict:
-        self.format_structure["examination"]["timestamp_t1"] = datetime.datetime.now().isoformat()
-        return self.format_structure
+    def get_format_dict(self) -> dict:
+        self.format_dict["examination"]["timestamp_t1"] = datetime.datetime.now().isoformat()
+        return self.format_dict
