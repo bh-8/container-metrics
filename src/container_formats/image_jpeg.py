@@ -9,8 +9,3 @@ class ImageJpegFormat(AbstractContainerFormat):
     def parse(self) -> None:
         #self.file_data
         self.format_structure["container_metrics"]["key"] = "Hello, World!"
-
-#{
-#    "name": "Portable Document Format",
-#    "mime_type": "application/pdf"
-#}
