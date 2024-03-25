@@ -1,15 +1,11 @@
 {
-    "analysis_info": {
-        "analyst": null,
-        "timestamp_start" : null,
-        "timestamp_end": null
-    },
-    "file_info": {
-        "name": null,
+    "examination": {
+        "timestamp_t0": null,
+        "timestamp_t1": null,
+        "file_name": null,
+        "file_size": null,
         "mime_type": null,
-        "size": null,
-        "md5": null,
-        "sha1": null
+        "format_name": null
     },
     "container_metrics": null
 }

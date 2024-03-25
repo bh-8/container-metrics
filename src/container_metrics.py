@@ -1,12 +1,13 @@
 import argparse
-import sys
 import json
 from pathlib import Path
-from static_utils import *
+import sys
 from container_formats import *
+from static_utils import *
 from alive_progress import alive_bar
 
 PROG_NAME = "container-metrics"
+MIME_INFO = "./container_formats/mime_mapping.json"
 
 class Main:
     # entry point
@@ -17,6 +18,7 @@ class Main:
             description="""possible commands are:
   scan\textract and import metrics from container files into database""",
 #  export\texport views on selected metrics from the database""", # [TODO]: implementation missing
+#  add user (analyst/examiner info)
             epilog=None, # [TODO]: credits o.a.
             formatter_class=argparse.RawDescriptionHelpFormatter
         )
@@ -91,7 +93,7 @@ class Main:
 
             # filter unsupported mime-types
             mime_type_dict = {}
-            with open("./container_formats/mime_types.json") as json_handle:
+            with open(MIME_INFO) as json_handle:
                 mime_type_dict = json.loads(json_handle.read())
             mime_type_determiner = MIMETypeFilter.by_content if args.magic else MIMETypeFilter.by_filename
             filtered_path_list = filter_paths(path_list, list(mime_type_dict.keys()), mime_type_determiner)
@@ -108,11 +110,13 @@ class Main:
             with alive_bar(len(filtered_path_list), title="Scanning", length=25) as pbar:
                 for file_path in filtered_path_list:
                     # determine format class by mime-type
-                    file_mime_type = mime_type_determiner(file_path)
-                    file_format_id = mime_type_dict[file_mime_type]
+                    file_mime_type: str = mime_type_determiner(file_path)
+                    file_mime_info: List[str] = mime_type_dict[file_mime_type]
 
-                    logger.debug(f"gathering abstract metrics for '{file_path}': {file_mime_type} -> {file_format_id}")
-                    format_instance = globals()[f"{to_camel_case(file_format_id)}Format"](file_path, file_format_id, file_mime_type)
+                    # load required format instance
+                    class_label = f"{to_camel_case(file_mime_info[0])}Format"
+                    logger.debug(f"initializing instance {class_label}({file_path}, {file_mime_info}, {file_mime_type})")
+                    format_instance = globals()[class_label](file_path, file_mime_info, file_mime_type)
 
                     # use specific format class for parsing
                     # [TODO] parser -> fill pre-defined json-structure
@@ -120,9 +124,8 @@ class Main:
 
                     # [TODO] insert json structure into database
                     _file_structure = format_instance.get_format_structure()
-                    print(f"{_file_structure}\n")
+                    print(f"  > {file_path}:\n\t{_file_structure}\n")
 
-                    logger.info(f"created mapping in database for file '{file_path}'")
                     pbar(1)
             logger.info("done")
         except Exception as e:

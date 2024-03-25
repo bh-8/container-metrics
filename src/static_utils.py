@@ -1,9 +1,9 @@
-import mimetypes
-from typing import Callable, List
-import magic
-from pathlib import Path
 import logging
+import magic
+import mimetypes
+from pathlib import Path
 import pymongo
+from typing import Callable, List
 
 static_logger: logging.Logger = None
 class StaticLogger: # singleton
