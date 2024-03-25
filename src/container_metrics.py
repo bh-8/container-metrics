@@ -119,7 +119,6 @@ class Main:
                     format_instance = globals()[class_label](file_path, file_mime_info, file_mime_type)
 
                     # use specific format class for parsing
-                    # [TODO] parser -> fill pre-defined json-structure
                     format_instance.parse()
 
                     # [TODO] insert json structure into database
