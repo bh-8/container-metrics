@@ -106,8 +106,8 @@ class Main:
                 raise ConnectionError("could not verify mongo db connection")
             logger.info(f"connected to database via '{args.mongodb}'")
 
-            # go through supported files
-            with alive_bar(len(filtered_path_list), title="Scanning", length=25) as pbar:
+            # loop supported files
+            with alive_bar(len(filtered_path_list), title="scan progress") as pbar:
                 for file_path in filtered_path_list:
                     # determine format class by mime-type
                     file_mime_type: str = mime_type_determiner(file_path)
