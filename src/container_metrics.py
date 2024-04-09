@@ -1,11 +1,11 @@
+from abstract_container_format import AbstractContainerFormat
+from alive_progress import alive_bar
 import argparse
 import datetime
 import json
 from pathlib import Path
-import sys
-from abstract_container_format import AbstractContainerFormat
 from static_utils import *
-from alive_progress import alive_bar
+import sys
 
 PROG_NAME = "container-metrics"
 MIME_INFO = "./container_formats/mime_mapping.json"
