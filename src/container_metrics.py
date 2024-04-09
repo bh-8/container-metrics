@@ -79,7 +79,6 @@ class Main:
             parser.print_help()
             sys.exit(1)
 
-        db_name = f"examination-{int((datetime.datetime.now()-datetime.datetime(1970, 1, 1)).total_seconds())}"
 
         try:
             # subcommand arguments
@@ -111,7 +110,7 @@ class Main:
             # loop supported files
             with alive_bar(len(filtered_path_list), title="scan progress") as pbar:
                 for file_path in filtered_path_list:
-                    logger.debug(f"inspecting file '{file_path}'...")
+                    logger.info(f"inspecting file '{file_path}'...")
 
                     # initialize format structure
                     format_structure: AbstractContainerFormat = AbstractContainerFormat(mime_type_dict)
@@ -126,8 +125,10 @@ class Main:
                     format_dict: dict = format_structure.get_format_dict()
 
                     # insert json structure into database
-                    logger.debug(f"storing metrics in database '{db_name}'...")
-                    target_collection = MongoInterface.get_connection()[db_name]["files"]
+                    db_name = f"{datetime.datetime.now().year}-{datetime.datetime.now().month}-{datetime.datetime.now().day}"
+                    c_name = f"{int((datetime.datetime.now()-datetime.datetime(1970, 1, 1)).total_seconds())}"
+                    logger.debug(f"storing metrics in database '{db_name}/{c_name}'...")
+                    target_collection = MongoInterface.get_connection()[db_name][c_name]
                     target_collection.insert_one(format_dict)
 
                     pbar(1)

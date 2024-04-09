@@ -10,6 +10,12 @@ class ExampleFormat():
     """
     @staticmethod
     def format_specific_parsing(container_format, parsing_data: bytes, parsing_layer: int, origin_position: int) -> dict:
+
+        # TODO: implement parsing here
+
         return {
-            "key": "Hello, World!"
+            "key": "Hello, World!",
+            "parsing_data": str(parsing_data),
+            "parsing_layer": parsing_layer,
+            "origin_position": origin_position
         }

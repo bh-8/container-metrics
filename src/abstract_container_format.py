@@ -7,6 +7,7 @@ from typing import List
 class AbstractContainerFormat():
     def __init__(self, mime_type_dict: dict) -> None:
         # abstract properties
+        self.logger = StaticLogger.get_logger()
         self.file_path: Path = None
         self.file_data: bytes = None
         self.mime_type_dict: dict = mime_type_dict
@@ -26,6 +27,8 @@ class AbstractContainerFormat():
         self.format_dict["meta"]["timestamp_t0"] = datetime.datetime.now().isoformat()
 
     def read_file(self, file_path: Path):
+        self.logger.debug(f"reading file...")
+
         self.file_path = file_path
         self.format_dict["meta"]["file_name"] = self.file_path.name
 
@@ -38,7 +41,7 @@ class AbstractContainerFormat():
     def parse(self, parsing_layer: int, position: int = 0, length: int = None) -> None:
         if self.file_data is None:
             raise AssertionError("file data uninitialized")
-        if parsing_layer > 1:
+        if parsing_layer >= 3: # TODO: implement switch to set maximum depth
             raise AssertionError("parsing depth exceeded")
 
         # if no length is given use all available data
@@ -48,6 +51,7 @@ class AbstractContainerFormat():
                 raise AssertionError("can not parse a negative amount of bytes")
 
         _data: bytes = self.file_data[position:position+length]
+        self.logger.debug(f"parsing of {len(_data)} bytes initiated at file position {position}")
 
         # determine mime info
         _mime_type: str = MIMEDetector.from_bytes_by_magic(_data)
@@ -64,22 +68,27 @@ class AbstractContainerFormat():
             if not "unsupported" in self.format_dict["data"]:
                 self.format_dict["data"]["unsupported"] = []
             self.format_dict["data"]["unsupported"].append(_parsing_dict)
+            self.logger.warn(f"no mapping information available for mime-type '{_mime_type}'")
             return
 
         _mime_info: List[str] = self.mime_type_dict[_mime_type]
         _mime_id = _mime_info[0]
 
-        # load required format parser
+        # check existence of required implementation
         class_label = f"{to_camel_case(_mime_id)}Format"
-        #logger = StaticLogger.get_logger()
-        #logger.debug(f"initializing instance {class_label}")
+        if not class_label in globals():
+            self.logger.error(f"could not find class '{class_label}', expected definition in '{_mime_id}.py'")
+            return
 
+        # load required format parser
         _format_specific_instance = globals()[class_label]()
+        self.logger.debug(f"accessing specific implementation in class '{class_label}'")
         _parsing_dict["structure"] = _format_specific_instance.format_specific_parsing(self, _data, parsing_layer, position)
 
         if not _mime_id in self.format_dict["data"]:
             self.format_dict["data"][_mime_id] = []
         self.format_dict["data"][_mime_id].append(_parsing_dict)
+        self.logger.debug(f"appended results to dictionary")
 
     def get_format_dict(self) -> dict:
         # set end timestamp
