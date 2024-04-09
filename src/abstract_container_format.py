@@ -15,10 +15,10 @@ class AbstractContainerFormat():
         # read format structure preset
         self.format_dict: dict = {
             "meta": {
-                "timestamp_t0": None,
-                "timestamp_t1": None,
                 "file_name": None,
-                "file_size": None
+                "file_size": None,
+                "timestamp_t0": None,
+                "timestamp_t1": None
             },
             "data": {}
         }
