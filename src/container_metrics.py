@@ -3,7 +3,7 @@ import datetime
 import json
 from pathlib import Path
 import sys
-from container_formats import *
+from abstract_container_format import AbstractContainerFormat
 from static_utils import *
 from alive_progress import alive_bar
 
@@ -98,8 +98,7 @@ class Main:
             mime_type_dict = {}
             with open(MIME_INFO) as json_handle:
                 mime_type_dict = json.loads(json_handle.read())
-            mime_type_determiner = MIMETypeFilter.by_content if args.magic else MIMETypeFilter.by_filename
-            filtered_path_list = filter_paths(path_list, list(mime_type_dict.keys()), mime_type_determiner)
+            filtered_path_list = filter_paths(path_list, list(mime_type_dict.keys()), MIMEDetector.from_path_by_magic if args.magic else MIMEDetector.from_path_by_filename)
             logger.info(f"found {len(filtered_path_list)} file(s) with supported mime-types ({', '.join(list(mime_type_dict.keys()))})")
 
             # test connection to mongo db instance
@@ -112,22 +111,23 @@ class Main:
             # loop supported files
             with alive_bar(len(filtered_path_list), title="scan progress") as pbar:
                 for file_path in filtered_path_list:
-                    # determine format class by mime-type
-                    file_mime_type: str = mime_type_determiner(file_path)
-                    file_mime_info: List[str] = mime_type_dict[file_mime_type]
+                    logger.debug(f"inspecting file '{file_path}'...")
 
-                    # load required format instance
-                    class_label = f"{to_camel_case(file_mime_info[0])}Format"
-                    logger.debug(f"initializing instance {class_label}({file_path}, {file_mime_type}, {file_mime_info})")
-                    format_instance = globals()[class_label](file_path, file_mime_type, file_mime_info)
+                    # initialize format structure
+                    format_structure: AbstractContainerFormat = AbstractContainerFormat(mime_type_dict)
 
-                    # use specific format class for parsing
-                    format_instance.parse()
+                    # read input file
+                    format_structure.read_file(file_path)
+
+                    # start parsing
+                    format_structure.parse(0)
+
+                    # get analysis data
+                    format_dict: dict = format_structure.get_format_dict()
 
                     # insert json structure into database
-                    logger.debug(f"storing metrics in database '{db_name}/{file_mime_info[0]}'")
-                    format_dict: dict = format_instance.get_format_dict()
-                    target_collection = MongoInterface.get_connection()[db_name][file_mime_info[0]]
+                    logger.debug(f"storing metrics in database '{db_name}'...")
+                    target_collection = MongoInterface.get_connection()[db_name]["files"]
                     target_collection.insert_one(format_dict)
 
                     pbar(1)
