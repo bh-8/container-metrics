@@ -79,6 +79,8 @@ class Main:
             parser.print_help()
             sys.exit(1)
 
+        db_name = f"{datetime.datetime.now().year}-{datetime.datetime.now().month}-{datetime.datetime.now().day}"
+        c_name = f"{int((datetime.datetime.now()-datetime.datetime(1970, 1, 1)).total_seconds())}"
 
         try:
             # subcommand arguments
@@ -125,8 +127,6 @@ class Main:
                     format_dict: dict = format_structure.get_format_dict()
 
                     # insert json structure into database
-                    db_name = f"{datetime.datetime.now().year}-{datetime.datetime.now().month}-{datetime.datetime.now().day}"
-                    c_name = f"{int((datetime.datetime.now()-datetime.datetime(1970, 1, 1)).total_seconds())}"
                     logger.debug(f"storing metrics in database '{db_name}/{c_name}'...")
                     target_collection = MongoInterface.get_connection()[db_name][c_name]
                     target_collection.insert_one(format_dict)
