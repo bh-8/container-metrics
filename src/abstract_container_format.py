@@ -42,7 +42,8 @@ class AbstractContainerFormat():
         if self.file_data is None:
             raise AssertionError("file data uninitialized")
         if parsing_layer >= 3: # TODO: implement switch to set maximum depth
-            raise AssertionError("parsing depth exceeded")
+            self.logger.warn(f"maximum parsing depth exceeded")
+            return
 
         # if no length is given use all available data
         if length is None:
@@ -71,18 +72,18 @@ class AbstractContainerFormat():
             self.logger.warn(f"no mapping information available for mime-type '{_mime_type}'")
             return
 
-        _mime_info: List[str] = self.mime_type_dict[_mime_type]
-        _mime_id = _mime_info[0]
+        _mime_type_info: List[str] = self.mime_type_dict[_mime_type]
+        _mime_id: str = _mime_type_info[0]
 
         # check existence of required implementation
-        class_label = f"{to_camel_case(_mime_id)}Format"
-        if not class_label in globals():
-            self.logger.error(f"could not find class '{class_label}', expected definition in '{_mime_id}.py'")
+        _class_label: str = f"{to_camel_case(_mime_id)}Format"
+        if not _class_label in globals():
+            self.logger.error(f"could not find class '{_class_label}', expected definition in '{_mime_id}.py'")
             return
 
         # load required format parser
-        _format_specific_instance = globals()[class_label]()
-        self.logger.debug(f"accessing specific implementation in class '{class_label}'")
+        _format_specific_instance = globals()[_class_label]()
+        self.logger.debug(f"accessing specific implementation in class '{_class_label}'")
         _parsing_dict["structure"] = _format_specific_instance.format_specific_parsing(self, _data, parsing_layer, position)
 
         if not _mime_id in self.format_dict["data"]:

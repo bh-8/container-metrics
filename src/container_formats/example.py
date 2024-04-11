@@ -14,7 +14,7 @@ class ExampleFormat():
         # TODO: implement parsing here
 
         return {
-            "key": "Hello, World!",
+            "test": "Hello, World!",
             "parsing_data": str(parsing_data),
             "parsing_layer": parsing_layer,
             "origin_position": origin_position
