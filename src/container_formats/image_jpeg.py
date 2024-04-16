@@ -320,41 +320,44 @@ SEGMENT_TYPES = {
 
 class JpegSegment():
     def __init__(self, id: int, pos: int) -> None:
-        self.id = id
-        self.pos = pos
-        self.info = SEGMENT_TYPES.get(id, {
+        self.id: int = id
+        self.pos: int = pos
+        self.length: int = 2
+        self.info: dict = SEGMENT_TYPES.get(id, {
             "abbr": "unknown",
             "name": "(unknown segment)",
             "info": "unknown segment"
         })
-        self.pl_length = 0
-        self.pl_data = None
+        self.payload_data: bytes = None
 
+    def segment_length_calculate_default(self, pd: bytes, ff_pos: int) -> None:
+        pl_length_pos_x = ff_pos + 2
+        pl_length_pos_y = ff_pos + 3
+        if not pl_length_pos_y < len(pd):
+            return
+        self.length = 2 + (256 * pd[pl_length_pos_x] + pd[pl_length_pos_y])
+    def segment_length_set_custom(self, seg_length: int) -> None:
+        self.length = seg_length
     def get_segment_length(self):
-        return self.pl_length + 2
-    
-    def set_payload_data(self, pd: bytes, pl_pos: int) -> None:
-        if self.pl_length == 0:
-            self.pl_data = None
+        return self.length
+    def set_payload_data(self, pd: bytes, ff_pos: int, has_length_info: bool = True) -> None:
+        if self.length <= 2:
+            self.payload_data = None
             return
-        self.pl_data = pd[pl_pos:pl_pos+self.pl_length]
+        self.payload_data = pd[ff_pos + 2 + (2 if has_length_info else 0):ff_pos+self.length]
 
-    def get_payload_data(self) -> bytes:
-        return self.pl_data
+    #def get_payload_data(self) -> bytes:
+    #    return self.pl_data
 
-    def set_payload_length_default(self, pd: bytes, pl_pos: int) -> None:
-        if not pl_pos + 1 < len(pd):
-            return
-        pl_length = 256 * pd[pl_pos] + pd[pl_pos + 1]
-        if pl_pos + pl_length > len(pd):
-            self.pl_length = len(pd) - pl_pos
-            return
-        self.pl_length = pl_length
+    #def set_payload_length_default(self, pd: bytes, pl_pos: int) -> None:
+    #    if not pl_pos + 1 < len(pd):
+    #        return
+    #    pl_length = (256 * pd[pl_pos] + pd[pl_pos + 1])
+    #    if pl_pos + pl_length > len(pd):
+    #        self.pl_length = len(pd) - pl_pos
+    #        return
+    #    self.pl_length = pl_length
     
-    def set_payload_length_custom(self, pd: bytes, pl_pos: int, pl_length: int) -> None:
-        if not pl_pos + 1 < len(pd):
-            return
-        self.pl_length = pl_length
 
     def get(self):
         return {
@@ -363,11 +366,11 @@ class JpegSegment():
             "long_name": self.info["name"],
             "description": self.info["info"],
             "position": self.pos,
-            "length": self.get_segment_length(),
-            "payload": None if self.pl_data is None else {
-                "length": self.pl_length,
-                "raw": str(self.pl_data),
-                "crc32": binascii.crc32(self.pl_data)
+            "length": self.length,
+            "payload": None if self.payload_data is None else {
+                "length": len(self.payload_data),
+                "raw": str(self.payload_data),
+                "crc32": binascii.crc32(self.payload_data)
             }
         }
 
@@ -414,34 +417,35 @@ class ImageJpegFormat():
                     md["length"] = _parser_pos
                 break
 
-            _pl_pos: int = _ff_pos + 2
-            _seg_new.set_payload_length_default(pd, _pl_pos)
+            _seg_new.segment_length_calculate_default(pd, _ff_pos)
+            if _seg_id != 218:
+                _seg_new.set_payload_data(pd, _ff_pos)
 
             # general segments
             if _seg_id == 196: # \xff\xc4 - Huffman Table
-                _seg_new.set_payload_data(pd, _pl_pos)
+                pass
             elif (_seg_id >= 192 and _seg_id <= 195) or (_seg_id >= 197 and _seg_id <= 199) or (_seg_id >= 201 and _seg_id <= 203) or (_seg_id >= 205 and _seg_id <= 207): # \xff\xc0-f - Encoding
-                _seg_new.set_payload_data(pd, _pl_pos)
+                pass
             elif _seg_id == 218: # \xff\xda - Start of Scan
-                _eoi_pos = pd.find(b"\xff\xd9", _pl_pos)
+                _eoi_pos = pd.find(b"\xff\xd9", _ff_pos)
                 if _eoi_pos == -1:
-                    _seg_new.set_payload_length_custom(pd, _pl_pos, len(pd) - _pl_pos)
+                    _seg_new.segment_length_set_custom(len(pd) - _ff_pos)
+                    _seg_new.set_payload_data(pd, _ff_pos, False)
                 else:
-                    _seg_new.set_payload_length_custom(pd, _pl_pos, _eoi_pos - _pl_pos)
+                    _seg_new.segment_length_set_custom(_eoi_pos - _ff_pos)
+                    _seg_new.set_payload_data(pd, _ff_pos, False)
             elif _seg_id == 219: # \xff\xdb - Quantization Table
-                _seg_new.set_payload_data(pd, _pl_pos)
+                pass
             elif _seg_id == 224: # \xff\xe0 - JFIF-Tag
-                _seg_new.set_payload_data(pd, _pl_pos)
+                pass
             elif _seg_id == 225: # \xff\xe1 - Application 1
-                _seg_new.set_payload_data(pd, _pl_pos)
+                pass
             elif _seg_id == 226: # \xff\xe2 - Application 2
-                _seg_new.set_payload_data(pd, _pl_pos)
+                pass
             elif _seg_id == 237: # \xff\xed - Application 13
-                _seg_new.set_payload_data(pd, _pl_pos)
-            else:
-                _seg_new.set_payload_data(pd, _pl_pos)
-            _seg_list.append(_seg_new.get())
+                pass
 
+            _seg_list.append(_seg_new.get())
             _parser_pos = _ff_pos + _seg_new.get_segment_length()
 
         md["structured"] = _seg_list

@@ -21,9 +21,11 @@ class AbstractContainerFormat():
                 "file_name": None,
                 "file": {
                     "name": None,
-                    "extension": None,
-                    "mime_type": None,
                     "size": None,
+                    "type": {
+                        "magic": None,
+                        "extension": None
+                    },
                     "sha256": None,
                     "created": None,
                     "modified": None
@@ -45,7 +47,7 @@ class AbstractContainerFormat():
         self.file_path = file_path
         self.format_dict["meta"]["file_name"] = self.file_path.name
         self.format_dict["meta"]["file"]["name"] = self.file_path.name
-        self.format_dict["meta"]["file"]["extension"] = self.file_path.suffix
+        self.format_dict["meta"]["file"]["type"]["extension"] = MIMEDetector.from_path_by_filename(self.file_path)
         self.format_dict["meta"]["file"]["created"] = datetime.datetime.fromtimestamp(os.path.getctime(self.file_path)).isoformat()
         self.format_dict["meta"]["file"]["modified"] = datetime.datetime.fromtimestamp(os.path.getmtime(self.file_path)).isoformat()
 
@@ -55,7 +57,7 @@ class AbstractContainerFormat():
 
             self.format_dict["meta"]["file"]["size"] = len(self.file_data)
             self.format_dict["meta"]["file"]["sha256"] = hashlib.sha256(self.file_data).hexdigest()
-            self.format_dict["meta"]["file"]["mime_type"] = MIMEDetector.from_bytes_by_magic(self.file_data)
+            self.format_dict["meta"]["file"]["type"]["magic"] = MIMEDetector.from_bytes_by_magic(self.file_data)
 
     def parse(self, parsing_layer: int, position: int = 0, length: int = None) -> None:
         if self.file_data is None:
