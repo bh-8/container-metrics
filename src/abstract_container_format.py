@@ -57,18 +57,19 @@ class AbstractContainerFormat():
         # determine mime info
         _mime_type: str = MIMEDetector.from_bytes_by_magic(_data)
 
-        _parsing_dict = {
+        _media_dict = {
             "position": position,
             "length": length,
+            "depth": parsing_layer,
             "mime_type": _mime_type,
             "raw": str(_data)
         }
 
         # quit parsing if mime type not supported
         if not _mime_type in self.mime_type_dict:
-            if not "unsupported" in self.format_dict["data"]:
-                self.format_dict["data"]["unsupported"] = []
-            self.format_dict["data"]["unsupported"].append(_parsing_dict)
+            if not "unknown" in self.format_dict["data"]:
+                self.format_dict["data"]["unknown"] = []
+            self.format_dict["data"]["unknown"].append(_media_dict)
             self.logger.warn(f"no mapping information available for mime-type '{_mime_type}'")
             return
 
@@ -84,11 +85,11 @@ class AbstractContainerFormat():
         # load required format parser
         _format_specific_instance = globals()[_class_label]()
         self.logger.debug(f"accessing specific implementation in class '{_class_label}'")
-        _parsing_dict["structure"] = _format_specific_instance.format_specific_parsing(self, _data, parsing_layer, position)
+        _media_dict = _format_specific_instance.format_specific_parsing(self, _media_dict, _data, parsing_layer + 1, position)
 
         if not _mime_id in self.format_dict["data"]:
             self.format_dict["data"][_mime_id] = []
-        self.format_dict["data"][_mime_id].append(_parsing_dict)
+        self.format_dict["data"][_mime_id].append(_media_dict)
         self.logger.debug(f"appended results to dictionary")
 
     def get_format_dict(self) -> dict:

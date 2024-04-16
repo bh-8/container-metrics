@@ -1,3 +1,5 @@
+import binascii
+
 SEGMENT_TYPES = {
     192: { #FF C0
         "abbr": "SOF0",
@@ -353,19 +355,22 @@ class JpegSegment():
 
     def get(self):
         return {
-            "id": self.id,
+            "segment_id": self.id,
+            "name": self.info["abbr"],
+            "long_name": self.info["name"],
+            "description": self.info["info"],
             "position": self.pos,
             "length": self.get_segment_length(),
-            "info": self.info,
-            "payload": {
+            "payload": None if self.pl_data is None else {
                 "length": self.pl_length,
-                "raw": str(self.pl_data)
+                "raw": str(self.pl_data),
+                "crc32": binascii.crc32(self.pl_data)
             }
         }
 
 class ImageJpegFormat():
     @staticmethod
-    def format_specific_parsing(cf, pd: bytes, pl: int, op: int) -> dict:
+    def format_specific_parsing(cf, md: dict, pd: bytes, pl: int, op: int) -> dict:
         _seg_list = []
         _parser_pos = 0
 
@@ -398,8 +403,11 @@ class ImageJpegFormat():
             if _seg_id == 217: # \xff\xd9 - End of Image
                 _seg_list.append(_seg_new.get())
                 _parser_pos = _ff_pos + 2
-                #TODO: what to do with appended data after eof?
-                # --> check if data is available, and if so, init new parser
+                if _parser_pos < len(pd):
+                    # recursive parsing call
+                    cf.parse(pl, op + _parser_pos)
+                    # correct media segment length to actually parsed data length
+                    md["length"] = _parser_pos
                 break
 
             _pl_pos: int = _ff_pos + 2
@@ -418,4 +426,5 @@ class ImageJpegFormat():
 
             _parser_pos = _ff_pos + _seg_new.get_segment_length()
 
-        return _seg_list
+        md["segments"] = _seg_list
+        return md
