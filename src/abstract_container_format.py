@@ -1,7 +1,10 @@
 from container_formats import *
 import datetime
+import hashlib
+import os
 from pathlib import Path
 from static_utils import *
+import time
 from typing import List
 
 class AbstractContainerFormat():
@@ -16,33 +19,49 @@ class AbstractContainerFormat():
         self.format_dict: dict = {
             "meta": {
                 "file_name": None,
-                "file_size": None,
-                "timestamp_t0": None,
-                "timestamp_t1": None
+                "file": {
+                    "name": None,
+                    "extension": None,
+                    "mime_type": None,
+                    "size": None,
+                    "sha256": None,
+                    "created": None,
+                    "modified": None
+                },
+                "investigation": {
+                    "started": None,
+                    "finished": None
+                }
             },
             "data": {}
         }
 
         # set start timestamp
-        self.format_dict["meta"]["timestamp_t0"] = datetime.datetime.now().isoformat()
+        self.format_dict["meta"]["investigation"]["started"] = datetime.datetime.now().isoformat()
 
     def read_file(self, file_path: Path):
         self.logger.debug(f"reading file...")
 
         self.file_path = file_path
         self.format_dict["meta"]["file_name"] = self.file_path.name
+        self.format_dict["meta"]["file"]["name"] = self.file_path.name
+        self.format_dict["meta"]["file"]["extension"] = self.file_path.suffix
+        self.format_dict["meta"]["file"]["created"] = datetime.datetime.fromtimestamp(os.path.getctime(self.file_path)).isoformat()
+        self.format_dict["meta"]["file"]["modified"] = datetime.datetime.fromtimestamp(os.path.getmtime(self.file_path)).isoformat()
 
         with open(self.file_path, "rb") as file_handle:
             self.file_data = file_handle.read()
             file_handle.close()
 
-            self.format_dict["meta"]["file_size"] = len(self.file_data)
+            self.format_dict["meta"]["file"]["size"] = len(self.file_data)
+            self.format_dict["meta"]["file"]["sha256"] = hashlib.sha256(self.file_data).hexdigest()
+            self.format_dict["meta"]["file"]["mime_type"] = MIMEDetector.from_bytes_by_magic(self.file_data)
 
     def parse(self, parsing_layer: int, position: int = 0, length: int = None) -> None:
         if self.file_data is None:
             raise AssertionError("file data uninitialized")
         if parsing_layer >= 3: # TODO: implement switch to set maximum depth
-            self.logger.warn(f"maximum parsing depth exceeded")
+            self.logger.critical(f"maximum parsing depth exceeded")
             return
 
         # if no length is given use all available data
@@ -94,5 +113,5 @@ class AbstractContainerFormat():
 
     def get_format_dict(self) -> dict:
         # set end timestamp
-        self.format_dict["meta"]["timestamp_t1"] = datetime.datetime.now().isoformat()
+        self.format_dict["meta"]["investigation"]["finished"] = datetime.datetime.now().isoformat()
         return self.format_dict

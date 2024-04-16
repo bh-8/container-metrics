@@ -339,6 +339,9 @@ class JpegSegment():
             return
         self.pl_data = pd[pl_pos:pl_pos+self.pl_length]
 
+    def get_payload_data(self) -> bytes:
+        return self.pl_data
+
     def set_payload_length_default(self, pd: bytes, pl_pos: int) -> None:
         if not pl_pos + 1 < len(pd):
             return
@@ -415,17 +418,31 @@ class ImageJpegFormat():
             _seg_new.set_payload_length_default(pd, _pl_pos)
 
             # general segments
-            if _seg_id == 218: # \xff\xda - Start of Scan
+            if _seg_id == 196: # \xff\xc4 - Huffman Table
+                _seg_new.set_payload_data(pd, _pl_pos)
+            elif (_seg_id >= 192 and _seg_id <= 195) or (_seg_id >= 197 and _seg_id <= 199) or (_seg_id >= 201 and _seg_id <= 203) or (_seg_id >= 205 and _seg_id <= 207): # \xff\xc0-f - Encoding
+                _seg_new.set_payload_data(pd, _pl_pos)
+            elif _seg_id == 218: # \xff\xda - Start of Scan
                 _eoi_pos = pd.find(b"\xff\xd9", _pl_pos)
                 if _eoi_pos == -1:
                     _seg_new.set_payload_length_custom(pd, _pl_pos, len(pd) - _pl_pos)
                 else:
                     _seg_new.set_payload_length_custom(pd, _pl_pos, _eoi_pos - _pl_pos)
-        
-            _seg_new.set_payload_data(pd, _pl_pos)
+            elif _seg_id == 219: # \xff\xdb - Quantization Table
+                _seg_new.set_payload_data(pd, _pl_pos)
+            elif _seg_id == 224: # \xff\xe0 - JFIF-Tag
+                _seg_new.set_payload_data(pd, _pl_pos)
+            elif _seg_id == 225: # \xff\xe1 - Application 1
+                _seg_new.set_payload_data(pd, _pl_pos)
+            elif _seg_id == 226: # \xff\xe2 - Application 2
+                _seg_new.set_payload_data(pd, _pl_pos)
+            elif _seg_id == 237: # \xff\xed - Application 13
+                _seg_new.set_payload_data(pd, _pl_pos)
+            else:
+                _seg_new.set_payload_data(pd, _pl_pos)
             _seg_list.append(_seg_new.get())
 
             _parser_pos = _ff_pos + _seg_new.get_segment_length()
 
-        md["segments"] = _seg_list
+        md["structured"] = _seg_list
         return md
