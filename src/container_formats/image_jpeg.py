@@ -329,7 +329,6 @@ class JpegSegment():
             "info": "unknown segment"
         })
         self.payload_data: bytes = None
-
     def segment_length_calculate_default(self, pd: bytes, ff_pos: int) -> None:
         pl_length_pos_x = ff_pos + 2
         pl_length_pos_y = ff_pos + 3
@@ -345,19 +344,8 @@ class JpegSegment():
             self.payload_data = None
             return
         self.payload_data = pd[ff_pos + 2 + (2 if has_length_info else 0):ff_pos+self.length]
-
-    #def get_payload_data(self) -> bytes:
-    #    return self.pl_data
-
-    #def set_payload_length_default(self, pd: bytes, pl_pos: int) -> None:
-    #    if not pl_pos + 1 < len(pd):
-    #        return
-    #    pl_length = (256 * pd[pl_pos] + pd[pl_pos + 1])
-    #    if pl_pos + pl_length > len(pd):
-    #        self.pl_length = len(pd) - pl_pos
-    #        return
-    #    self.pl_length = pl_length
-    
+    def get_payload_data(self) -> bytes:
+        return self.payload_data
 
     def get(self):
         return {
@@ -417,8 +405,9 @@ class ImageJpegFormat():
                     md["length"] = _parser_pos
                 break
 
-            _seg_new.segment_length_calculate_default(pd, _ff_pos)
+            # gather payload for non-special segments
             if _seg_id != 218:
+                _seg_new.segment_length_calculate_default(pd, _ff_pos)
                 _seg_new.set_payload_data(pd, _ff_pos)
 
             # general segments
