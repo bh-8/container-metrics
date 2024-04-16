@@ -414,9 +414,9 @@ class ImageJpegFormat():
                 _seg_new.set_payload_data(pd, _ff_pos)
 
             # general segments
-            if _seg_id == 196: # \xff\xc4 - Huffman Table
+            if (_seg_id >= 192 and _seg_id <= 195) or (_seg_id >= 197 and _seg_id <= 199) or (_seg_id >= 201 and _seg_id <= 203) or (_seg_id >= 205 and _seg_id <= 207): # \xff\xc0-f - Encoding
                 pass
-            elif (_seg_id >= 192 and _seg_id <= 195) or (_seg_id >= 197 and _seg_id <= 199) or (_seg_id >= 201 and _seg_id <= 203) or (_seg_id >= 205 and _seg_id <= 207): # \xff\xc0-f - Encoding
+            elif _seg_id == 196: # \xff\xc4 - Huffman Table
                 pass
             elif _seg_id == 218: # \xff\xda - Start of Scan
                 _eoi_pos = pd.find(b"\xff\xd9", _ff_pos)
