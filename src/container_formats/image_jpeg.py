@@ -403,6 +403,7 @@ class ImageJpegFormat():
             if _seg_id == 217: # \xff\xd9 - End of Image
                 _seg_list.append(_seg_new.get())
                 _parser_pos = _ff_pos + 2
+                # check whether data behind eoi marker segment
                 if _parser_pos < len(pd):
                     # recursive parsing call
                     cf.parse(pl, op + _parser_pos)
