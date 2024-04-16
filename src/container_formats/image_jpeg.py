@@ -329,6 +329,7 @@ class JpegSegment():
             "info": "unknown segment"
         })
         self.payload_data: bytes = None
+        self.payload_position: int = None
     def segment_length_calculate_default(self, pd: bytes, ff_pos: int) -> None:
         pl_length_pos_x = ff_pos + 2
         pl_length_pos_y = ff_pos + 3
@@ -343,7 +344,8 @@ class JpegSegment():
         if self.length <= 2:
             self.payload_data = None
             return
-        self.payload_data = pd[ff_pos + 2 + (2 if has_length_info else 0):ff_pos+self.length]
+        self.payload_position = ff_pos + 2 + (2 if has_length_info else 0)
+        self.payload_data = pd[self.payload_position:ff_pos+self.length]
     def get_payload_data(self) -> bytes:
         return self.payload_data
 
@@ -356,6 +358,7 @@ class JpegSegment():
             "position": self.pos,
             "length": self.length,
             "payload": None if self.payload_data is None else {
+                "position": self.payload_position,
                 "length": len(self.payload_data),
                 "raw": str(self.payload_data),
                 "crc32": binascii.crc32(self.payload_data)
