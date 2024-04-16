@@ -14,10 +14,11 @@ class ExampleFormat():
 
         # TODO: implement parsing here
 
-        return {
+        media_dict["structured"] = {
             "test": "Hello, World!",
             "media_dict": media_dict,
             "parsing_data": str(parsing_data),
             "parsing_layer": parsing_layer,
             "origin_position": origin_position
         }
+        return media_dict
