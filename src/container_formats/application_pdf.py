@@ -34,15 +34,27 @@ class PdfTokenizer():
             return match.start()
     def tokenize(self) -> list[PdfToken]:
         while True:
-            # TODO: check whether token may be a string '(' / '<'
-            # TODO: check whether token is 'stream'
             # search for end of token
             _token_end = self.find_next_whitespace()
             if _token_end == -1:
                 break
 
             # process token
-            self.token_list.append(PdfToken(self.tokenizer_position, self.pdf_data[self.tokenizer_position:_token_end]))
+            _token_data = self.pdf_data[self.tokenizer_position:_token_end]
+            self.token_list.append(PdfToken(self.tokenizer_position, _token_data))
+
+            # special treatment for streams
+            if _token_data == b"stream":
+                self.tokenizer_position = _token_end
+                _stream_start = self.find_next_token()
+                _stream_end = self.pdf_data.find(b"\x0aendstream", _stream_start)
+
+                self.token_list.append(PdfToken(_stream_start, self.pdf_data[_stream_start:_stream_end].rstrip()))
+                self.token_list.append(PdfToken(_stream_end, self.pdf_data[_stream_end + 1:_stream_end + 10]))
+                _token_end = _stream_end + 10
+
+            #TODO: special treatment for comments 
+            #TODO: special treatment for strings 
 
             # skip following whitespaces
             self.tokenizer_position = _token_end
@@ -54,11 +66,6 @@ class PdfTokenizer():
 class ApplicationPdfFormat():
     @staticmethod
     def format_specific_parsing(cf, md: dict, pd: bytes, pl: int, op: int) -> dict:
-        # step 1: validate header (was mit EOF?)
-        # step 2: remove and log comments
-        # step 3: 
-        # --> token list required
-        
         _pdf_objects = []
         _pdf_file_structure = None#{
             #"header": None,
@@ -71,38 +78,12 @@ class ApplicationPdfFormat():
 
         # TODO: read data to last %%EOF appearence, if data left, init rec parsing
 
-        _pdf_tokens =  [{"position": i.position, "raw": str(i.raw)} for i in PdfTokenizer(pd).tokenize()]
+        _pdf_tokens =  [{"position": i.position, "raw": str(i.raw), "raw_length": len(i.raw)} for i in PdfTokenizer(pd).tokenize()]
 
-        #while True:
-            # read first 8 bytes (header)
-            #if _parser_pos == 0:
-            #    _pdf_file_structure["header"] = str(pd[0:8])
-            #    _parser_pos = 8
-            #    continue
+        # TODO: extract objects etc.. from tokens
 
-            #_current_char = pd[_parser_pos:_parser_pos+1]
-
-            # skip character if its whitespace
-            #if _current_char in WHITESPACE_CHARACTERS:
-            #    _parser_pos = _parser_pos + 1
-            #    continue
-
-            # skip line if it starts with '%'
-            #if _current_char == b"%":
-            #    _line_end = pd.find(b"\x0a", _parser_pos)
-            #    if _line_end == -1:
-            #        raise AssertionError("expected line end for comment")
-            #    _parser_pos = _line_end + 1
-            #    continue
-
-
-            # TODO: implement parsing here
-
-
-
-
-            #_pdf_file_structure["finish_pos_debug"] = _parser_pos
-            #break
+        # TODO: validate header (was mit EOF?)
+        # TODO: remove and log comments
 
         md["structured"] = {
             "tokens": _pdf_tokens,
