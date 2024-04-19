@@ -8,8 +8,9 @@ WHITESPACE_ANTI_PATTERN: re.Pattern[bytes] = re.compile(b"[^" + b"".join([re.esc
 
 class PdfToken():
     def __init__(self, position: int, raw: bytes) -> None:
-        self.position = position
-        self.raw = raw
+        self.position: int = position
+        self.raw: bytes = raw
+        self.length: int = len(raw)
 
 class PdfTokenizer():
     def __init__(self, pdf_data: bytes) -> None:
@@ -29,13 +30,16 @@ class PdfTokenizer():
             return match.start()
     def tokenize(self) -> list[PdfToken]:
         _tokenizer_position: int = 0
-        _debug = 100000
-
-        # TODO: move 'find_next_token' to begin of loop?
-        # TODO: store length info instead of copying data?
+        _debug = 10000
 
         while _debug > 0:
             _debug = _debug - 1
+
+            # skip whitespaces
+            _tokenizer_position = self.find_next_token(_tokenizer_position)
+            if _tokenizer_position == -1:
+                break
+
             # search for end of token
             _token_end = self.find_next_whitespace(_tokenizer_position)
             if _token_end == -1:
@@ -44,15 +48,6 @@ class PdfTokenizer():
             # read new token
             _token_data = self.pdf_data[_tokenizer_position:_token_end]
 
-            # special treatment for comments
-            if _token_data.startswith(b"\x25"):
-                _line_end = self.pdf_data.find(b"\x0a", _tokenizer_position)
-                _token_data = self.pdf_data[_tokenizer_position:_line_end].rstrip()
-                self.token_list.append(PdfToken(_tokenizer_position, _token_data))
-                _tokenizer_position = self.find_next_token(_line_end)
-                if _tokenizer_position == -1:
-                    break
-                continue
             # special treatment for literal strings
             if _token_data.startswith(b"("):
                 _parenthesis_position = _tokenizer_position + 1
@@ -77,25 +72,19 @@ class PdfTokenizer():
                     break
                 _token_data = self.pdf_data[_tokenizer_position:_parenthesis_position]
                 self.token_list.append(PdfToken(_tokenizer_position, _token_data))
-                _tokenizer_position = self.find_next_token(_parenthesis_position)
-                if _tokenizer_position == -1:
-                    break
+                _tokenizer_position = _parenthesis_position
                 continue
             # atomize '['
             if _token_data.startswith(b"[") and _token_data != b"[":
                 self.token_list.append(PdfToken(_tokenizer_position, b"["))
                 self.token_list.append(PdfToken(_tokenizer_position + 1, _token_data[1:]))
-                _tokenizer_position = self.find_next_token(_tokenizer_position + len(_token_data))
-                if _tokenizer_position == -1:
-                    break
+                _tokenizer_position = _tokenizer_position + len(_token_data)
                 continue
             # atomize ']'
             if _token_data.find(b"]") != -1 and _token_data != b"]":
                 self.token_list.append(PdfToken(_tokenizer_position, _token_data[:-1]))
                 self.token_list.append(PdfToken(_tokenizer_position + len(_token_data) - 1, b"]"))
-                _tokenizer_position = self.find_next_token(_tokenizer_position + len(_token_data))
-                if _tokenizer_position == -1:
-                    break
+                _tokenizer_position = _tokenizer_position + len(_token_data)
                 continue
             # special treatment for ? TODO
             if _token_data.startswith(b"{"):
@@ -107,28 +96,32 @@ class PdfTokenizer():
                 _token_data = self.pdf_data[_tokenizer_position:_hex_string_end]
                 _token_data = re.sub(WHITESPACE_PATTERN, b"", _token_data)
                 self.token_list.append(PdfToken(_tokenizer_position, _token_data))
-                _tokenizer_position = self.find_next_token(_hex_string_end)
-                if _tokenizer_position == -1:
-                    break
+                _tokenizer_position = _hex_string_end
+                continue
+            # special treatment for streams
+            if _token_data == b"stream":
+                _stream_start = self.find_next_token(_token_end)
+                _stream_end = self.pdf_data.find(b"\x0aendstream", _stream_start)
+
+                self.token_list.append(PdfToken(_stream_start, self.pdf_data[_tokenizer_position:_token_end]))
+                self.token_list.append(PdfToken(_stream_start, self.pdf_data[_stream_start:_stream_end].rstrip()))
+                self.token_list.append(PdfToken(_stream_end, self.pdf_data[_stream_end + 1:_stream_end + 10]))
+                _tokenizer_position = _stream_end + 10
+                continue
+            # special treatment for comments
+            _comment = _token_data.find(b"\x25", 0)
+            if _comment != -1:
+                if _comment > 0: # if token prior '%'
+                    self.token_list.append(PdfToken(_tokenizer_position, self.pdf_data[_tokenizer_position:_tokenizer_position+_comment]))
+                _line_end = self.pdf_data.find(b"\x0a", _tokenizer_position+_comment)
+                _token_data = self.pdf_data[_tokenizer_position+_comment:_line_end].rstrip()
+                self.token_list.append(PdfToken(_tokenizer_position+_comment, _token_data))
+                _tokenizer_position = _line_end
                 continue
 
             # default token processing
             self.token_list.append(PdfToken(_tokenizer_position, _token_data))
-
-            # special treatment for streams
-            if _token_data == b"stream":
-                _tokenizer_position = _token_end
-                _stream_start = self.find_next_token(_tokenizer_position)
-                _stream_end = self.pdf_data.find(b"\x0aendstream", _stream_start)
-
-                self.token_list.append(PdfToken(_stream_start, self.pdf_data[_stream_start:_stream_end].rstrip()))
-                self.token_list.append(PdfToken(_stream_end, self.pdf_data[_stream_end + 1:_stream_end + 10]))
-                _token_end = _stream_end + 10
-
-            # skip following whitespaces
-            _tokenizer_position = self.find_next_token(_token_end)
-            if _tokenizer_position == -1:
-                break
+            _tokenizer_position = _tokenizer_position + len(_token_data)
         return self.token_list
 
 class ApplicationPdfFormat():
@@ -146,7 +139,7 @@ class ApplicationPdfFormat():
 
         # TODO: read data to last %%EOF appearence, if data left, init rec parsing
 
-        _pdf_tokens =  [{"position": i.position, "raw": str(i.raw), "raw_length": len(i.raw)} for i in PdfTokenizer(pd).tokenize()]
+        _pdf_tokens =  [{"position": i.position, "raw": str(i.raw), "length": i.length} for i in PdfTokenizer(pd).tokenize()]
 
         # TODO: extract objects etc.. from tokens
 
