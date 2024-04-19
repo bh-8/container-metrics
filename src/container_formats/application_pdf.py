@@ -32,7 +32,8 @@ class PdfTokenizer():
         _debug = 100000
 
         # TODO: move 'find_next_token' to begin of loop?
-
+        # TODO: store length info instead of copying data?
+        
         while _debug > 0:
             _debug = _debug - 1
             # search for end of token
