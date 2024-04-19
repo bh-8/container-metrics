@@ -198,8 +198,15 @@ class AbstractObject(abc.ABC):
             "type": str(offset_token.type).split(".")[1].lower(),
             "data": None
         }
-    def get(self) -> dict:
+        self.object_length = 1
+    def get_dict(self) -> dict:
         return self.object_dict
+    def get_length(self) -> int:
+        return self.object_length
+class NameObject(AbstractObject):
+    def __init__(self, pt: list[PdfToken], tio: int) -> None:
+        super().__init__(pt, tio)
+        self.object_dict["data"] = str(self.pdf_tokens[self.token_index_offset].raw, "utf-8")
 class NumericObject(AbstractObject):
     def __init__(self, pt: list[PdfToken], tio: int) -> None:
         super().__init__(pt, tio)
@@ -214,22 +221,28 @@ class NumericObject(AbstractObject):
             
             # case 1: indirect object (n m obj)
             if future_token_1.type == PdfTokenType.NUMERIC and future_token_2.type == PdfTokenType.INDIRECT_OBJECT:
+                self.object_length = 4 # n m obj endobj
+
                 object_number: int = int(str(current_token_0.raw, "utf-8"))
                 generation_number: int = int(str(future_token_1.raw, "utf-8"))
 
-                self.object_dict["type"] = str(PdfTokenType.INDIRECT_OBJECT).split(".")[1].lower()
+                self.object_dict["type"] = str(future_token_2.type).split(".")[1].lower()
                 self.object_dict["object_number"] = object_number
                 self.object_dict["generation_number"] = generation_number
 
                 match future_token_3.type:
                     case PdfTokenType.DICTIONARY:
-                        self.object_dict["data"] = DictionaryObject(self.pdf_tokens, self.token_index_offset + 3).get()
+                        obj = DictionaryObject(self.pdf_tokens, self.token_index_offset + 3)
+                        self.object_length = self.object_length + obj.get_length()
+                        self.object_dict["data"] = obj.get_dict()
                     case _:
                         self.object_dict["data"] = str(future_token_3.type)
                 return
 
             # case 2: reference object (n m R)
             if future_token_1.type == PdfTokenType.NUMERIC and future_token_2.raw == b"R":
+                self.object_length = 3
+
                 object_number: int = int(str(current_token_0.raw, "utf-8"))
                 generation_number: int = int(str(future_token_1.raw, "utf-8"))
 
@@ -238,27 +251,39 @@ class NumericObject(AbstractObject):
 
                 self.object_dict["object_number"] = object_number
                 self.object_dict["generation_number"] = generation_number
+
                 return
 
         # case 3: actual numerical value
-        self.object_dict = int(str(self.pdf_tokens[self.token_index_offset].raw, "utf-8"))
+        self.object_dict["data"] = int(str(self.pdf_tokens[self.token_index_offset].raw, "utf-8"))
 class DictionaryObject(AbstractObject):
     def __init__(self, pt: list[PdfToken], tio: int) -> None:
         super().__init__(pt, tio)
+
+        self.object_length = 2
 
         dictionary_object = {}
 
         current_token_index = self.token_index_offset + 1
         while self.pdf_tokens[current_token_index].type == PdfTokenType.NAME:
             dictionary_key: str = str(self.pdf_tokens[current_token_index].raw, "utf-8")
-            dictionary_value = self.pdf_tokens[current_token_index + 1]
+            current_token_index = current_token_index + 1
+            dictionary_value = self.pdf_tokens[current_token_index]
             if not dictionary_key in dictionary_object:
+                self.object_length = self.object_length + 1
                 match dictionary_value.type:
+                    case PdfTokenType.NAME:
+                        obj = NameObject(self.pdf_tokens, current_token_index)
+                        current_token_index = current_token_index + obj.get_length()
+                        self.object_length = self.object_length + obj.get_length()
+                        dictionary_object[dictionary_key] = obj.get_dict()
                     case PdfTokenType.NUMERIC:
-                        dictionary_object[dictionary_key] = NumericObject(self.pdf_tokens, current_token_index + 1).get()
+                        obj = NumericObject(self.pdf_tokens, current_token_index)
+                        current_token_index = current_token_index + obj.get_length()
+                        self.object_length = self.object_length + obj.get_length()
+                        dictionary_object[dictionary_key] = obj.get_dict()
                     case _:
                         dictionary_object[dictionary_key] = str(dictionary_value.type)
-            current_token_index = current_token_index + 2
 
         self.object_dict["data"] = dictionary_object
 
@@ -289,18 +314,23 @@ class PdfParser():
         return -1
     def parse_body(self, token_index_offset: int):
         i = token_index_offset
+        _debug_abort = 10000
         while i < len(self.pdf_tokens):
+            _debug_abort = _debug_abort - 1
+            if _debug_abort == 0:
+                break
             token: PdfToken = self.pdf_tokens[i]
 
             match token.type:
                 case PdfTokenType.NUMERIC:
-                    self.file_structure["body"].append(NumericObject(self.pdf_tokens, i).get())
+                    obj = NumericObject(self.pdf_tokens, i)
+                    self.file_structure["body"].append(obj.get_dict())
+                    i = i + obj.get_length()
                 case PdfTokenType._XREF:
                     return i + 1 #TODO i has to be updated!
                 case _:
-                    pass
-
-            i = i + 1
+                    self.file_structure["body"].append(str(token.type))
+                    i = i + 1
         return -1
 
     def process(self) -> None:
