@@ -1,14 +1,15 @@
+from static_utils import StaticLogger
 import abc
 import enum
 import re
 
-# TODO: assign token id after tokenization!
-# TODO: remove [TODO] stdouts -> logging
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# Static Objects
 
+logger = None
 WHITESPACE_CHARACTERS: list[bytes] = [
     b"\x00", b"\x09", b"\x0a", b"\x0c", b"\x0d", b"\x20"
 ]
-
 DELIMITER_CHARACTERS: list[bytes] = [
     b"(", b")",
     b"<", b">",
@@ -16,7 +17,6 @@ DELIMITER_CHARACTERS: list[bytes] = [
     b"{", b"}",
     b"/", b"%"
 ]
-
 WHITESPACE_PATTERN: re.Pattern[bytes] = re.compile(DELIMITER_CHARACTERS[4] + b"".join([re.escape(wc) for wc in WHITESPACE_CHARACTERS]) + DELIMITER_CHARACTERS[5])
 WHITESPACE_ANTI_PATTERN: re.Pattern[bytes] = re.compile(b"[^" + b"".join([re.escape(wc) for wc in WHITESPACE_CHARACTERS]) + DELIMITER_CHARACTERS[5])
 
@@ -135,13 +135,7 @@ class PdfTokenizer():
         # current position of tokenizer
         pos: int = 0
 
-        # token counter
-        c: int = -1
-
         while True:
-            # count next token
-            c: int = c + 1
-
             # skip whitespaces
             pos: int = self.jump_to_next_token(pos)
             if pos == -1:
@@ -215,9 +209,10 @@ class PdfTokenizer():
                 pos = pos + len(token)
                 continue
 
-            # special treatment for ? TODO
+            # special treatment for '{'
             if token.startswith(DELIMITER_CHARACTERS[6]):
-                print("[TODO] application_pdf.py: special treatment for '\{'?")
+                logger.critical("application_pdf.py: missing implementation to handle '\{'")
+                # TODO: implement this ...
 
             # special treatment for streams
             if token == b"stream":
@@ -338,8 +333,8 @@ class NumericObject(AbstractObject): # <<<>>>
                 i: int = self.index + 3
                 obj = self.determine_object(token_3_future, i)
                 if obj is None:
-                    self.object_dict["data"] = f"[TODO] application_pdf.py: IndirectObject has no way to handle '{token_3_future.type}' (#{i})!"
-                    print(f"[TODO] application_pdf.py: IndirectObject has no way to handle '{token_3_future.type}' (#{i})!")
+                    self.object_dict["data"] = None
+                    logger.critical(f"application_pdf.py: 'IndirectObject' is missing implementation to handle '{token_3_future.type}' (token #{i})")
                     return
 
                 # add token length during recursion
@@ -398,8 +393,8 @@ class DictionaryObject(AbstractObject): # <<<>>>
 
             obj = self.determine_object(dictionary_value, i)
             if obj is None:
-                nested_dict[dictionary_key] = f"[TODO] application_pdf.py: DictionaryObject has no way to handle '{dictionary_value.type}' (#{i})!"
-                print(f"[TODO] application_pdf.py: DictionaryObject has no way to handle '{dictionary_value.type}' (#{i})!")
+                nested_dict[dictionary_key] = None
+                logger.critical(f"application_pdf.py: 'DictionaryObject' is missing implementation to handle '{dictionary_value.type}' (token #{i})")
                 continue
 
             # skip processed tokens
@@ -446,8 +441,8 @@ class ArrayObject(AbstractObject): # <<<>>>
 
             obj = self.determine_object(token, i)
             if obj is None:
-                nested_list.append(f"[TODO] application_pdf.py: ArrayObject has no way to handle '{token.type}' (#{i})!")
-                print(f"[TODO] application_pdf.py: ArrayObject has no way to handle '{token.type}' (#{i})!")
+                nested_list.append(None)
+                logger.critical(f"application_pdf.py: 'ArrayObject' is missing implementation to handle '{token.type}' (token #{i})")
                 i = i + 1
                 continue
 
@@ -474,6 +469,8 @@ class PdfParser():
             "comments": [],
             "whitespaces": None
         }
+
+    # returns index of the first token which does not belong to the header
     def parse_header(self) -> int:
         i = 0
         while i < len(self.pdf_tokens):
@@ -488,6 +485,8 @@ class PdfParser():
                 return i + 1
             i = i + 1
         return -1
+
+    # returns index of the first token which does not belong to the body
     def parse_body(self, index: int):
         i: int = index
         while i < len(self.pdf_tokens):
@@ -501,20 +500,21 @@ class PdfParser():
                 case PdfTokenType._XREF | PdfTokenType._STARTXREF:
                     return i
                 case _:
-                    self.file_structure["body"].append(f"[TODO] application_pdf.py: Body has no way to handle '{token.type}' (#{i})!")
-                    print(f"[TODO] application_pdf.py: Body has no way to handle '{token.type}' (#{i})!")
+                    self.file_structure["body"].append(None)
+                    logger.critical(f"application_pdf.py: 'BodyParser' is missing implementation to handle '{token.type}' (token #{i})")
                     i = i + 1
         return -1
 
+    # parsing process
     def process(self) -> None:
-        # copy comment tokens
+        # store comment tokens
         self.file_structure["comments"] = [{
             "position": c.position,
             "length": c.length,
             "data": str(c.raw)
         } for c in self.pdf_tokens if c.type == PdfTokenType._COMMENT]
 
-        # remove comment tokens
+        # remove comment tokens before parsing
         self.pdf_tokens = [t for t in self.pdf_tokens if t.type != PdfTokenType._COMMENT]
 
         # TODO: remove later!
@@ -529,12 +529,25 @@ class PdfParser():
             "data": t.data
         } for t in self.pdf_tokens]
 
-
-
         tokens_processed: int = self.parse_header()
         tokens_processed: int = self.parse_body(tokens_processed)
 
-        print(f"FIRST NON-BODY-TOKEN: 'c: {tokens_processed}'")
+        logger.warn(f"TODO: 'c: {tokens_processed}' --> {self.pdf_tokens[tokens_processed].type}")
+        # cross-ref
+        if self.pdf_tokens[tokens_processed].type == PdfTokenType._XREF:
+            #tokens_processed: int = self.parse_cross_ref(tokens_processed)
+            pass
+
+        # trailer
+        if self.pdf_tokens[tokens_processed].type == PdfTokenType._TRAILER:
+            #tokens_processed: int = self.parse_trailer(tokens_processed)
+            pass
+
+        # entry point and eof
+        if self.pdf_tokens[tokens_processed].type == PdfTokenType._STARTXREF:
+            #tokens_processed: int = self.parse_trailer(tokens_processed)
+            pass
+
         #trailer_index = self.parse_cross_ref_table(xref_index + 1)
         #eof_index = self.parse_trailer(trailer_index + 1)
         # TODO: call methods above!
@@ -544,6 +557,9 @@ class PdfParser():
 class ApplicationPdfFormat():
     @staticmethod
     def format_specific_parsing(cf, md: dict, pd: bytes, pl: int, op: int) -> dict:
+        global logger
+        logger = StaticLogger.get_logger()
+
         pdf_tokenizer = PdfTokenizer(pd)
         pdf_tokenizer.tokenize()
 
