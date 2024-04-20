@@ -85,6 +85,7 @@ class PdfToken():
 
         elif self.raw == b"true" or self.raw == b"false":
             self.type = PdfTokenType.BOOLEAN
+            self.data = self.raw == b"true"
 
         elif self.raw.startswith(DELIMITER_CHARACTERS[2]) and self.raw.endswith(DELIMITER_CHARACTERS[3]):
             self.type = PdfTokenType.HEX_STRING
@@ -96,9 +97,16 @@ class PdfToken():
             self.type = PdfTokenType.NAME
 
         elif isinstance(self.data, str) and self.data.isnumeric():
-            # TODO: floating points supported?
             self.type = PdfTokenType.NUMERIC
             self.data = int(self.data)
+        
+        elif isinstance(self.data, str) and self.data.replace(".", "", 1).isdigit():
+            self.type = PdfTokenType.NUMERIC
+            self.data = float(self.data)
+
+        else:
+            #print(f">>>{self.data}")
+            pass
 class PdfTokenizer():
     def __init__(self, pdf_data: bytes) -> None:
         self.pdf_data: bytes = pdf_data
@@ -244,8 +252,6 @@ class PdfTokenizer():
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # Objects
 
-# TODO: implement ArrayObject
-
 class AbstractObject(abc.ABC):
     def __init__(self, pdf_tokens: list[PdfToken], index: int) -> None:
         self.pdf_tokens: list[PdfToken] = pdf_tokens
@@ -263,6 +269,19 @@ class AbstractObject(abc.ABC):
             # TODO: link used tokens?
         }
 
+    def determine_object(self, token: PdfToken, i: int):
+        match token.type:
+            case PdfTokenType.NUMERIC:
+                return NumericObject(self.pdf_tokens, i)
+            case PdfTokenType.DICTIONARY:
+                return DictionaryObject(self.pdf_tokens, i)
+            case PdfTokenType.ARRAY:
+                return ArrayObject(self.pdf_tokens, i)
+            case PdfTokenType.NAME | PdfTokenType.LITERAL_STRING | PdfTokenType.BOOLEAN:
+                return ArbitraryObject(self.pdf_tokens, i)
+            case _:
+                return None
+
     # output
     def get_dict(self) -> dict:
         return self.object_dict
@@ -274,7 +293,7 @@ class ArbitraryObject(AbstractObject):
     def __init__(self, pt: list[PdfToken], n: int) -> None:
         super().__init__(pt, n)
         self.object_dict["data"] = self.pdf_tokens[self.index].data
-class NumericObject(AbstractObject):
+class NumericObject(AbstractObject): # <<<>>>
     def __init__(self, pt: list[PdfToken], n: int) -> None:
         super().__init__(pt, n)
 
@@ -298,17 +317,17 @@ class NumericObject(AbstractObject):
                 self.object_dict["generation_number"] = token_1_future.data
 
                 # handle all types which can be encapsulated in an indirect object
-                match token_3_future.type:
-                    case PdfTokenType.DICTIONARY:
-                        obj = DictionaryObject(self.pdf_tokens, self.index + 3)
+                i: int = self.index + 3
+                obj = self.determine_object(token_3_future, i)
+                if obj is None:
+                    self.object_dict["data"] = f"[TODO] application_pdf.py: IndirectObject has no way to handle '{token_3_future.type}'!"
+                    return
 
-                        # add token length during recursion
-                        self.object_length = self.object_length + obj.get_length()
+                # add token length during recursion
+                self.object_length = self.object_length + obj.get_length()
 
-                        # set data
-                        self.object_dict["data"] = obj.get_dict()
-                    case _:
-                        self.object_dict["data"] = f"[TODO] application_pdf.py: IndirectObject has no way to handle '{token_3_future.type}'!"
+                # set data
+                self.object_dict["data"] = obj.get_dict()
 
                 return
             # case 2: reference object (n m R)
@@ -330,7 +349,7 @@ class NumericObject(AbstractObject):
 
         # case 3: actual numerical value
         self.object_dict["data"] = self.pdf_tokens[self.index].data
-class DictionaryObject(AbstractObject):
+class DictionaryObject(AbstractObject): # <<<>>>
     def __init__(self, pt: list[PdfToken], n: int) -> None:
         super().__init__(pt, n)
 
@@ -358,21 +377,9 @@ class DictionaryObject(AbstractObject):
             if not dictionary_key in nested_dict:
                 nested_dict[dictionary_key] = None
 
-            obj = None
-            match dictionary_value.type:
-                case PdfTokenType.DICTIONARY:
-                    obj = DictionaryObject(self.pdf_tokens, i)
-                case PdfTokenType.NAME:
-                    obj = ArbitraryObject(self.pdf_tokens, i)
-                case PdfTokenType.NUMERIC:
-                    obj = NumericObject(self.pdf_tokens, i)
-                case PdfTokenType.ARRAY:
-                    obj = ArrayObject(self.pdf_tokens, i)
-                case _:
-                    nested_dict[dictionary_key] = f"[TODO] application_pdf.py: DictionaryObject has no way to handle '{dictionary_value.type}'!"
-                    continue
-
+            obj = self.determine_object(dictionary_value, i)
             if obj is None:
+                nested_dict[dictionary_key] = f"[TODO] application_pdf.py: DictionaryObject has no way to handle '{dictionary_value.type}'!"
                 continue
 
             # skip processed tokens
@@ -384,8 +391,25 @@ class DictionaryObject(AbstractObject):
             # add dictionary key
             nested_dict[dictionary_key] = obj.get_dict()
 
+        # if segments available
+        if i + 3 < len(self.pdf_tokens):
+            token_stream_start: PdfToken = self.pdf_tokens[i + 1]
+            token_stream: PdfToken = self.pdf_tokens[i + 2]
+
+            # check for stream element
+            if token_stream_start.type == PdfTokenType.STREAM:
+                # add tokens
+                self.object_length = self.object_length + 3
+
+                # append stream element
+                nested_dict["stream"] = {
+                    "position": token_stream_start.position,
+                    "type": str(token_stream_start.type).split(".")[1].lower(),
+                    "data": str(token_stream.raw)
+                }
+
         self.object_dict["data"] = nested_dict
-class ArrayObject(AbstractObject):
+class ArrayObject(AbstractObject): # <<<>>>
     def __init__(self, pt: list[PdfToken], n: int) -> None:
         super().__init__(pt, n)
 
@@ -400,18 +424,10 @@ class ArrayObject(AbstractObject):
             # access next array element
             token: PdfToken = self.pdf_tokens[i]
 
-            obj = None
-            match token.type:
-                #case PdfTokenType.NAME:
-                #    obj = ArbitraryObject(self.pdf_tokens, i)
-                case PdfTokenType.NUMERIC:
-                    obj = NumericObject(self.pdf_tokens, i)
-                case _:
-                    nested_list.append(f"[TODO] application_pdf.py: ArrayObject has no way to handle '{token.type}'!")
-                    i = i + 1
-                    continue
-
+            obj = self.determine_object(token, i)
             if obj is None:
+                nested_list.append(f"[TODO] application_pdf.py: ArrayObject has no way to handle '{token.type}'!")
+                i = i + 1
                 continue
 
             # skip processed tokens
@@ -424,6 +440,7 @@ class ArrayObject(AbstractObject):
             nested_list.append(obj.get_dict())
 
         self.object_dict["data"] = nested_list
+
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # Parsing
 
@@ -463,7 +480,7 @@ class PdfParser():
                 case PdfTokenType._XREF:
                     return i + 1
                 case _:
-                    self.file_structure["body"].append(f"[TODO] application_pdf.py: found unexpected token type in body '{token.type}'!")
+                    self.file_structure["body"].append(f"[TODO] application_pdf.py: found unexpected token (#{i}) type in body '{token.type}'!")
                     i = i + 1
         return -1
 
