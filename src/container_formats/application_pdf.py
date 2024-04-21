@@ -25,6 +25,7 @@ WHITESPACE_ANTI_PATTERN: re.Pattern[bytes] = re.compile(b"[^" + b"".join([re.esc
 
 class PdfTokenType(enum.Enum):
     # token categories
+    UNKNOWN = -1
     NULL = 0                # 7.3.9
     BOOLEAN = 1             # 7.3.2
     NUMERIC = 2             # 7.3.3
@@ -47,7 +48,7 @@ class PdfToken():
             return str(raw, "utf-8")
         except:
             return raw
-    def __init__(self, position: int, raw: bytes, type: PdfTokenType = PdfTokenType.NULL) -> None:
+    def __init__(self, position: int, raw: bytes, type: PdfTokenType = PdfTokenType.UNKNOWN) -> None:
         self.position: int = position
         self.length: int = len(raw)
         self.type: PdfTokenType = type
@@ -55,7 +56,7 @@ class PdfToken():
         self.data = self.try_utf8_conv(self.raw)
 
         # determine type of token by its content, when not already set
-        if self.type == PdfTokenType.NULL:
+        if self.type == PdfTokenType.UNKNOWN:
             if self.length == 8 and self.raw.startswith(b"\x25PDF-"):
                 self.type = PdfTokenType._HEADER
 
@@ -67,6 +68,10 @@ class PdfToken():
 
             elif self.raw == b"xref":
                 self.type = PdfTokenType._XREF
+
+            elif self.raw == b"null":
+                self.type = PdfTokenType.NULL
+                self.data = None
 
             elif self.raw == b"trailer":
                 self.type = PdfTokenType._TRAILER
@@ -92,9 +97,11 @@ class PdfToken():
 
             elif self.raw.startswith(DELIMITER_CHARACTERS[2]) and self.raw.endswith(DELIMITER_CHARACTERS[3]):
                 self.type = PdfTokenType.HEX_STRING
+                # TODO: remove brackets '<' '>' and convert to bytes?
 
             elif self.raw.startswith(DELIMITER_CHARACTERS[0]) and self.raw.endswith(DELIMITER_CHARACTERS[1]):
                 self.type = PdfTokenType.LITERAL_STRING
+                # TODO: remove brackets '(' ')'?
 
             elif self.raw.startswith(DELIMITER_CHARACTERS[8]):
                 self.type = PdfTokenType.NAME
@@ -290,7 +297,7 @@ class AbstractObject(abc.ABC):
                 return DictionaryObject(self.pdf_tokens, i)
             case PdfTokenType.ARRAY:
                 return ArrayObject(self.pdf_tokens, i)
-            case PdfTokenType.NAME | PdfTokenType.HEX_STRING | PdfTokenType.LITERAL_STRING | PdfTokenType.BOOLEAN:
+            case PdfTokenType.NAME | PdfTokenType.NULL | PdfTokenType.HEX_STRING | PdfTokenType.LITERAL_STRING | PdfTokenType.BOOLEAN:
                 return ArbitraryObject(self.pdf_tokens, i)
             case _:
                 return None
@@ -479,7 +486,7 @@ class PdfParser():
                 self.file_structure["header"] = {
                     "position": token.position,
                     "length": token.length,
-                    "raw": str(token.raw, "utf-8"),
+                    "data": str(token.data),
                     "pdf_version": float(str(token.raw, "utf-8")[5:8])
                 }
                 return i + 1
@@ -511,23 +518,22 @@ class PdfParser():
         self.file_structure["comments"] = [{
             "position": c.position,
             "length": c.length,
-            "data": str(c.raw)
+            "data": str(c.data)
         } for c in self.pdf_tokens if c.type == PdfTokenType._COMMENT]
 
         # remove comment tokens before parsing
         self.pdf_tokens = [t for t in self.pdf_tokens if t.type != PdfTokenType._COMMENT]
 
         # TODO: remove later!
-        import itertools
-        c = itertools.count()
-        self.file_structure["debug_tokens"] = [{
-            "c": next(c),
-            "position": t.position,
-            "length": t.length,
-            "type": str(t.type).split(".")[1].lower(),
-            "raw": str(t.raw),
-            "data": t.data
-        } for t in self.pdf_tokens]
+        #import itertools
+        #c = itertools.count()
+        #self.file_structure["debug_tokens"] = [{
+        #    "c": next(c),
+        #    "position": t.position,
+        #    "length": t.length,
+        #    "type": str(t.type).split(".")[1].lower(),
+        #    "raw": str(t.raw)
+        #} for t in self.pdf_tokens]
 
         tokens_processed: int = self.parse_header()
         tokens_processed: int = self.parse_body(tokens_processed)
@@ -548,9 +554,7 @@ class PdfParser():
             #tokens_processed: int = self.parse_trailer(tokens_processed)
             pass
 
-        #trailer_index = self.parse_cross_ref_table(xref_index + 1)
-        #eof_index = self.parse_trailer(trailer_index + 1)
-        # TODO: call methods above!
+        # TODO: implement conditions above plus check whether tokens after EOF token, if so start again from body!
     def get_file_structure(self) -> dict:
         return self.file_structure
 
@@ -581,8 +585,7 @@ class ApplicationPdfFormat():
         #       n trailers
 
         ########################################
-        # TODO: validate header (was mit EOF?)
-        # TODO: remove and log comments
+
         # TODO: read data to last %%EOF appearence, if data left, init rec parsing
 
         md["structured"] = pdf_parser.get_file_structure()

@@ -2,8 +2,10 @@ from abstract_container_format import AbstractContainerFormat
 from alive_progress import alive_bar
 import argparse
 import datetime
+import gridfs
 import json
 from pathlib import Path
+from pymongo.errors import DocumentTooLarge
 from static_utils import *
 import sys
 
@@ -128,9 +130,31 @@ class Main:
 
                     # insert json structure into database
                     logger.debug(f"storing metrics in database '{db_name}/{c_name}'...")
+                    target_db = MongoInterface.get_connection()[db_name]
                     target_collection = MongoInterface.get_connection()[db_name][c_name]
-                    target_collection.insert_one(format_dict)
 
+                    try:
+                        # old pymongodb approach
+                        target_collection.insert_one(format_dict)
+                    except DocumentTooLarge:
+                        del format_dict["_id"]
+                        json_string: str = json.dumps(format_dict, indent=2)
+                        json_bytes: bytes = bytes(json_string, "utf-8")
+
+                        # TODO: json debug output for large files
+                        #with open("/home/container-metrics/io/_gridjs.json", "w") as fh:
+                        #    fh.write(json_string)
+                        #    fh.close()
+
+                        # new gridFS approach
+                        grid_fs = gridfs.GridFS(target_db, "gridfs")
+                        grid_fs_id = grid_fs.put(json_bytes, filename=file_path.name)
+
+                        # store reference to gridfs
+                        format_dict["data"] = {
+                            "gridfs": grid_fs_id
+                        }
+                        target_collection.insert_one(format_dict)
                     pbar(1)
             logger.info("done")
         except Exception as e:
