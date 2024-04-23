@@ -23,96 +23,58 @@ WHITESPACE_ANTI_PATTERN: re.Pattern[bytes] = re.compile(b"[^" + b"".join([re.esc
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # Tokens
 
-class PdfTokenType(enum.Enum):
-    # token categories
-    UNKNOWN = -1
-    NULL = 0                # 7.3.9
-    BOOLEAN = 1             # 7.3.2
-    NUMERIC = 2             # 7.3.3
-    LITERAL_STRING = 3      # 7.3.4
-    HEX_STRING = 4          # 7.3.4
-    NAME = 5                # 7.3.5
-    ARRAY = 6               # 7.3.6
-    DICTIONARY = 7          # 7.3.7
-    STREAM = 8              # 7.3.8
-    INDIRECT_OBJECT = 10    # 7.3.10
-    _HEADER = 11            # custom
-    _XREF = 12              # custom
-    _TRAILER = 13           # custom
-    _STARTXREF = 14         # custom
-    _EOF = 15               # custom
-    _COMMENT = 16           # custom
 class PdfToken():
     def try_utf8_conv(self, raw: bytes) -> str | bytes:
         try:
             return str(raw, "utf-8")
         except:
             return raw
-    def __init__(self, position: int, raw: bytes, type: PdfTokenType = PdfTokenType.UNKNOWN) -> None:
+    def __init__(self, position: int, raw: bytes, is_stream: bool = False) -> None:
         self.position: int = position
         self.length: int = len(raw)
-        self.type: PdfTokenType = type
+        self.type: str | None = "stream" if is_stream else None
         self.raw: bytes = raw
         self.data = self.try_utf8_conv(self.raw)
 
-        # determine type of token by its content, when not already set
-        if self.type == PdfTokenType.UNKNOWN:
-            if self.length == 8 and self.raw.startswith(b"\x25PDF-"):
-                self.type = PdfTokenType._HEADER
-
-            elif self.raw == b"\x25\x25EOF":
-                self.type = PdfTokenType._EOF
-
-            elif self.raw.startswith(DELIMITER_CHARACTERS[9]):
-                self.type = PdfTokenType._COMMENT
-
+        if self.type == None:
+            if self.raw.startswith(b"\x25PDF-") and self.length == 8:
+                self.type = "_header"
             elif self.raw == b"xref":
-                self.type = PdfTokenType._XREF
-
-            elif self.raw == b"null":
-                self.type = PdfTokenType.NULL
-                self.data = None
-
+                self.type = "_xref"
             elif self.raw == b"trailer":
-                self.type = PdfTokenType._TRAILER
-
+                self.type = "_trailer"
             elif self.raw == b"startxref":
-                self.type = PdfTokenType._STARTXREF
-
-            elif self.raw == DELIMITER_CHARACTERS[4]:
-                self.type = PdfTokenType.ARRAY
-
-            elif self.raw == b"<<":
-                self.type = PdfTokenType.DICTIONARY
-
+                self.type = "_startxref"
+            elif self.raw == b"\x25\x25EOF":
+                self.type = "_eof"
+            elif self.raw.startswith(DELIMITER_CHARACTERS[9]):
+                self.type = "_comment"
             elif self.raw == b"obj":
-                self.type = PdfTokenType.INDIRECT_OBJECT
-
+                self.type = "indirect_obj"
             elif self.raw == b"stream":
-                self.type = PdfTokenType.STREAM
-
+                self.type = "stream"
             elif self.raw == b"true" or self.raw == b"false":
-                self.type = PdfTokenType.BOOLEAN
+                self.type = "boolean"
                 self.data = self.raw == b"true"
-
-            elif self.raw.startswith(DELIMITER_CHARACTERS[2]) and self.raw.endswith(DELIMITER_CHARACTERS[3]):
-                self.type = PdfTokenType.HEX_STRING
-                # TODO: remove brackets '<' '>' and convert to bytes?
-
+            elif self.raw == b"null":
+                self.type = "null"
             elif self.raw.startswith(DELIMITER_CHARACTERS[0]) and self.raw.endswith(DELIMITER_CHARACTERS[1]):
-                self.type = PdfTokenType.LITERAL_STRING
-                # TODO: remove brackets '(' ')'?
-
+                self.type = "literal_str"
+            elif self.raw.startswith(DELIMITER_CHARACTERS[2]) and self.raw.endswith(DELIMITER_CHARACTERS[3]):
+                self.type = "hex_str"
             elif self.raw.startswith(DELIMITER_CHARACTERS[8]):
-                self.type = PdfTokenType.NAME
-
-            elif isinstance(self.data, str) and (self.data.isnumeric() or self.data.replace("-", "", 1).isnumeric()):
-                self.type = PdfTokenType.NUMERIC
-                self.data = int(self.data)
-            
-            elif isinstance(self.data, str) and (self.data.replace(".", "", 1).isdigit() or self.data.replace(".", "", 1).replace("-", "", 1).isdigit()):
-                self.type = PdfTokenType.NUMERIC
-                self.data = float(self.data)
+                self.type = "name"
+            elif self.raw == b"[":
+                self.type = "array"
+            elif self.raw == b"<<":
+                self.type = "dictionary"
+            elif isinstance(self.data, str):
+                if self.data.replace("-", "", 1).isnumeric():
+                    self.type = "numeric"
+                    self.data = int(self.data)
+                elif self.data.replace(".", "", 1).replace("-", "", 1).isdigit():
+                    self.type = "numeric"
+                    self.data = float(self.data)
 class PdfTokenizer():
     def __init__(self, pdf_data: bytes) -> None:
         self.pdf_data: bytes = pdf_data
@@ -148,7 +110,7 @@ class PdfTokenizer():
             if pos == -1:
                 break
 
-            # search for end of token
+            # search for potential end of token
             pos_end: int = self.read_token(pos)
             if pos_end == -1:
                 break
@@ -156,7 +118,26 @@ class PdfTokenizer():
             # read new token
             token: bytes = self.pdf_data[pos:pos_end]
 
-            # special treatment for literal strings
+            # header
+            if token.startswith(b"\x25PDF-") and len(token) >= 8:
+                self.token_list.append(PdfToken(pos, token[:8]))   
+                pos = pos + 8
+                continue
+
+            # stream
+            if token == b"stream":
+                self.token_list.append(PdfToken(pos, token))
+
+                _stream_start = self.jump_to_next_token(pos_end)
+                _stream_end = self.pdf_data.find(b"endstream", _stream_start)
+
+                self.token_list.append(PdfToken(_stream_start, self.pdf_data[_stream_start:_stream_end].rstrip(), True))
+                self.token_list.append(PdfToken(_stream_end, self.pdf_data[_stream_end:_stream_end + 9]))
+                pos = _stream_end + 9
+
+                continue
+
+            # special treatment for '('
             if token.startswith(DELIMITER_CHARACTERS[0]):
                 _parenthesis_position = pos + 1
                 _parenthesis_open = 1
@@ -179,41 +160,37 @@ class PdfTokenizer():
                         continue
                     break
                 token = self.pdf_data[pos:_parenthesis_position]
-                self.token_list.append(PdfToken(pos, token, PdfTokenType.LITERAL_STRING))
+                self.token_list.append(PdfToken(pos, token))
                 pos = _parenthesis_position
                 continue
 
-            # special treatment for strings (hex)
-            if token.startswith(DELIMITER_CHARACTERS[2]) and token != b"<<":
-                _hex_string_end = self.pdf_data.find(DELIMITER_CHARACTERS[3], pos) + 1
-
-                # remove whitespaces
-                token = re.sub(WHITESPACE_PATTERN, b"", self.pdf_data[pos:_hex_string_end])
-
-                self.token_list.append(PdfToken(pos, token, PdfTokenType.HEX_STRING))
-                pos = _hex_string_end
+            # special treatment for '<'
+            if token.startswith(DELIMITER_CHARACTERS[2]):
+                if token.startswith(b"<<"):
+                    token = self.pdf_data[pos:pos + 2]
+                    self.token_list.append(PdfToken(pos, token))
+                    pos = pos + 2
+                else:
+                    _hex_string_end = self.pdf_data.find(DELIMITER_CHARACTERS[3], pos) + 1
+                    token = self.pdf_data[pos:_hex_string_end]
+                    self.token_list.append(PdfToken(pos, token))
+                    pos = _hex_string_end
                 continue
 
-            # one element array
-            if token.startswith(DELIMITER_CHARACTERS[4]) and token.endswith(DELIMITER_CHARACTERS[5]):
-                self.token_list.append(PdfToken(pos, DELIMITER_CHARACTERS[4], PdfTokenType.ARRAY))
-                self.token_list.append(PdfToken(pos + 1, token[1:-1]))
-                self.token_list.append(PdfToken(pos + len(token) - 1, DELIMITER_CHARACTERS[5]))
-                pos = pos + len(token)
+            # special treatment for '['
+            if token.startswith(DELIMITER_CHARACTERS[4]):
+                token = self.pdf_data[pos:pos + 1]
+                self.token_list.append(PdfToken(pos, token))
+                pos = pos + 1
                 continue
 
-            # atomize '['
-            if token.startswith(DELIMITER_CHARACTERS[4]) and token != DELIMITER_CHARACTERS[4]:
-                self.token_list.append(PdfToken(pos, DELIMITER_CHARACTERS[4], PdfTokenType.ARRAY))
-                self.token_list.append(PdfToken(pos + 1, token[1:]))
-                pos = pos + len(token)
-                continue
-
-            # atomize ']'
-            if token.find(DELIMITER_CHARACTERS[5]) != -1 and token != DELIMITER_CHARACTERS[5]:
-                self.token_list.append(PdfToken(pos, token[:-1]))
-                self.token_list.append(PdfToken(pos + len(token) - 1, DELIMITER_CHARACTERS[5]))
-                pos = pos + len(token)
+            # special treatment for ']'
+            check_pos = token.find(b"]")
+            if check_pos != -1:
+                if check_pos > 0:
+                    self.token_list.append(PdfToken(pos, token[:check_pos]))
+                self.token_list.append(PdfToken(pos + check_pos, token[check_pos:check_pos + 1]))
+                pos = pos + check_pos + 1
                 continue
 
             # special treatment for '{'
@@ -221,44 +198,37 @@ class PdfTokenizer():
                 logger.critical("application_pdf.py: missing implementation to handle '\{'")
                 # TODO: implement this ...
 
-            # special treatment for streams
-            if token == b"stream":
-                _stream_start = self.jump_to_next_token(pos_end)
-                _stream_end = self.pdf_data.find(b"endstream", _stream_start)
-
-                self.token_list.append(PdfToken(_stream_start, self.pdf_data[pos:pos_end]))
-                self.token_list.append(PdfToken(_stream_start, self.pdf_data[_stream_start:_stream_end].rstrip(), PdfTokenType.STREAM))
-                self.token_list.append(PdfToken(_stream_end, self.pdf_data[_stream_end:_stream_end + 9]))
-                pos = _stream_end + 9
-                continue
-
-            # special treatment for comments
-            _comment = token.find(DELIMITER_CHARACTERS[9], 0)
-            _token_is_header = token.startswith(b"\x25PDF-") and len(token) == 8
-            if _comment != -1 and not _token_is_header:
-                # check whether data prior comment
-                if _comment > 0:
-                    # add this data as extra token
-                    self.token_list.append(PdfToken(pos, self.pdf_data[pos:pos+_comment]))
-
-                # mark line as comment until line end
-                _line_end = self.pdf_data.find(b"\x0a", pos+_comment)
-
-                # strip token data
-                token = self.pdf_data[pos+_comment:_line_end].rstrip()
-
-                self.token_list.append(PdfToken(pos+_comment, token))
-                pos = _line_end
-                continue
-
-            # special treatment for names (may be without whitespaces)
+            # special treatment for '/'
             if token.startswith(DELIMITER_CHARACTERS[8]):
-                _names: list[bytes] = [DELIMITER_CHARACTERS[8] + n for n in token[1:].split(DELIMITER_CHARACTERS[8])]
-                self.token_list.append(PdfToken(pos, _names[0]))
-                pos = pos + len(_names[0])
-                for _name in _names[1:]:
-                    self.token_list.append(PdfToken(pos, _name))
-                    pos = pos + len(_name)
+                check_pos = token.find(b"/", 1)
+                if check_pos == -1:
+                    self.token_list.append(PdfToken(pos, token))
+                    pos = pos + len(token)
+                else:
+                    self.token_list.append(PdfToken(pos, token[:check_pos]))
+                    pos = pos + check_pos
+                continue
+
+            # special treatment for '>>'
+            check_pos = token.find(b">>")
+            if check_pos != -1:
+                if check_pos > 0:
+                    self.token_list.append(PdfToken(pos, token[:check_pos]))
+                self.token_list.append(PdfToken(pos + check_pos, token[check_pos:check_pos + 2]))
+                pos = pos + check_pos + 2
+                continue
+
+            # special treatment for '%'
+            check_pos = token.find(b"%")
+            if check_pos != -1:
+                if check_pos > 0:
+                    self.token_list.append(PdfToken(pos, token[:check_pos]))
+
+                _line_end = self.pdf_data.find(b"\x0a", pos + check_pos)
+                token = self.pdf_data[pos + check_pos:_line_end].rstrip()
+
+                self.token_list.append(PdfToken(pos + check_pos, token))
+                pos = _line_end
                 continue
 
             # default token processing
@@ -272,6 +242,10 @@ class PdfTokenizer():
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # Objects
 
+# TODO: rework
+# TODO: nutzunng der utills aus abstract cf
+# TODO: remove data segments in structur description!
+
 class AbstractObject(abc.ABC):
     def __init__(self, pdf_tokens: list[PdfToken], index: int) -> None:
         self.pdf_tokens: list[PdfToken] = pdf_tokens
@@ -282,22 +256,22 @@ class AbstractObject(abc.ABC):
 
         # initialize object stats from first token
         token: PdfToken = self.pdf_tokens[self.index]
-        self.object_dict = {
+        self.object_dict = { #TODO: use abstract oobject to handlle
             "position": token.position,
-            "type": str(token.type).split(".")[1].lower(),
+            "type": token.type,
             "data": None
             # TODO: link used tokens?
         }
 
     def determine_object(self, token: PdfToken, i: int):
         match token.type:
-            case PdfTokenType.NUMERIC:
+            case "numeric":
                 return NumericObject(self.pdf_tokens, i)
-            case PdfTokenType.DICTIONARY:
+            case "dictionary":
                 return DictionaryObject(self.pdf_tokens, i)
-            case PdfTokenType.ARRAY:
+            case "array":
                 return ArrayObject(self.pdf_tokens, i)
-            case PdfTokenType.NAME | PdfTokenType.NULL | PdfTokenType.HEX_STRING | PdfTokenType.LITERAL_STRING | PdfTokenType.BOOLEAN:
+            case "name" | "null" | "hex_str" | "literal_str" | "boolean":
                 return ArbitraryObject(self.pdf_tokens, i)
             case _:
                 return None
@@ -325,12 +299,12 @@ class NumericObject(AbstractObject): # <<<>>>
             token_3_future: PdfToken = self.pdf_tokens[self.index + 3]
 
             # case 1: indirect object (n m obj) (endobj)
-            if token_1_future.type == PdfTokenType.NUMERIC and token_2_future.type == PdfTokenType.INDIRECT_OBJECT:
+            if token_1_future.type == "numeric" and token_2_future.type == "indirect_obj":
                 # indirect object frame requires 4 tokens: n m obj endobj
                 self.object_length = 4
 
                 # as indirect objects are modeled as numeric objects, the type has to be set manually
-                self.object_dict["type"] = str(token_2_future.type).split(".")[1].lower()
+                self.object_dict["type"] = token_2_future.type
 
                 # gather numbers
                 self.object_dict["object_number"] = token_0_current.data
@@ -352,7 +326,7 @@ class NumericObject(AbstractObject): # <<<>>>
 
                 return
             # case 2: reference object (n m R)
-            if token_1_future.type == PdfTokenType.NUMERIC and token_2_future.raw == b"R":
+            if token_1_future.type == "numeric" and token_2_future.raw == b"R":
                 # reference object requires 3 tokens: n m R
                 self.object_length = 3
 
@@ -381,7 +355,7 @@ class DictionaryObject(AbstractObject): # <<<>>>
         nested_dict: dict = {}
 
         i: int = self.index + 1
-        while self.pdf_tokens[i].type == PdfTokenType.NAME:
+        while self.pdf_tokens[i].type == "name":
             # first name is key
             dictionary_key: str = self.pdf_tokens[i].data
 
@@ -419,14 +393,14 @@ class DictionaryObject(AbstractObject): # <<<>>>
             token_stream: PdfToken = self.pdf_tokens[i + 2]
 
             # check for stream element
-            if token_stream_start.type == PdfTokenType.STREAM:
+            if token_stream_start.type == "stream":
                 # add tokens
                 self.object_length = self.object_length + 3
 
                 # append stream element
                 nested_dict["stream"] = {
                     "position": token_stream_start.position,
-                    "type": str(token_stream.type).split(".")[1].lower(),
+                    "type": token_stream.type,
                     "data": str(token_stream.raw)
                 }
 
@@ -470,6 +444,8 @@ class ArrayObject(AbstractObject): # <<<>>>
 class PdfParser():
     def __init__(self, pdf_tokens: list[PdfToken]) -> None:
         self.pdf_tokens: list[PdfToken] = pdf_tokens
+
+        # construct file structure of segments, segments consists of (nested) items
         self.file_structure: dict = {
             "header": None,
             "body": [],
@@ -482,7 +458,7 @@ class PdfParser():
         i = 0
         while i < len(self.pdf_tokens):
             token: PdfToken = self.pdf_tokens[i]
-            if token.type == PdfTokenType._HEADER:
+            if token.type == "_header":
                 self.file_structure["header"] = {
                     "position": token.position,
                     "length": token.length,
@@ -500,11 +476,11 @@ class PdfParser():
             token: PdfToken = self.pdf_tokens[i]
 
             match token.type:
-                case PdfTokenType.NUMERIC:
+                case "numeric":
                     obj = NumericObject(self.pdf_tokens, i)
                     self.file_structure["body"].append(obj.get_dict())
                     i = i + obj.get_length()
-                case PdfTokenType._XREF | PdfTokenType._STARTXREF:
+                case "_xref" | "_startxref":
                     return i
                 case _:
                     self.file_structure["body"].append(None)
@@ -519,10 +495,10 @@ class PdfParser():
             "position": c.position,
             "length": c.length,
             "data": str(c.data)
-        } for c in self.pdf_tokens if c.type == PdfTokenType._COMMENT]
+        } for c in self.pdf_tokens if c.type == "_comment"]
 
         # remove comment tokens before parsing
-        self.pdf_tokens = [t for t in self.pdf_tokens if t.type != PdfTokenType._COMMENT]
+        self.pdf_tokens = [t for t in self.pdf_tokens if t.type != "_comment"]
 
         # TODO: remove later!
         #import itertools
@@ -540,17 +516,17 @@ class PdfParser():
 
         logger.warn(f"TODO: 'c: {tokens_processed}' --> {self.pdf_tokens[tokens_processed].type}")
         # cross-ref
-        if self.pdf_tokens[tokens_processed].type == PdfTokenType._XREF:
+        if self.pdf_tokens[tokens_processed].type == "_xref":
             #tokens_processed: int = self.parse_cross_ref(tokens_processed)
             pass
 
         # trailer
-        if self.pdf_tokens[tokens_processed].type == PdfTokenType._TRAILER:
+        if self.pdf_tokens[tokens_processed].type == "_trailer":
             #tokens_processed: int = self.parse_trailer(tokens_processed)
             pass
 
         # entry point and eof
-        if self.pdf_tokens[tokens_processed].type == PdfTokenType._STARTXREF:
+        if self.pdf_tokens[tokens_processed].type == "_startxref":
             #tokens_processed: int = self.parse_trailer(tokens_processed)
             pass
 
@@ -566,7 +542,7 @@ class ApplicationPdfFormat():
 
         pdf_tokenizer = PdfTokenizer(pd)
         pdf_tokenizer.tokenize()
-
+        
         pdf_parser = PdfParser(pdf_tokenizer.get_token_list())
         pdf_parser.process()
 

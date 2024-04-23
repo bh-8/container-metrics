@@ -7,6 +7,21 @@ from static_utils import *
 import time
 from typing import List
 
+class ContainerSegment():
+    def __init__(self) -> None:
+        pass
+
+class ContainerItem():
+    def __init__(self, position: int, length: int) -> None:
+        self.internal_dict: dict = {
+            "pos": position,
+            "len": length
+        }
+    def add_attribute(self, key: str, data) -> None:
+        self.internal_dict[key] = data
+    def get_dict(self) -> dict:
+        return self.internal_dict
+
 class AbstractContainerFormat():
     def __init__(self, mime_type_dict: dict) -> None:
         # abstract properties
