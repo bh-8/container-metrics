@@ -1,5 +1,8 @@
 import binascii
 
+
+#TODO: use ContainerItem from abstract_container_format
+
 SEGMENT_TYPES = {
     192: { #FF C0
         "abbr": "SOF0",
