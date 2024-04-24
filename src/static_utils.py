@@ -111,3 +111,17 @@ def filter_paths(path_list: List[Path], supported_mime_types: List[str], mime_ty
 @staticmethod
 def to_camel_case(string_with_underscores: str) -> str:
     return "".join([s.capitalize() for s in string_with_underscores.split("_")])
+
+class ContainerItem():
+    def __init__(self, position: int, length: int) -> None:
+        self.internal_dict: dict = {
+            "pos": position,
+            "len": length
+        }
+    def set_attribute(self, key: str, data) -> None:
+        if data is None and key in self.internal_dict:
+            del self.internal_dict[key]
+        else:
+            self.internal_dict[key] = data
+    def get_dict(self) -> dict:
+        return self.internal_dict

@@ -7,21 +7,6 @@ from static_utils import *
 import time
 from typing import List
 
-class ContainerSegment():
-    def __init__(self) -> None:
-        pass
-
-class ContainerItem():
-    def __init__(self, position: int, length: int) -> None:
-        self.internal_dict: dict = {
-            "pos": position,
-            "len": length
-        }
-    def add_attribute(self, key: str, data) -> None:
-        self.internal_dict[key] = data
-    def get_dict(self) -> dict:
-        return self.internal_dict
-
 class AbstractContainerFormat():
     def __init__(self, mime_type_dict: dict) -> None:
         # abstract properties
@@ -48,7 +33,8 @@ class AbstractContainerFormat():
                 "investigation": {
                     "started": None,
                     "finished": None
-                }
+                },
+                "gridfs": None
             },
             "data": {}
         }
@@ -94,11 +80,10 @@ class AbstractContainerFormat():
         _mime_type: str = MIMEDetector.from_bytes_by_magic(_data)
 
         _media_dict = {
-            "position": position,
-            "length": length,
+            "pos": position,
+            "len": length,
             "depth": parsing_layer,
-            "mime_type": _mime_type,
-            "raw": str(_data)
+            "mime_type": _mime_type
         }
 
         # quit parsing if mime type not supported
@@ -132,3 +117,6 @@ class AbstractContainerFormat():
         # set end timestamp
         self.format_dict["meta"]["investigation"]["finished"] = datetime.datetime.now().isoformat()
         return self.format_dict
+
+    def get_file_data(self) -> bytes:
+        return self.file_data

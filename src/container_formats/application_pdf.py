@@ -1,6 +1,5 @@
-from static_utils import StaticLogger
+from static_utils import ContainerItem, StaticLogger
 import abc
-import enum
 import re
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -184,6 +183,11 @@ class PdfTokenizer():
                 pos = pos + 1
                 continue
 
+            # special treatment for '{'
+            if token.startswith(DELIMITER_CHARACTERS[6]):
+                logger.critical("application_pdf.py: missing implementation to handle '\{'")
+                # TODO: implement this ...
+
             # special treatment for ']'
             check_pos = token.find(b"]")
             if check_pos != -1:
@@ -192,11 +196,6 @@ class PdfTokenizer():
                 self.token_list.append(PdfToken(pos + check_pos, token[check_pos:check_pos + 1]))
                 pos = pos + check_pos + 1
                 continue
-
-            # special treatment for '{'
-            if token.startswith(DELIMITER_CHARACTERS[6]):
-                logger.critical("application_pdf.py: missing implementation to handle '\{'")
-                # TODO: implement this ...
 
             # special treatment for '/'
             if token.startswith(DELIMITER_CHARACTERS[8]):
@@ -242,10 +241,6 @@ class PdfTokenizer():
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # Objects
 
-# TODO: rework
-# TODO: nutzunng der utills aus abstract cf
-# TODO: remove data segments in structur description!
-
 class AbstractObject(abc.ABC):
     def __init__(self, pdf_tokens: list[PdfToken], index: int) -> None:
         self.pdf_tokens: list[PdfToken] = pdf_tokens
@@ -256,12 +251,8 @@ class AbstractObject(abc.ABC):
 
         # initialize object stats from first token
         token: PdfToken = self.pdf_tokens[self.index]
-        self.object_dict = { #TODO: use abstract oobject to handlle
-            "position": token.position,
-            "type": token.type,
-            "data": None
-            # TODO: link used tokens?
-        }
+        self.container_item: ContainerItem = ContainerItem(token.position, token.length)
+        self.container_item.set_attribute("type", token.type)
 
     def determine_object(self, token: PdfToken, i: int):
         match token.type:
@@ -276,17 +267,17 @@ class AbstractObject(abc.ABC):
             case _:
                 return None
 
-    # output
-    def get_dict(self) -> dict:
-        return self.object_dict
-
     # number of tokens used
     def get_length(self) -> int:
         return self.object_length
+
+    # output
+    def get_dict(self) -> dict:
+        return self.container_item.get_dict()
 class ArbitraryObject(AbstractObject):
     def __init__(self, pt: list[PdfToken], n: int) -> None:
         super().__init__(pt, n)
-        self.object_dict["data"] = self.pdf_tokens[self.index].data
+        self.container_item.set_attribute("data", self.pdf_tokens[self.index].data)
 class NumericObject(AbstractObject): # <<<>>>
     def __init__(self, pt: list[PdfToken], n: int) -> None:
         super().__init__(pt, n)
@@ -304,25 +295,25 @@ class NumericObject(AbstractObject): # <<<>>>
                 self.object_length = 4
 
                 # as indirect objects are modeled as numeric objects, the type has to be set manually
-                self.object_dict["type"] = token_2_future.type
+                self.container_item.set_attribute("len", None)
+                self.container_item.set_attribute("type", token_2_future.type)
 
                 # gather numbers
-                self.object_dict["object_number"] = token_0_current.data
-                self.object_dict["generation_number"] = token_1_future.data
+                self.container_item.set_attribute("object_number", token_0_current.data)
+                self.container_item.set_attribute("generation_number", token_1_future.data)
 
                 # handle all types which can be encapsulated in an indirect object
                 i: int = self.index + 3
                 obj = self.determine_object(token_3_future, i)
                 if obj is None:
-                    self.object_dict["data"] = None
                     logger.critical(f"application_pdf.py: 'IndirectObject' is missing implementation to handle '{token_3_future.type}' (token #{i})")
                     return
 
                 # add token length during recursion
                 self.object_length = self.object_length + obj.get_length()
 
-                # set data
-                self.object_dict["data"] = obj.get_dict()
+                # set (nested) data
+                self.container_item.set_attribute("data", obj.get_dict())
 
                 return
             # case 2: reference object (n m R)
@@ -331,19 +322,16 @@ class NumericObject(AbstractObject): # <<<>>>
                 self.object_length = 3
 
                 # as reference objects are modeled as numeric objects, the type has to be set manually
-                self.object_dict["type"] = "reference"
-
-                # as a reference holds no data itself, remove this property
-                del self.object_dict["data"]
+                self.container_item.set_attribute("len", None)
+                self.container_item.set_attribute("type", "reference")
 
                 # gather numbers
-                self.object_dict["object_number"] = token_0_current.data
-                self.object_dict["generation_number"] = token_1_future.data
+                self.container_item.set_attribute("object_number", token_0_current.data)
+                self.container_item.set_attribute("generation_number", token_1_future.data)
 
                 return
-
         # case 3: actual numerical value
-        self.object_dict["data"] = self.pdf_tokens[self.index].data
+        self.container_item.set_attribute("data", self.pdf_tokens[self.index].data)
 class DictionaryObject(AbstractObject): # <<<>>>
     def __init__(self, pt: list[PdfToken], n: int) -> None:
         super().__init__(pt, n)
@@ -398,13 +386,12 @@ class DictionaryObject(AbstractObject): # <<<>>>
                 self.object_length = self.object_length + 3
 
                 # append stream element
-                nested_dict["stream"] = {
-                    "position": token_stream_start.position,
-                    "type": token_stream.type,
-                    "data": str(token_stream.raw)
-                }
+                stream_item: ContainerItem = ContainerItem(token_stream.position, token_stream.length)
+                stream_item.set_attribute("type", token_stream.type)
+                nested_dict["stream"] = stream_item.get_dict()
 
-        self.object_dict["data"] = nested_dict
+        self.container_item.set_attribute("len", None)
+        self.container_item.set_attribute("data", nested_dict)
 class ArrayObject(AbstractObject): # <<<>>>
     def __init__(self, pt: list[PdfToken], n: int) -> None:
         super().__init__(pt, n)
@@ -436,7 +423,7 @@ class ArrayObject(AbstractObject): # <<<>>>
             # add dictionary key
             nested_list.append(obj.get_dict())
 
-        self.object_dict["data"] = nested_list
+        self.container_item.set_attribute("data", nested_list)
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # Parsing
@@ -459,12 +446,9 @@ class PdfParser():
         while i < len(self.pdf_tokens):
             token: PdfToken = self.pdf_tokens[i]
             if token.type == "_header":
-                self.file_structure["header"] = {
-                    "position": token.position,
-                    "length": token.length,
-                    "data": str(token.data),
-                    "pdf_version": float(str(token.raw, "utf-8")[5:8])
-                }
+                header_item: ContainerItem = ContainerItem(token.position, token.length)
+                header_item.set_attribute("version", float(str(token.raw, "utf-8")[5:8]))
+                self.file_structure["header"] = header_item.get_dict()
                 return i + 1
             i = i + 1
         return -1
@@ -491,11 +475,7 @@ class PdfParser():
     # parsing process
     def process(self) -> None:
         # store comment tokens
-        self.file_structure["comments"] = [{
-            "position": c.position,
-            "length": c.length,
-            "data": str(c.data)
-        } for c in self.pdf_tokens if c.type == "_comment"]
+        self.file_structure["comments"] = [ContainerItem(c.position, c.length).get_dict() for c in self.pdf_tokens if c.type == "_comment"]
 
         # remove comment tokens before parsing
         self.pdf_tokens = [t for t in self.pdf_tokens if t.type != "_comment"]
