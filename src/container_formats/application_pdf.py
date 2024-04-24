@@ -570,6 +570,9 @@ class PdfParser():
     def get_file_structure(self) -> dict:
         return self.file_structure
 
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# Entrypoint
+
 class ApplicationPdfFormat():
     @staticmethod
     def format_specific_parsing(cf, md: dict, pd: bytes, pl: int, op: int) -> dict:
