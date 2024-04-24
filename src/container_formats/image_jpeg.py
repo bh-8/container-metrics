@@ -408,7 +408,7 @@ class ImageJpegFormat():
                     # recursive parsing call
                     cf.parse(pl, op + _parser_pos)
                     # correct media segment length to actually parsed data length
-                    md["length"] = _parser_pos
+                    md["len"] = _parser_pos
                 break
 
             # gather payload for non-special segments

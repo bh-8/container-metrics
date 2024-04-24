@@ -289,13 +289,15 @@ class NumericObject(AbstractObject): # <<<>>>
             token_2_future: PdfToken = self.pdf_tokens[self.index + 2]
             token_3_future: PdfToken = self.pdf_tokens[self.index + 3]
 
+            self.container_item.set_attribute("len", None)
+
             # case 1: indirect object (n m obj) (endobj)
             if token_1_future.type == "numeric" and token_2_future.type == "indirect_obj":
                 # indirect object frame requires 4 tokens: n m obj endobj
                 self.object_length = 4
 
                 # as indirect objects are modeled as numeric objects, the type has to be set manually
-                self.container_item.set_attribute("len", None)
+                
                 self.container_item.set_attribute("type", token_2_future.type)
 
                 # gather numbers
@@ -322,7 +324,6 @@ class NumericObject(AbstractObject): # <<<>>>
                 self.object_length = 3
 
                 # as reference objects are modeled as numeric objects, the type has to be set manually
-                self.container_item.set_attribute("len", None)
                 self.container_item.set_attribute("type", "reference")
 
                 # gather numbers
@@ -436,6 +437,9 @@ class PdfParser():
         self.file_structure: dict = {
             "header": None,
             "body": [],
+            "xref": [],
+            "trailer": [],
+            "startxref": [],
             "comments": [],
             "whitespaces": None
         }
@@ -454,63 +458,115 @@ class PdfParser():
         return -1
 
     # returns index of the first token which does not belong to the body
-    def parse_body(self, index: int):
+    def parse_body(self, index: int) -> int:
         i: int = index
         while i < len(self.pdf_tokens):
             token: PdfToken = self.pdf_tokens[i]
-
             match token.type:
                 case "numeric":
                     obj = NumericObject(self.pdf_tokens, i)
                     self.file_structure["body"].append(obj.get_dict())
                     i = i + obj.get_length()
-                case "_xref" | "_startxref":
+                case "_xref" | "_trailer" | "_startxref":
                     return i
                 case _:
-                    self.file_structure["body"].append(None)
-                    logger.critical(f"application_pdf.py: 'BodyParser' is missing implementation to handle '{token.type}' (token #{i})")
+                    return -1
+        return -1
+
+    # returns index of the first token which does not belong to cross-ref-table
+    def parse_xref(self, index: int) -> int:
+        i: int = index + 1
+        while i < len(self.pdf_tokens):
+            token: PdfToken = self.pdf_tokens[i]
+
+            match token.type:
+                case "numeric":
+                    ref_tab: ContainerItem = ContainerItem(token.position, 0)
+                    ref_tab.set_attribute("len", None)
+                    ref_tab.set_attribute("type", "cross_ref_table")
+                    range_offset: int = self.pdf_tokens[i].data
+                    cross_ref_entries: int = self.pdf_tokens[i + 1].data
+
+                    i = i + 2
+                    c: int = 0
+                    ref_tab_list: list = []
+                    while c < cross_ref_entries and i + 3 < len(self.pdf_tokens):
+                        ref_tab_entry: ContainerItem = ContainerItem(self.pdf_tokens[i].position, 0)
+                        ref_tab_entry.set_attribute("len", None)
+                        ref_tab_entry.set_attribute("object_number", range_offset + c)
+                        ref_tab_entry.set_attribute("byte_offset", self.pdf_tokens[i].data)
+                        ref_tab_entry.set_attribute("generation_number", self.pdf_tokens[i + 1].data)
+                        ref_tab_entry.set_attribute("in_use", self.pdf_tokens[i + 2].raw == b"n")
+                        ref_tab_list.append(ref_tab_entry.get_dict())
+                        i = i + 3
+                        c = c + 1
+
+                    ref_tab.set_attribute("entries", ref_tab_list)
+                    self.file_structure["xref"].append(ref_tab.get_dict())
+                case "_trailer" | "_startxref":
+                    return i
+                case _:
+                    self.file_structure["xref"].append(None)
+                    logger.critical(f"application_pdf.py: 'XRefParser' is missing implementation to handle '{token.type}' (token #{i})")
+                    i = i + 1
+        return -1
+
+    # returns index of the first token which does not belong to trailer
+    def parse_trailer(self, index: int) -> int:
+        i: int = index + 1
+        while i < len(self.pdf_tokens):
+            token: PdfToken = self.pdf_tokens[i]
+
+            match token.type:
+                case "dictionary":
+                    obj = DictionaryObject(self.pdf_tokens, i)
+                    self.file_structure["trailer"].append(obj.get_dict())
+                    i = i + obj.get_length()
+                case "_startxref":
+                    return i
+                case _:
+                    logger.critical(f"application_pdf.py: 'TrailerParser' is missing implementation to handle '{token.type}' (token #{i})")
                     i = i + 1
         return -1
 
     # parsing process
-    def process(self) -> None:
+    def process(self, cf, pl: int, op: int, md: dict) -> None:
         # store comment tokens
         self.file_structure["comments"] = [ContainerItem(c.position, c.length).get_dict() for c in self.pdf_tokens if c.type == "_comment"]
 
         # remove comment tokens before parsing
         self.pdf_tokens = [t for t in self.pdf_tokens if t.type != "_comment"]
 
-        # TODO: remove later!
-        #import itertools
-        #c = itertools.count()
-        #self.file_structure["debug_tokens"] = [{
-        #    "c": next(c),
-        #    "position": t.position,
-        #    "length": t.length,
-        #    "type": str(t.type).split(".")[1].lower(),
-        #    "raw": str(t.raw)
-        #} for t in self.pdf_tokens]
-
         tokens_processed: int = self.parse_header()
-        tokens_processed: int = self.parse_body(tokens_processed)
 
-        logger.warn(f"TODO: 'c: {tokens_processed}' --> {self.pdf_tokens[tokens_processed].type}")
-        # cross-ref
-        if self.pdf_tokens[tokens_processed].type == "_xref":
-            #tokens_processed: int = self.parse_cross_ref(tokens_processed)
-            pass
+        while tokens_processed < len(self.pdf_tokens):
+            _tmp_n: int = tokens_processed
+            tokens_processed: int = self.parse_body(tokens_processed)
 
-        # trailer
-        if self.pdf_tokens[tokens_processed].type == "_trailer":
-            #tokens_processed: int = self.parse_trailer(tokens_processed)
-            pass
+            if tokens_processed == -1:
+                cf.parse(pl, op + self.pdf_tokens[_tmp_n].position)
+                md["len"] = self.pdf_tokens[_tmp_n].position
+                break
 
-        # entry point and eof
-        if self.pdf_tokens[tokens_processed].type == "_startxref":
-            #tokens_processed: int = self.parse_trailer(tokens_processed)
-            pass
+            # cross-ref
+            if self.pdf_tokens[tokens_processed].type == "_xref":
+                tokens_processed: int = self.parse_xref(tokens_processed)
 
-        # TODO: implement conditions above plus check whether tokens after EOF token, if so start again from body!
+            # trailer
+            if self.pdf_tokens[tokens_processed].type == "_trailer":
+                tokens_processed: int = self.parse_trailer(tokens_processed)
+
+            # entry point and eof
+            if self.pdf_tokens[tokens_processed].type == "_startxref":
+                numeric_token: PdfToken = self.pdf_tokens[tokens_processed + 1]
+                numeric_item: ContainerItem = ContainerItem(numeric_token.position, numeric_token.length)
+                numeric_item.set_attribute("len", None)
+                self.file_structure["startxref"].append(numeric_item.get_dict())
+                tokens_processed = tokens_processed + 2
+            
+            if self.pdf_tokens[tokens_processed].type == "_eof":
+                tokens_processed = tokens_processed + 1
+
     def get_file_structure(self) -> dict:
         return self.file_structure
 
@@ -524,25 +580,9 @@ class ApplicationPdfFormat():
         pdf_tokenizer.tokenize()
         
         pdf_parser = PdfParser(pdf_tokenizer.get_token_list())
-        pdf_parser.process()
+        pdf_parser.process(cf, pl, op, md)
 
         # TODO: determine coverage and save white spaces by tokens
-
-        # TODO: process token list
-        #   as in figure 1 'PDF file components'
-        #       objects
-        #       file structure
-        #       document structure
-        #       content streams
-        #   as in figure 2 'Initial structure of a PDF file'
-        #       header
-        #       n bodies
-        #       n cross-ref tables
-        #       n trailers
-
-        ########################################
-
-        # TODO: read data to last %%EOF appearence, if data left, init rec parsing
 
         md["structured"] = pdf_parser.get_file_structure()
         return md

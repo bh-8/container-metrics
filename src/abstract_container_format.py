@@ -84,6 +84,7 @@ class AbstractContainerFormat():
             "len": length,
             "depth": parsing_layer,
             "mime_type": _mime_type
+            #"raw": str(self.file_data[position:position+length]) #TODO
         }
 
         # quit parsing if mime type not supported

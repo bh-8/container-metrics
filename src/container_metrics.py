@@ -139,6 +139,11 @@ class Main:
                     format_dict["meta"]["gridfs"] = grid_fs_id
                     target_collection.insert_one(format_dict)
 
+                    # TODO: debug print
+                    with open("/home/container-metrics/io/_out.json", "w") as f:
+                        json.dump(format_dict["data"], f)
+                        f.close()
+
                     pbar(1)
             logger.info("done")
         except Exception as e:
