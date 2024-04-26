@@ -561,6 +561,7 @@ class PdfParser():
                 numeric_token: PdfToken = self.pdf_tokens[tokens_processed + 1]
                 numeric_item: ContainerItem = ContainerItem(numeric_token.position, numeric_token.length)
                 numeric_item.set_attribute("len", None)
+                numeric_item.set_attribute("ref", numeric_token.data)
                 self.file_structure["startxref"].append(numeric_item.get_dict())
                 tokens_processed = tokens_processed + 2
             
