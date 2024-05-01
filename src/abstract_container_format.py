@@ -7,6 +7,12 @@ from static_utils import *
 import time
 from typing import List
 
+# class AbstractFileAnalyzer():
+
+# class AbstractParser():
+
+# aufbau der beschreibungen aus einheitlichen klassen, um coverage abstrakt zu lösen
+
 class AbstractContainerFormat():
     def __init__(self, mime_type_dict: dict) -> None:
         # abstract properties
