@@ -1,4 +1,4 @@
-from static_utils import ContainerItem, StaticLogger
+from static_utils import ContainerItem, StaticLogger, Coverage
 import abc
 import re
 
@@ -185,7 +185,7 @@ class PdfTokenizer():
 
             # special treatment for '{'
             if token.startswith(DELIMITER_CHARACTERS[6]):
-                logger.critical("application_pdf.py: missing implementation to handle '\{'")
+                logger.warn("application_pdf.py: missing implementation to handle '\{'")
                 # TODO: implement this ...
 
             # special treatment for ']'
@@ -545,6 +545,7 @@ class PdfParser():
             tokens_processed: int = self.parse_body(tokens_processed)
 
             if tokens_processed == -1:
+                # TODO: code quality is bad
                 cf.parse(pl, op + self.pdf_tokens[_tmp_n].position)
                 md["len"] = self.pdf_tokens[_tmp_n].position
                 break
@@ -569,6 +570,9 @@ class PdfParser():
             if self.pdf_tokens[tokens_processed].type == "_eof":
                 tokens_processed = tokens_processed + 1
 
+    def set_whitespaces(self, uncovered_list: list[dict]) -> None:
+        self.file_structure["whitespaces"] = uncovered_list
+
     def get_file_structure(self) -> dict:
         return self.file_structure
 
@@ -583,9 +587,15 @@ class ApplicationPdfFormat():
 
         pdf_tokenizer = PdfTokenizer(pd)
         pdf_tokenizer.tokenize()
-        
+
+
         pdf_parser = PdfParser(pdf_tokenizer.get_token_list())
         pdf_parser.process(cf, pl, op, md)
+
+        # TODO: check whether this works for eof-appended files
+        coverage: Coverage = Coverage([{"pos": t.position, "len": t.length} for t in pdf_tokenizer.get_token_list()], md["len"]) 
+
+        pdf_parser.set_whitespaces(coverage.uncovered_positions())
 
         # TODO: determine coverage and save white spaces by tokens
 
