@@ -481,15 +481,15 @@ class PdfParser():
 
             match token.type:
                 case "numeric":
-                    ref_tab: ContainerItem = ContainerItem(token.position, 0)
-                    ref_tab.set_attribute("len", None)
-                    ref_tab.set_attribute("type", "cross_ref_table")
+                    #ref_tab: ContainerItem = ContainerItem(token.position, 0)
+                    #ref_tab.set_attribute("len", None)
+                    #ref_tab.set_attribute("type", "cross_ref_table")
                     range_offset: int = self.pdf_tokens[i].data
                     cross_ref_entries: int = self.pdf_tokens[i + 1].data
 
                     i = i + 2
                     c: int = 0
-                    ref_tab_list: list = []
+                    #ref_tab_list: list = []
                     while c < cross_ref_entries and i + 3 < len(self.pdf_tokens):
                         ref_tab_entry: ContainerItem = ContainerItem(self.pdf_tokens[i].position, 0)
                         ref_tab_entry.set_attribute("len", None)
@@ -497,12 +497,13 @@ class PdfParser():
                         ref_tab_entry.set_attribute("byte_offset", self.pdf_tokens[i].data)
                         ref_tab_entry.set_attribute("generation_number", self.pdf_tokens[i + 1].data)
                         ref_tab_entry.set_attribute("in_use", self.pdf_tokens[i + 2].raw == b"n")
-                        ref_tab_list.append(ref_tab_entry.get_dict())
+                        #ref_tab_list.append(ref_tab_entry.get_dict())
+                        self.file_structure["xref"].append(ref_tab_entry.get_dict())
                         i = i + 3
                         c = c + 1
 
-                    ref_tab.set_attribute("entries", ref_tab_list)
-                    self.file_structure["xref"].append(ref_tab.get_dict())
+                    #ref_tab.set_attribute("entries", ref_tab_list)
+                    #self.file_structure["xref"].append(ref_tab.get_dict())
                 case "_trailer" | "_startxref":
                     return i
                 case _:
