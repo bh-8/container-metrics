@@ -79,6 +79,9 @@ class AbstractContainerFormat():
         # determine mime info
         _mime_type: str = MIMEDetector.from_bytes_by_magic(_data)
 
+        if not _mime_type in self.mime_type_dict and self.file_data.find(b"\x25PDF-", position) > -1:
+            _mime_type = "application/pdf"
+
         _media_dict = {
             "pos": position,
             "len": length,
