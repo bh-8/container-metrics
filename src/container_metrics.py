@@ -116,6 +116,8 @@ class Main:
                 for file_path in filtered_path_list:
                     logger.info(f"inspecting file '{file_path}'...")
 
+                    # TODO: create loop here through file sections ("mime-sections")
+
                     # initialize format structure
                     format_structure: AbstractContainerFormat = AbstractContainerFormat(mime_type_dict)
 
