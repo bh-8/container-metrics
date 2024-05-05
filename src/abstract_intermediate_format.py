@@ -1,4 +1,5 @@
 import abc
+from static_utils import StaticLogger
 
 class ContainerFragment():
     def __init__(self, offset: int, length: int) -> None:
@@ -38,7 +39,8 @@ class ContainerSegment():
     def get_list(self) -> list[dict]:
         return [f.get_dictionary() for f in self._segment]
 class ContainerSection():
-    def __init__(self, position: int, mime_type: str, analysis_depth: int) -> None:
+    def __init__(self, position: int, data: bytes, mime_type: str, analysis_depth: int) -> None:
+        self._data = data
         self._section: dict = {
             "position": position,
             "length": None,
@@ -56,12 +58,15 @@ class ContainerSection():
     def set_segment(self, key: str, segment: ContainerSegment) -> None:
         self._section[key] = segment.get_list()
 
+    def get_data(self) -> bytes:
+        return self._data
+
     def get_section(self) -> dict:
         return self._section
 
 class AbstractStructureAnalysis(abc.ABC):
     def __init__(self) -> None:
-        pass
+        self.logger = StaticLogger.get_logger()
 
     def process_section(self, section: ContainerSection) -> ContainerSection:
         raise NotImplementedError("no implementation available")

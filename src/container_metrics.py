@@ -16,7 +16,7 @@ MIME_INFO = "./container_formats/mime_mapping.json"
 
 class IntermediateFormat():
     def __init__(self, file_path: Path, supported_mime_types: dict, analysis_depth_cap: int) -> None:
-        self.logger: StaticLogger = StaticLogger.get_logger()
+        self.logger: StaticLogger = StaticLogger.get_logger() #TODO: log output
         self.file_path: Path = file_path
         self.supported_mime_types: dict = supported_mime_types
         self.analysis_depth_cap: int = analysis_depth_cap
@@ -99,7 +99,7 @@ class IntermediateFormat():
                 _analysis_length = _pdf_tag - _analysis_position
                 _analysis_data: bytes = self.file_data[_analysis_position:_analysis_position+_analysis_length]
 
-            _section: ContainerSection = ContainerSection(_analysis_position, _mime_type, _analysis_depth)
+            _section: ContainerSection = ContainerSection(_analysis_position, _analysis_data, _mime_type, _analysis_depth)
 
             # decide specialized analysis
             if _mime_type in self.supported_mime_types:

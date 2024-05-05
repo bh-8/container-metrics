@@ -99,6 +99,13 @@ def flatten_paths(path_list: list[Path], recursive: bool = False) -> list[Path]:
 def to_camel_case(string_with_underscores: str) -> str:
     return "".join([s.capitalize() for s in string_with_underscores.split("_")])
 
+@staticmethod
+def try_utf8_conv(raw: bytes) -> str | bytes:
+    try:
+        return str(raw, "utf-8")
+    except:
+        return raw
+
 #class Coverage():
 #    def __init__(self, coverage_list: list[dict], total_length: int) -> None:
 #        self.coverage_list: list[dict] = coverage_list
