@@ -1,9 +1,10 @@
 import logging
-import magic
-import mimetypes
 from pathlib import Path
 import pymongo
 from typing import Callable, List
+import logging
+import magic
+import mimetypes
 
 static_logger: logging.Logger = None
 class StaticLogger: # singleton
@@ -25,21 +26,6 @@ class StaticLogger: # singleton
             raise TypeError("singleton instance uninitialized")
         return static_logger
 
-static_mongo: pymongo.MongoClient = None
-class MongoInterface: # singleton
-    @staticmethod
-    def set_connection(mongo_connection_string: str) -> None:
-        global static_mongo
-        if static_mongo is None:
-            static_mongo = pymongo.MongoClient(mongo_connection_string)
-
-    @staticmethod
-    def get_connection() -> pymongo.MongoClient:
-        global static_mongo
-        if static_mongo is None:
-            raise TypeError("singleton instance uninitialized")
-        return static_mongo
-
 class MIMEDetector:
     @staticmethod
     def from_path_by_filename(path: Path) -> str | None:
@@ -59,8 +45,24 @@ class MIMEDetector:
     def from_bytes_by_magic(data: bytes) -> str | None:
         mt = magic.from_buffer(data, mime=True)
         if mt is None:
-            StaticLogger.get_logger().critical(f"could not determine mime-type by libmagic of file '{path}'")
+            StaticLogger.get_logger().critical(f"could not determine mime-type by libmagic of binary data")
         return mt
+
+static_mongo: pymongo.MongoClient = None
+class MongoInterface: # singleton
+    @staticmethod
+    def set_connection(mongo_connection_string: str) -> None:
+        global static_mongo
+        if static_mongo is None:
+            static_mongo = pymongo.MongoClient(mongo_connection_string)
+
+    @staticmethod
+    def get_connection() -> pymongo.MongoClient:
+        global static_mongo
+        if static_mongo is None:
+            raise TypeError("singleton instance uninitialized")
+        return static_mongo
+
 
 @staticmethod
 def flatten_paths(path_list: List[Path], recursive: bool = False) -> List[Path]:
@@ -95,58 +97,58 @@ def flatten_paths(path_list: List[Path], recursive: bool = False) -> List[Path]:
 
     return list(dict.fromkeys(flattened_list))
 
-@staticmethod
-def filter_paths(path_list: List[Path], supported_mime_types: List[str], mime_type_filter: Callable[[str], str | None]) -> List[Path]:
-    filtered_path_list = [
-        f for f in path_list
-            if (mime_type_filter(f) is not None)
-                and (mime_type_filter(f) in supported_mime_types)
-    ]
-
-    if len(filtered_path_list) == 0:
-        raise FileNotFoundError(f"none of the given files is supported")
-
-    return filtered_path_list
+#@staticmethod
+#def filter_paths(path_list: List[Path], supported_mime_types: List[str], mime_type_filter: Callable[[str], str | None]) -> List[Path]:
+#    filtered_path_list = [
+#        f for f in path_list
+#            if (mime_type_filter(f) is not None)
+#                and (mime_type_filter(f) in supported_mime_types)
+#    ]
+#
+#    if len(filtered_path_list) == 0:
+#        raise FileNotFoundError(f"none of the given files is supported")
+#
+#    return filtered_path_list
 
 @staticmethod
 def to_camel_case(string_with_underscores: str) -> str:
     return "".join([s.capitalize() for s in string_with_underscores.split("_")])
 
-class ContainerItem():
-    def __init__(self, position: int, length: int) -> None:
-        self.internal_dict: dict = {
-            "pos": position,
-            "len": length
-        }
-    def set_attribute(self, key: str, data) -> None:
-        if data is None and key in self.internal_dict:
-            del self.internal_dict[key]
-        else:
-            self.internal_dict[key] = data
-    def get_dict(self) -> dict:
-        return self.internal_dict
+#class ContainerItem():
+#    def __init__(self, position: int, length: int) -> None:
+#        self.internal_dict: dict = {
+#            "pos": position,
+#            "len": length
+#        }
+#    def set_attribute(self, key: str, data) -> None:
+#        if data is None and key in self.internal_dict:
+#            del self.internal_dict[key]
+#        else:
+#            self.internal_dict[key] = data
+#    def get_dict(self) -> dict:
+#        return self.internal_dict
 
-class Coverage():
-    def __init__(self, coverage_list: list[dict], total_length: int) -> None:
-        self.coverage_list: list[dict] = coverage_list
-        self.total_length: int = total_length
-    def uncovered_positions(self) -> list[dict]:
-        covered_to: int = 0
-        uncovered: list[dict] = []
-        for i in self.coverage_list:
-            position: int = i["pos"]
-            length: int = i["len"]
-            if covered_to == position:
-                covered_to = covered_to + length
-            else:
-                uncovered.append({
-                    "pos": covered_to,
-                    "len": position - covered_to
-                })
-                covered_to = position + length
-        if covered_to < self.total_length:
-            uncovered.append({
-                "pos": covered_to,
-                "len": self.total_length - covered_to
-            })
-        return [i for i in uncovered if i["pos"] + i["len"] <= self.total_length]
+#class Coverage():
+#    def __init__(self, coverage_list: list[dict], total_length: int) -> None:
+#        self.coverage_list: list[dict] = coverage_list
+#        self.total_length: int = total_length
+#    def uncovered_positions(self) -> list[dict]:
+#        covered_to: int = 0
+#        uncovered: list[dict] = []
+#        for i in self.coverage_list:
+#            position: int = i["pos"]
+#            length: int = i["len"]
+#            if covered_to == position:
+#                covered_to = covered_to + length
+#            else:
+#                uncovered.append({
+#                    "pos": covered_to,
+#                    "len": position - covered_to
+#                })
+#                covered_to = position + length
+#        if covered_to < self.total_length:
+#            uncovered.append({
+#                "pos": covered_to,
+#                "len": self.total_length - covered_to
+#            })
+#        return [i for i in uncovered if i["pos"] + i["len"] <= self.total_length]

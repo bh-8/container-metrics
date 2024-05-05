@@ -1,12 +1,12 @@
-from abstract_container_format import AbstractContainerFormat
+#from abstract_container_format import AbstractContainerFormat
+from abstract_intermediate_format import IntermediateFormat
 from alive_progress import alive_bar
 import argparse
 import datetime
 import gridfs
 import json
 from pathlib import Path
-from pymongo.errors import DocumentTooLarge
-from static_utils import *
+from static_utils import StaticLogger, MongoInterface, flatten_paths
 import sys
 
 PROG_NAME = "container-metrics"
@@ -97,12 +97,11 @@ class Main:
             path_list = flatten_paths([Path(x).resolve() for x in args.paths], args.recursive)
             logger.info(f"found {len(path_list)} file(s) in total")
 
-            # filter unsupported mime-types
-            mime_type_dict = {}
+            # load 'mime_mapping.json'
+            supported_mime_types: dict = {}
             with open(MIME_INFO) as json_handle:
-                mime_type_dict = json.loads(json_handle.read())
-            filtered_path_list = filter_paths(path_list, list(mime_type_dict.keys()), MIMEDetector.from_path_by_magic if args.magic else MIMEDetector.from_path_by_filename)
-            logger.info(f"found {len(filtered_path_list)} file(s) with supported mime-types ({', '.join(list(mime_type_dict.keys()))})")
+                supported_mime_types = json.loads(json_handle.read())
+            logger.info(f"supported mime-types are {', '.join(list(supported_mime_types.keys()))}")
 
             # test connection to mongo db instance
             logger.debug(f"setting up connection to '{args.mongodb}'...")
@@ -112,38 +111,32 @@ class Main:
             logger.info(f"connected to database via '{args.mongodb}'")
 
             # loop supported files
-            with alive_bar(len(filtered_path_list), title="scan progress") as pbar:
-                for file_path in filtered_path_list:
+            with alive_bar(len(path_list), title="scan progress") as pbar:
+                for file_path in path_list:
                     logger.info(f"inspecting file '{file_path}'...")
 
-                    # TODO: create loop here through file sections ("mime-sections")
+                    # TODO: implement as switch...
+                    _int_max_parsing_depth = 3
 
-                    # initialize format structure
-                    format_structure: AbstractContainerFormat = AbstractContainerFormat(mime_type_dict)
+                    # analysis
+                    intermediate_format: IntermediateFormat = IntermediateFormat(file_path, supported_mime_types, _int_max_parsing_depth)
 
-                    # read input file
-                    format_structure.read_file(file_path)
-
-                    # start parsing
-                    format_structure.parse(0)
-
-                    # get analysis data
-                    format_dict: dict = format_structure.get_format_dict()
+                    intermediate_format_dict: dict = intermediate_format.get_intermediate_format()
 
                     # insert json structure into database
                     logger.debug(f"storing metrics in database '{db_name}/{c_name}'...")
-                    target_db = MongoInterface.get_connection()[db_name]
-                    target_collection = MongoInterface.get_connection()[db_name][c_name]
 
-                    # write analysis data
+                    target_db = MongoInterface.get_connection()[db_name]
                     grid_fs = gridfs.GridFS(target_db, "gridfs")
-                    grid_fs_id = grid_fs.put(format_structure.get_file_data(), filename=file_path.name)
-                    format_dict["meta"]["gridfs"] = grid_fs_id
-                    target_collection.insert_one(format_dict)
+                    grid_fs_id = grid_fs.put(intermediate_format.get_file_data(), filename=file_path.name)
+
+                    intermediate_format_dict["meta"]["gridfs"] = grid_fs_id
+                    target_collection = MongoInterface.get_connection()[db_name][c_name]
+                    target_collection.insert_one(intermediate_format_dict)
 
                     # TODO: debug print
                     with open("/home/container-metrics/io/_out.json", "w") as f:
-                        json.dump(format_dict["data"], f)
+                        json.dump(intermediate_format_dict["sections"], f)
                         f.close()
 
                     pbar(1)
