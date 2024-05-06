@@ -119,7 +119,7 @@ class IntermediateFormat():
                 _section.set_length(_analysis_length)
 
             # coverage
-            _coverage: Coverage = Coverage(_section)
+            _coverage: Coverage = Coverage.from_section(_section)
             _section.add_segment("uncovered", _coverage.get_uncovered_segment())
 
             self.intermediate_format["sections"].append(_section.get_section())

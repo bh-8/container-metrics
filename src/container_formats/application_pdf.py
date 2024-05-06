@@ -1,4 +1,4 @@
-from abstract_intermediate_format import AbstractStructureAnalysis, ContainerSection, ContainerSegment, ContainerFragment
+from abstract_intermediate_format import AbstractStructureAnalysis, ContainerSection, ContainerSegment, ContainerFragment, Coverage
 from static_utils import try_utf8_conv
 import abc
 import re
@@ -440,7 +440,6 @@ class ApplicationPdfAnalysis(AbstractStructureAnalysis):
         _comment_segment: ContainerSegment = ContainerSegment()
         for x in [ContainerFragment(t.offset, self.calculate_next_token_position(t.offset) - t.offset) for t in self.pdf_tokens if t.type == "_comment"]:
             _comment_segment.add_fragment(x)
-        section.add_segment("comments", _comment_segment)
 
         self.pdf_tokens = [t for t in self.pdf_tokens if t.type != "_comment"]
 
@@ -568,8 +567,9 @@ class ApplicationPdfAnalysis(AbstractStructureAnalysis):
 
                 i = i + 1
             section.add_segment("eof", _eof_segment)
-
+            section.add_segment("comments", _comment_segment)
             section.calculate_length()
+            _whitespace_coverage: Coverage = Coverage([{"o": t.offset, "l": t.length} for t in self.full_tokens], 0, section.get_length())
+            section.add_segment("whitespaces", _whitespace_coverage.get_uncovered_segment())
 
-        # TODO: WHITESPACES
         return section
