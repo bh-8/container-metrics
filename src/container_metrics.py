@@ -57,7 +57,7 @@ class IntermediateFormat():
         self.init_investigation_meta()
         self.file_structure_analysis()
 
-    def queue_analysis(self, position: int, length: int | None = None, depth: int = 0) -> None:
+    def queue_analysis(self, position: int, depth: int = 0, length: int | None = None) -> None:
         self.analysis_queue.append({
             "position": position,
             "length": length,
@@ -95,11 +95,11 @@ class IntermediateFormat():
             # PDF special case
             _pdf_tag: int = self.file_data.find(b"\x25PDF-", _analysis_position)
             if not _mime_type in self.supported_mime_types and _pdf_tag > _analysis_position:
-                self.queue_analysis(_pdf_tag)
+                self.queue_analysis(_pdf_tag, _analysis_depth + 1)
                 _analysis_length = _pdf_tag - _analysis_position
                 _analysis_data: bytes = self.file_data[_analysis_position:_analysis_position+_analysis_length]
 
-            _section: ContainerSection = ContainerSection(_analysis_position, _analysis_data, _mime_type, _analysis_depth)
+            _section: ContainerSection = ContainerSection(self, _analysis_position, _analysis_data, _mime_type, _analysis_depth)
 
             # decide specialized analysis
             if _mime_type in self.supported_mime_types:

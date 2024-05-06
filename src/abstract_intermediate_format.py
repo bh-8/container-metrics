@@ -1,5 +1,6 @@
 import abc
 from static_utils import StaticLogger
+from functools import reduce
 
 class ContainerFragment():
     def __init__(self, offset: int, length: int) -> None:
@@ -39,7 +40,8 @@ class ContainerSegment():
     def get_list(self) -> list[dict]:
         return [f.get_dictionary() for f in self._segment]
 class ContainerSection():
-    def __init__(self, position: int, data: bytes, mime_type: str, analysis_depth: int) -> None:
+    def __init__(self, recursive: any, position: int, data: bytes, mime_type: str, analysis_depth: int) -> None:
+        self._recursive = recursive
         self._data = data
         self._section: dict = {
             "position": position,
@@ -49,20 +51,42 @@ class ContainerSection():
             "analysis_depth": analysis_depth
         }
 
+    def new_analysis(self, offset: int, length: int | None = None) -> None:
+        self._recursive.queue_analysis(self._section["position"] + offset, self._section["analysis_depth"] + 1, length)
+
     def set_length(self, length: int) -> None:
         self._section["length"] = length
 
     def set_mime_name(self, mime_name: str) -> None:
         self._section["mime_name"] = mime_name
 
-    def set_segment(self, key: str, segment: ContainerSegment) -> None:
-        self._section[key] = segment.get_list()
+    def add_segment(self, key: str, segment: ContainerSegment) -> None:
+        if not "segments" in self._section:
+            self._section["segments"] = {}
+        if not key in self._section["segments"]:
+            self._section["segments"][key] = []
+        self._section["segments"][key] = self._section["segments"][key] + segment.get_list()
 
     def get_data(self) -> bytes:
         return self._data
 
     def get_section(self) -> dict:
         return self._section
+
+    def get_coverage_list(self) -> list:
+        if not "segments" in self._section:
+            return []
+        coverage_list: list[dict] = []
+        [[coverage_list.append({"offset": f["offset"], "length": f["length"]}) for f in self._section["segments"][k]] for k in self._section["segments"].keys()]
+        return coverage_list
+
+    def calculate_length(self) -> None:
+        _max: int = 0
+        for c in self.get_coverage_list():
+            s = c["offset"] + c["length"]
+            if s > _max:
+                _max = s
+        self.set_length(_max)
 
 class AbstractStructureAnalysis(abc.ABC):
     def __init__(self) -> None:
