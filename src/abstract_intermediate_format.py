@@ -54,6 +54,12 @@ class ContainerSection():
     def new_analysis(self, offset: int, length: int | None = None) -> None:
         self._recursive.queue_analysis(self._section["position"] + offset, self._section["analysis_depth"] + 1, length)
 
+    def get_position(self) -> int:
+        return self._section["position"]
+
+    def get_length(self) -> int | None:
+        return self._section["length"]
+
     def set_length(self, length: int) -> None:
         self._section["length"] = length
 
@@ -94,3 +100,42 @@ class AbstractStructureAnalysis(abc.ABC):
 
     def process_section(self, section: ContainerSection) -> ContainerSection:
         raise NotImplementedError("no implementation available")
+
+class Coverage():
+    def __init__(self, section: ContainerSection) -> None:
+        self._segment: ContainerSegment = ContainerSegment()
+
+        if "segments" in section.get_section():
+            _coverage_data: list[dict] = []
+
+            for k in section.get_section()["segments"].keys():
+                for f in section.get_section()["segments"][k]:
+                    _coverage_data.append({"o": f["offset"], "l": f["length"]})
+
+            # sort
+            _coverage_data = sorted(_coverage_data, key=lambda d: d["o"])
+
+            # coverage algorithm
+            coverage_offset: int = 0
+            for c in _coverage_data:
+                if c["o"] >= section.get_length():
+                    break
+                if coverage_offset == c["o"]:
+                    coverage_offset = coverage_offset + c["l"]
+                elif coverage_offset < c["o"]:
+                    _gap: int = c["o"] - coverage_offset
+                    self._segment.add_fragment(ContainerFragment(coverage_offset, _gap))
+                    coverage_offset = coverage_offset + _gap + c["l"]
+                else:
+                    # case for double-covered segments -> e.g. comments inside indirect objects/dictionaries/arrays/...
+                    continue
+
+            if not section.get_length() is None and coverage_offset < section.get_length():
+                self._segment.add_fragment(ContainerFragment(coverage_offset, section.get_length() - coverage_offset))
+
+        else:
+            if not section.get_length() is None:
+                self._segment.add_fragment(ContainerFragment(section.get_position(), section.get_length()))
+
+    def get_uncovered_segment(self) -> ContainerSegment:
+        return self._segment

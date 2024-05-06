@@ -1,4 +1,4 @@
-from abstract_intermediate_format import ContainerSection
+from abstract_intermediate_format import ContainerSection, ContainerSegment, ContainerFragment, Coverage
 from container_formats import *
 from alive_progress import alive_bar
 import argparse
@@ -117,6 +117,10 @@ class IntermediateFormat():
                 _section = _format_specific_analysis.process_section(_section)
             else:
                 _section.set_length(_analysis_length)
+
+            # coverage
+            _coverage: Coverage = Coverage(_section)
+            _section.add_segment("uncovered", _coverage.get_uncovered_segment())
 
             self.intermediate_format["sections"].append(_section.get_section())
 

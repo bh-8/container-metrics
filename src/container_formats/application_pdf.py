@@ -421,16 +421,24 @@ class ArrayObject(AbstractObject): # <<<>>>
 class ApplicationPdfAnalysis(AbstractStructureAnalysis):
     def __init__(self) -> None:
         super().__init__()
+        self.full_tokens: list[PdfToken] = None
         self.pdf_tokens: list[PdfToken] = None
+
+    def calculate_next_token_position(self, input_offset: int) -> int:
+        for i in range(len(self.full_tokens)):
+            if self.full_tokens[i].offset >= input_offset:
+                return self.full_tokens[i+1].offset
+        return input_offset
 
     def process_section(self, section: ContainerSection):
         # split data into tokens
         _pdf_tokenizer = PdfTokenizer(section.get_data())
         _pdf_tokenizer.tokenize()
+        self.full_tokens = _pdf_tokenizer.get_token_list()
         self.pdf_tokens = _pdf_tokenizer.get_token_list()
 
         _comment_segment: ContainerSegment = ContainerSegment()
-        for x in [ContainerFragment(t.offset, section.get_data().find(b"\x0a", t.offset) + 1 - t.offset) for t in self.pdf_tokens if t.type == "_comment"]:
+        for x in [ContainerFragment(t.offset, self.calculate_next_token_position(t.offset) - t.offset) for t in self.pdf_tokens if t.type == "_comment"]:
             _comment_segment.add_fragment(x)
         section.add_segment("comments", _comment_segment)
 
@@ -443,7 +451,7 @@ class ApplicationPdfAnalysis(AbstractStructureAnalysis):
         while i < len(self.pdf_tokens):
             token: PdfToken = self.pdf_tokens[i]
             if token.type == "_header":
-                _header_fragment: ContainerFragment = ContainerFragment(token.offset, section.get_data().find(b"\x0a", token.offset) + 1 - token.offset)
+                _header_fragment: ContainerFragment = ContainerFragment(token.offset, self.calculate_next_token_position(token.offset) - token.offset)
                 _header_fragment.set_attribute("version", float(str(token.raw, "utf-8")[5:8]))
                 _header_segment.add_fragment(_header_fragment)
 
@@ -461,7 +469,7 @@ class ApplicationPdfAnalysis(AbstractStructureAnalysis):
                     case "numeric":
                         obj = NumericObject(self.pdf_tokens, i)
                         _fragment: ContainerFragment = obj.get_fragment()
-                        _fragment.set_attribute("length", self.pdf_tokens[i+obj.get_length()].offset - self.pdf_tokens[i].offset)
+                        _fragment.set_attribute("length", self.calculate_next_token_position(self.pdf_tokens[i+obj.get_length()-1].offset) - token.offset)
                         _body_segment.add_fragment(_fragment)
                         i = i + obj.get_length()
                     case "_xref" | "_trailer" | "_startxref":
@@ -478,7 +486,7 @@ class ApplicationPdfAnalysis(AbstractStructureAnalysis):
             # xref segment
             _xref_segment: ContainerSegment = ContainerSegment()
             if self.pdf_tokens[i].type == "_xref":
-                _marker: ContainerFragment = ContainerFragment(self.pdf_tokens[i].offset, self.pdf_tokens[i+1].offset - self.pdf_tokens[i].offset)
+                _marker: ContainerFragment = ContainerFragment(self.pdf_tokens[i].offset, self.calculate_next_token_position(self.pdf_tokens[i].offset) - self.pdf_tokens[i].offset)
                 _xref_segment.add_fragment(_marker)
                 while i < len(self.pdf_tokens):
                     token: PdfToken = self.pdf_tokens[i]
@@ -513,7 +521,7 @@ class ApplicationPdfAnalysis(AbstractStructureAnalysis):
             # trailer segment
             _trailer_segment: ContainerSegment = ContainerSegment()
             if self.pdf_tokens[i].type == "_trailer":
-                _marker: ContainerFragment = ContainerFragment(self.pdf_tokens[i].offset, self.pdf_tokens[i+1].offset - self.pdf_tokens[i].offset)
+                _marker: ContainerFragment = ContainerFragment(self.pdf_tokens[i].offset, self.calculate_next_token_position(self.pdf_tokens[i].offset) - self.pdf_tokens[i].offset)
                 _trailer_segment.add_fragment(_marker)
                 while i < len(self.pdf_tokens):
                     token: PdfToken = self.pdf_tokens[i]
@@ -551,7 +559,7 @@ class ApplicationPdfAnalysis(AbstractStructureAnalysis):
             if self.pdf_tokens[i].type == "_eof":
                 eof_end: int
                 if i + 1 < len(self.pdf_tokens):
-                    eof_end = section.get_data().find(b"\x0a", self.pdf_tokens[i].offset) + 1 - self.pdf_tokens[i].offset
+                    eof_end = self.calculate_next_token_position(self.pdf_tokens[i].offset) - self.pdf_tokens[i].offset
                 else:
                     eof_end = len(section.get_data()) - self.pdf_tokens[i].offset
 
@@ -563,5 +571,5 @@ class ApplicationPdfAnalysis(AbstractStructureAnalysis):
 
             section.calculate_length()
 
-        # TODO: WHITESPACES / COVERAGE
+        # TODO: WHITESPACES
         return section

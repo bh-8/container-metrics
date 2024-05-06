@@ -105,28 +105,3 @@ def try_utf8_conv(raw: bytes) -> str | bytes:
         return str(raw, "utf-8")
     except:
         return raw
-
-#class Coverage():
-#    def __init__(self, coverage_list: list[dict], total_length: int) -> None:
-#        self.coverage_list: list[dict] = coverage_list
-#        self.total_length: int = total_length
-#    def uncovered_positions(self) -> list[dict]:
-#        covered_to: int = 0
-#        uncovered: list[dict] = []
-#        for i in self.coverage_list:
-#            position: int = i["pos"]
-#            length: int = i["len"]
-#            if covered_to == position:
-#                covered_to = covered_to + length
-#            else:
-#                uncovered.append({
-#                    "pos": covered_to,
-#                    "len": position - covered_to
-#                })
-#                covered_to = position + length
-#        if covered_to < self.total_length:
-#            uncovered.append({
-#                "pos": covered_to,
-#                "len": self.total_length - covered_to
-#            })
-#        return [i for i in uncovered if i["pos"] + i["len"] <= self.total_length]
