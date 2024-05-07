@@ -268,6 +268,7 @@ class Main:
                     grid_fs = gridfs.GridFS(target_db, "gridfs")
                     grid_fs_id = grid_fs.put(intermediate_format.get_file_data(), filename=file_path.name)
 
+                    # TODO: implement optional parameter to set the collection name (scalability)
                     intermediate_format_dict["meta"]["gridfs"] = grid_fs_id
                     target_collection = MongoInterface.get_connection()[db_name][c_name]
                     target_collection.insert_one(intermediate_format_dict)

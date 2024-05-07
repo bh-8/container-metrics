@@ -1,4 +1,5 @@
 {
-    "application/pdf": ["application_pdf", "Portable Document Format", "255044462d"],
-    "image/jpeg": ["image_jpeg", "JPEG File Interchange Format", "ffd8"]
+    "application/pdf":  ["application_pdf", "Portable Document Format",     "255044462d"],
+    "image/jpeg":       ["image_jpeg",      "JPEG File Interchange Format", "ffd8"      ],
+    "_audio/mpeg":       ["audio_mpeg",      "MPEG Audio Layer III",         "494433"    ]
 }
