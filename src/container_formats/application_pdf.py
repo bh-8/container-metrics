@@ -1,4 +1,4 @@
-from abstract_intermediate_format import AbstractStructureAnalysis, ContainerSection, ContainerSegment, ContainerFragment, Coverage
+from abstract_intermediate_format import *
 from static_utils import try_utf8_conv
 import abc
 import re

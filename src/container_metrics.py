@@ -11,6 +11,12 @@ import sys
 import hashlib
 import os
 
+# TODO: JPEG
+# TODO: MP3
+# TODO: logging
+# TODO: todos
+# TODO: class variables start _; privates no underscore!
+
 PROG_NAME = "container-metrics"
 MIME_INFO = "./container_formats/mime_mapping.json"
 
@@ -92,12 +98,20 @@ class IntermediateFormat():
             _analysis_data: bytes = self.file_data[_analysis_position:_analysis_position+_analysis_length]
             _mime_type: str = MIMEDetector.from_bytes_by_magic(_analysis_data)
 
-            # PDF special case
-            _pdf_tag: int = self.file_data.find(b"\x25PDF-", _analysis_position)
-            if not _mime_type in self.supported_mime_types and _pdf_tag > _analysis_position:
-                self.queue_analysis(_pdf_tag, _analysis_depth + 1)
-                _analysis_length = _pdf_tag - _analysis_position
-                _analysis_data: bytes = self.file_data[_analysis_position:_analysis_position+_analysis_length]
+            # find begin of files even when mime type is unknown at first
+            if not _mime_type in self.supported_mime_types:
+                hitmap: list[dict] = []
+                for k in self.supported_mime_types.keys():
+                    if len(self.supported_mime_types[k]) > 2:
+                        s: bytes = bytes.fromhex(self.supported_mime_types[k][2])
+                        f: int = self.file_data.find(s, _analysis_position)
+                        if f > _analysis_position:
+                            hitmap.append([f, f - _analysis_position])
+                if len(hitmap) > 0:
+                    hit = sorted(hitmap, key=lambda d: d[0])[0]
+                    self.queue_analysis(hit[0], _analysis_depth + 1)
+                    _analysis_length = hit[1]
+                    _analysis_data: bytes = self.file_data[_analysis_position:_analysis_position+_analysis_length]
 
             _section: ContainerSection = ContainerSection(self, _analysis_position, _analysis_data, _mime_type, _analysis_depth)
 
@@ -119,8 +133,12 @@ class IntermediateFormat():
                 _section.set_length(_analysis_length)
 
             # coverage
-            _coverage: Coverage = Coverage.from_section(_section)
-            _section.add_segment("uncovered", _coverage.get_uncovered_segment())
+            try:
+                _coverage: Coverage = Coverage.from_section(_section)
+                _section.add_segment("uncovered", _coverage.get_uncovered_segment())
+            except ValueError:
+                self.logger.critical("could not perform coverage analysis as section has no length")
+                _section.add_segment("uncovered", ContainerSegment())
 
             self.intermediate_format["sections"].append(_section.get_section())
 

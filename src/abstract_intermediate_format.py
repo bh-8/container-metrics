@@ -1,6 +1,5 @@
 import abc
 from static_utils import StaticLogger
-from functools import reduce
 
 class ContainerFragment():
     def __init__(self, offset: int, length: int) -> None:
@@ -102,7 +101,7 @@ class AbstractStructureAnalysis(abc.ABC):
         raise NotImplementedError("no implementation available")
 
 class Coverage():
-    def __init__(self, data: list[dict], position: int, coverage_limit: int) -> None:
+    def __init__(self, data: list[dict], position: int, coverage_limit: int | None) -> None:
         if coverage_limit is None:
             raise ValueError("coverage section length is null")
 

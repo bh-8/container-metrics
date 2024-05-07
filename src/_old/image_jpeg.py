@@ -321,7 +321,7 @@ SEGMENT_TYPES = {
     }
 }
 
-class JpegSegment():
+class OldJpegSegment():
     def __init__(self, id: int, pos: int) -> None:
         self.id: int = id
         self.pos: int = pos
@@ -389,7 +389,7 @@ class ImageJpegFormat():
                 break
 
             _seg_id: int = pd[_seg_id_pos]
-            _seg_new: JpegSegment = JpegSegment(_seg_id, _ff_pos)
+            _seg_new: JpegSegment = OldJpegSegment(_seg_id, _ff_pos)
 
             # special segments (without payload)
             if _seg_id == 0 or _seg_id == 255:
