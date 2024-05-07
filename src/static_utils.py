@@ -30,21 +30,21 @@ class MIMEDetector:
     def from_path_by_filename(path: Path) -> str | None:
         mt = mimetypes.guess_type(path, False)[0]
         if mt is None:
-            StaticLogger.get_logger().critical(f"could not determine mime-type by filename of file '{path}'")
+            StaticLogger.get_logger().warning(f"could not determine mime-type by filename of file '{path}'")
         return mt
 
     @staticmethod
     def from_path_by_magic(path: Path) -> str | None:
         mt = magic.from_file(path, mime=True)
         if mt is None:
-            StaticLogger.get_logger().critical(f"could not determine mime-type by libmagic of file '{path}'")
+            StaticLogger.get_logger().warning(f"could not determine mime-type by libmagic of file '{path}'")
         return mt
 
     @staticmethod
     def from_bytes_by_magic(data: bytes) -> str | None:
         mt = magic.from_buffer(data, mime=True)
         if mt is None:
-            StaticLogger.get_logger().critical(f"could not determine mime-type by libmagic of binary data")
+            StaticLogger.get_logger().warning(f"could not determine mime-type by libmagic of binary data")
         return mt
 
 static_mongo: pymongo.MongoClient = None

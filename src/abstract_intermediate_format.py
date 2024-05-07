@@ -82,13 +82,13 @@ class ContainerSection():
         if not "segments" in self._section:
             return []
         coverage_list: list[dict] = []
-        [[coverage_list.append({"offset": f["offset"], "length": f["length"]}) for f in self._section["segments"][k]] for k in self._section["segments"].keys()]
+        [[coverage_list.append({"o": f["offset"], "l": f["length"]}) for f in self._section["segments"][k]] for k in self._section["segments"].keys()]
         return coverage_list
 
     def calculate_length(self) -> None:
         _max: int = 0
         for c in self.get_coverage_list():
-            s = c["offset"] + c["length"]
+            s = c["o"] + c["l"]
             if s > _max:
                 _max = s
         self.set_length(_max)

@@ -13,6 +13,7 @@ import os
 
 # TODO: JPEG
 # TODO: MP3
+
 # TODO: logging
 # TODO: todos
 # TODO: class variables start _; privates no underscore!
@@ -205,7 +206,7 @@ class Main:
         )
         parser.add_argument("--magic",
             action="store_true",
-            help="use libmagic to detect mime type instead of file extension"
+            help="use libmagic to detect initial mime type instead of file extension"
         )
         parser.add_argument("--log",
             type=str,
@@ -253,7 +254,7 @@ class Main:
                     logger.info(f"inspecting file '{file_path}'...")
 
                     # TODO: implement as switch...
-                    _int_max_parsing_depth = 3
+                    _int_max_parsing_depth = 10
 
                     # analysis
                     intermediate_format: IntermediateFormat = IntermediateFormat(file_path, supported_mime_types, _int_max_parsing_depth)
