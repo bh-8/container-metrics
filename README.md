@@ -12,7 +12,7 @@ an extensible framework for feature extraction of container format files
 - basic usage/help: `./container-metrics`
 - shutdown database services: `docker compose down`
 ### debugging
-- `./container-metrics scan mongodb://admin:admin@mongo-db:27017 io/input/ --log debug`
+- `docker compose build && ./container-metrics acquire mongodb://admin:admin@mongo-db:27017 collection io/mixed.blob --log=debug`
 ## references
 - Multimedia Authentication Testing: https://forensicworkinggroup.com/MAT.pdf
 - https://enfsi.eu/wp-content/uploads/2022/12/1.-BPM_Image-Authentication_ENFSI-BPM-DI-03-1.pdf

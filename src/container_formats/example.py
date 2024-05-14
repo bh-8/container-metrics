@@ -1,4 +1,4 @@
-from abstract_intermediate_format import *
+from abstract_structure_mapping import *
 
 class ExampleAnalysis(AbstractStructureAnalysis):
     def __init__(self) -> None:

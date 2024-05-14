@@ -1,4 +1,4 @@
-from abstract_intermediate_format import *
+from abstract_structure_mapping import *
 from static_utils import try_utf8_conv
 import abc
 import re

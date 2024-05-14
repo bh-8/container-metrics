@@ -1,4 +1,4 @@
-from abstract_intermediate_format import ContainerSection, ContainerSegment, ContainerFragment, Coverage
+from abstract_structure_mapping import ContainerSection, ContainerSegment, ContainerFragment, Coverage
 from container_formats import *
 from alive_progress import alive_bar
 import argparse
@@ -21,14 +21,14 @@ import os
 PROG_NAME = "container-metrics"
 MIME_INFO = "./container_formats/mime_mapping.json"
 
-class IntermediateFormat():
+class StructureMapping():
     def __init__(self, file_path: Path, supported_mime_types: dict, analysis_depth_cap: int) -> None:
         self.logger: StaticLogger = StaticLogger.get_logger() #TODO: log output
         self.file_path: Path = file_path
         self.supported_mime_types: dict = supported_mime_types
         self.analysis_depth_cap: int = analysis_depth_cap
 
-        self.intermediate_format: dict = {
+        self.structure_mapping: dict = {
             "meta": {
                 "file_name": None,
                 "file": {
@@ -72,16 +72,16 @@ class IntermediateFormat():
         })
 
     def init_investigation_meta(self) -> None:
-        self.intermediate_format["meta"]["investigation"]["started"] = datetime.datetime.now().isoformat()
+        self.structure_mapping["meta"]["investigation"]["started"] = datetime.datetime.now().isoformat()
 
-        self.intermediate_format["meta"]["file_name"] = self.file_path.name #TODO: remove later
-        self.intermediate_format["meta"]["file"]["name"] = self.file_path.name
-        self.intermediate_format["meta"]["file"]["size"] = len(self.file_data)
-        self.intermediate_format["meta"]["file"]["type"]["magic"] = MIMEDetector.from_bytes_by_magic(self.file_data)
-        self.intermediate_format["meta"]["file"]["type"]["extension"] = MIMEDetector.from_path_by_filename(self.file_path)
-        self.intermediate_format["meta"]["file"]["sha256"] = hashlib.sha256(self.file_data).hexdigest()
-        self.intermediate_format["meta"]["file"]["created"] = datetime.datetime.fromtimestamp(os.path.getctime(self.file_path)).isoformat()
-        self.intermediate_format["meta"]["file"]["modified"] = datetime.datetime.fromtimestamp(os.path.getmtime(self.file_path)).isoformat()
+        self.structure_mapping["meta"]["file_name"] = self.file_path.name #TODO: remove later
+        self.structure_mapping["meta"]["file"]["name"] = self.file_path.name
+        self.structure_mapping["meta"]["file"]["size"] = len(self.file_data)
+        self.structure_mapping["meta"]["file"]["type"]["magic"] = MIMEDetector.from_bytes_by_magic(self.file_data)
+        self.structure_mapping["meta"]["file"]["type"]["extension"] = MIMEDetector.from_path_by_filename(self.file_path)
+        self.structure_mapping["meta"]["file"]["sha256"] = hashlib.sha256(self.file_data).hexdigest()
+        self.structure_mapping["meta"]["file"]["created"] = datetime.datetime.fromtimestamp(os.path.getctime(self.file_path)).isoformat()
+        self.structure_mapping["meta"]["file"]["modified"] = datetime.datetime.fromtimestamp(os.path.getmtime(self.file_path)).isoformat()
 
     def file_structure_analysis(self) -> None:
         while len(self.analysis_queue) > 0:
@@ -141,11 +141,11 @@ class IntermediateFormat():
                 self.logger.critical("could not perform coverage analysis as section has no length")
                 _section.add_segment("uncovered", ContainerSegment())
 
-            self.intermediate_format["sections"].append(_section.get_section())
+            self.structure_mapping["sections"].append(_section.get_section())
 
-    def get_intermediate_format(self) -> dict:
-        self.intermediate_format["meta"]["investigation"]["finished"] = datetime.datetime.now().isoformat()
-        return self.intermediate_format
+    def get_structure_mapping(self) -> dict:
+        self.structure_mapping["meta"]["investigation"]["finished"] = datetime.datetime.now().isoformat()
+        return self.structure_mapping
 
     def get_file_data(self) -> bytes:
         return self.file_data
@@ -157,9 +157,8 @@ class Main:
             prog=f"{PROG_NAME}",
             usage=f"{PROG_NAME} <command> [<args>]",
             description="""possible commands are:
-  scan\textract and import metrics from container files into database""",
-#  export\texport views on selected metrics from the database""", # [TODO]: implementation missing
-#  add user (analyst/examiner info)
+  acquire\textract and import metrics from container files into database
+  query  \tquery database to export selected metrics in different formats""",
             epilog=None, # [TODO]: credits o.a.
             formatter_class=argparse.RawDescriptionHelpFormatter
         )
@@ -181,11 +180,10 @@ class Main:
         # call subcommand method
         getattr(self, f"subcmd_{args.command}")()
 
-    # subcommand 'scan'
-    def subcmd_scan(self):
-        # initialize subcommand parser
+    # subcommand 'acquire'
+    def subcmd_acquire(self):
         parser = argparse.ArgumentParser(
-            prog=f"{PROG_NAME} scan",
+            prog=f"{PROG_NAME} acquire",
             description="scan container files, extract and import metrics into database",
             epilog=None
         )
@@ -194,33 +192,41 @@ class Main:
             metavar="<mongodb>",
             help="mongodb connection string"
         )
+        parser.add_argument("collection",
+            type=str,
+            metavar="<collection>",
+            help="mongodb collection identifier"
+        )
+
         parser.add_argument("paths",
             type=str,
             metavar="<path>",
             nargs="+",
             help="one or more paths to container files/directories"
         )
+        parser.add_argument("--max-depth",
+            metavar="<n>",
+            type=int,
+            default=16,
+            help="maxiumum recursive analysis depth"
+        )
         parser.add_argument("--recursive",
             action="store_true",
             help="traverse given directories recursively"
-        )
-        parser.add_argument("--magic",
-            action="store_true",
-            help="use libmagic to detect initial mime type instead of file extension"
         )
         parser.add_argument("--log",
             type=str,
             choices=["debug", "info", "warning", "error"],
             default="warning",
-            help="logging level")
+            help="logging level"
+        )
 
         # display help when no argument given
         if len(sys.argv) <= 2:
             parser.print_help()
             sys.exit(1)
 
-        db_name = f"{datetime.datetime.now().year}-{datetime.datetime.now().month}-{datetime.datetime.now().day}"
-        c_name = f"{int((datetime.datetime.now()-datetime.datetime(1970, 1, 1)).total_seconds())}"
+        db_name: str = f"{datetime.datetime.now().year}-{datetime.datetime.now().month:02d}-{datetime.datetime.now().day:02d}"
 
         try:
             # subcommand arguments
@@ -229,6 +235,19 @@ class Main:
             # init logger
             StaticLogger.set_logger(PROG_NAME, args.log.upper())
             logger = StaticLogger.get_logger()
+
+            # test connection to mongo db instance
+            logger.debug(f"setting up connection to '{args.mongodb}'...")
+            MongoInterface.set_connection(args.mongodb)
+            if len(MongoInterface.get_connection()["admin"].list_collection_names()) != 2:
+                raise ConnectionError("could not verify mongo db connection")
+            logger.info(f"connected to database via '{args.mongodb}'")
+
+            ####################################################################################################
+
+            c_name: str = args.collection
+            if args.max_depth < 0:
+                raise ValueError("maximum analysis depth can not be negative")
 
             # gather input files
             logger.debug("resolving input paths...")
@@ -241,6 +260,85 @@ class Main:
                 supported_mime_types = json.loads(json_handle.read())
             logger.info(f"supported mime-types are {', '.join(list(supported_mime_types.keys()))}")
 
+            # loop supported files
+            with alive_bar(len(path_list), title="acquisition progress") as pbar:
+                for file_path in path_list:
+                    logger.info(f"inspecting file '{file_path}'...")
+
+                    # analysis
+                    structure_mapping: StructureMapping = StructureMapping(file_path, supported_mime_types, args.max_depth)
+
+                    structure_mapping_dict: dict = structure_mapping.get_structure_mapping()
+
+                    # insert json structure into database
+                    logger.debug(f"storing metrics in database '{db_name}/{c_name}'...")
+
+                    target_db = MongoInterface.get_connection()[db_name]
+                    grid_fs = gridfs.GridFS(target_db, "gridfs")
+                    grid_fs_id = grid_fs.put(structure_mapping.get_file_data(), filename=file_path.name)
+
+                    # TODO: implement optional parameter to set the collection name (scalability)
+                    structure_mapping_dict["meta"]["gridfs"] = grid_fs_id
+                    target_collection = MongoInterface.get_connection()[db_name][c_name]
+                    target_collection.insert_one(structure_mapping_dict)
+
+                    # TODO: debug print: make conditional on log level debug!
+                    with open("/home/container-metrics/io/_out.json", "w") as f:
+                        json.dump(structure_mapping_dict["sections"], f)
+                        f.close()
+
+                    pbar(1)
+            logger.info("done")
+        except Exception as e:
+            print(f"##################################################")
+            print(f" > ERROR: acquisition failed due to an unexpected exception!")
+            raise e
+
+    # subcommand 'query'
+    def subcmd_query(self):
+        parser = argparse.ArgumentParser(
+            prog=f"{PROG_NAME} query",
+            description="query database to export selected metrics in different formats",
+            epilog=None
+        )
+        parser.add_argument("mongodb",
+            type=str,
+            metavar="<mongodb>",
+            help="mongodb connection string"
+        )
+        parser.add_argument("collection",
+            type=str,
+            metavar="<collection>",
+            help="mongodb collection identifier"
+        )
+
+        parser.add_argument("pipeline",
+            type=str,
+            choices=["yara"], # TODO: csv arff ...
+            help="output format"
+        )
+        parser.add_argument("--log",
+            type=str,
+            choices=["debug", "info", "warning", "error"],
+            default="warning",
+            help="logging level"
+        )
+
+        # display help when no argument given
+        if len(sys.argv) <= 2:
+            parser.print_help()
+            sys.exit(1)
+
+        db_name: str = f"{datetime.datetime.now().year}-{datetime.datetime.now().month:02d}-{datetime.datetime.now().day:02d}"
+
+        try:
+            # subcommand arguments
+            args = parser.parse_args(sys.argv[2:])
+
+            # init logger
+            StaticLogger.set_logger(PROG_NAME, args.log.upper())
+            logger = StaticLogger.get_logger()
+
             # test connection to mongo db instance
             logger.debug(f"setting up connection to '{args.mongodb}'...")
             MongoInterface.set_connection(args.mongodb)
@@ -248,43 +346,18 @@ class Main:
                 raise ConnectionError("could not verify mongo db connection")
             logger.info(f"connected to database via '{args.mongodb}'")
 
-            # loop supported files
-            with alive_bar(len(path_list), title="scan progress") as pbar:
-                for file_path in path_list:
-                    logger.info(f"inspecting file '{file_path}'...")
+            ####################################################################################################
 
-                    # TODO: implement as switch...
-                    _int_max_parsing_depth = 10
-
-                    # analysis
-                    intermediate_format: IntermediateFormat = IntermediateFormat(file_path, supported_mime_types, _int_max_parsing_depth)
-
-                    intermediate_format_dict: dict = intermediate_format.get_intermediate_format()
-
-                    # insert json structure into database
-                    logger.debug(f"storing metrics in database '{db_name}/{c_name}'...")
-
-                    target_db = MongoInterface.get_connection()[db_name]
-                    grid_fs = gridfs.GridFS(target_db, "gridfs")
-                    grid_fs_id = grid_fs.put(intermediate_format.get_file_data(), filename=file_path.name)
-
-                    # TODO: implement optional parameter to set the collection name (scalability)
-                    intermediate_format_dict["meta"]["gridfs"] = grid_fs_id
-                    target_collection = MongoInterface.get_connection()[db_name][c_name]
-                    target_collection.insert_one(intermediate_format_dict)
-
-                    # TODO: debug print
-                    with open("/home/container-metrics/io/_out.json", "w") as f:
-                        json.dump(intermediate_format_dict["sections"], f)
-                        f.close()
-
-                    pbar(1)
+            # loop entries
+            #with alive_bar(len(path_list), title="acquisition progress") as pbar:
+                #for file_path in path_list:
+                    
+                    #pbar(1)
             logger.info("done")
         except Exception as e:
             print(f"##################################################")
-            print(f" > ERROR: metric extractor crashed!")
+            print(f" > ERROR: querying failed due to an unexpected exception!")
             raise e
-            sys.exit(1)
 
 # entry point
 if __name__ == "__main__":

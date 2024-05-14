@@ -1,4 +1,4 @@
-from abstract_intermediate_format import *
+from abstract_structure_mapping import *
 
 SEGMENT_TYPES = {
     192: { #FF C0
