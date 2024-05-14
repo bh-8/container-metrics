@@ -13,6 +13,7 @@ an extensible framework for feature extraction of container format files
 - shutdown database services: `docker compose down`
 ### debugging
 - `docker compose build && ./container-metrics acquire mongodb://admin:admin@mongo-db:27017 collection io/mixed.blob --log=debug`
+- `docker compose build && ./container-metrics query mongodb://admin:admin@mongo-db:27017 collection yara --log=debug`
 ## references
 - Multimedia Authentication Testing: https://forensicworkinggroup.com/MAT.pdf
 - https://enfsi.eu/wp-content/uploads/2022/12/1.-BPM_Image-Authentication_ENFSI-BPM-DI-03-1.pdf

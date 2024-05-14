@@ -11,7 +11,6 @@ import sys
 import hashlib
 import os
 
-# TODO: JPEG
 # TODO: MP3
 
 # TODO: logging
@@ -61,7 +60,7 @@ class StructureMapping():
         self.analysis_queue: list[dict] = []
         self.queue_analysis(0)
 
-        self.init_investigation_meta()
+        self.init_meta()
         self.file_structure_analysis()
 
     def queue_analysis(self, position: int, depth: int = 0, length: int | None = None) -> None:
@@ -71,7 +70,7 @@ class StructureMapping():
             "depth": depth
         })
 
-    def init_investigation_meta(self) -> None:
+    def init_meta(self) -> None:
         self.structure_mapping["meta"]["investigation"]["started"] = datetime.datetime.now().isoformat()
 
         self.structure_mapping["meta"]["file_name"] = self.file_path.name #TODO: remove later
@@ -180,6 +179,12 @@ class Main:
         # call subcommand method
         getattr(self, f"subcmd_{args.command}")()
 
+    @staticmethod
+    def validate_db_connection(connection: str):
+        MongoInterface.set_connection(connection)
+        if len(MongoInterface.get_connection()["admin"].list_collection_names()) != 2:
+            raise ConnectionError("could not verify mongo db connection")
+
     # subcommand 'acquire'
     def subcmd_acquire(self):
         parser = argparse.ArgumentParser(
@@ -238,14 +243,13 @@ class Main:
 
             # test connection to mongo db instance
             logger.debug(f"setting up connection to '{args.mongodb}'...")
-            MongoInterface.set_connection(args.mongodb)
-            if len(MongoInterface.get_connection()["admin"].list_collection_names()) != 2:
-                raise ConnectionError("could not verify mongo db connection")
+            self.validate_db_connection(args.mongodb)
             logger.info(f"connected to database via '{args.mongodb}'")
+
+            c_name: str = args.collection
 
             ####################################################################################################
 
-            c_name: str = args.collection
             if args.max_depth < 0:
                 raise ValueError("maximum analysis depth can not be negative")
 
@@ -314,6 +318,7 @@ class Main:
 
         parser.add_argument("pipeline",
             type=str,
+            #metavar="<pipeline>",
             choices=["yara"], # TODO: csv arff ...
             help="output format"
         )
@@ -341,18 +346,31 @@ class Main:
 
             # test connection to mongo db instance
             logger.debug(f"setting up connection to '{args.mongodb}'...")
-            MongoInterface.set_connection(args.mongodb)
-            if len(MongoInterface.get_connection()["admin"].list_collection_names()) != 2:
-                raise ConnectionError("could not verify mongo db connection")
+            self.validate_db_connection(args.mongodb)
             logger.info(f"connected to database via '{args.mongodb}'")
+
+            c_name: str = args.collection
 
             ####################################################################################################
 
+            if not db_name in MongoInterface.get_connection().list_database_names():
+                raise ValueError(f"database '{db_name}' does not exist")
+            if not c_name in MongoInterface.get_connection()[db_name].list_collection_names():
+                raise ValueError(f"database '{db_name}' has no collection named '{c_name}'")
+
+            target_collection = MongoInterface.get_connection()[db_name][c_name]
+
             # loop entries
-            #with alive_bar(len(path_list), title="acquisition progress") as pbar:
-                #for file_path in path_list:
-                    
-                    #pbar(1)
+            with alive_bar(target_collection.count_documents({}), title="querying progress") as pbar:
+                for document in target_collection.find():
+                    print(document["meta"]["file"]["name"])
+
+                    # TODO: Weitere Verzeichnisstruktur 'pipeline_formats'
+                    # TODO: JSON mit Datenfeldern in Fragmenten und Streams
+                    # TODO: CSV/ARFF
+                    # TODO: YARA: loop sections???
+
+                    pbar(1)
             logger.info("done")
         except Exception as e:
             print(f"##################################################")
