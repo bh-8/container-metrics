@@ -378,8 +378,7 @@ class Main:
                         case "json":
                             pipeline = JsonPipeline(document, bson_document)
                         case "yara":
-                            pipeline = ExamplePipeline(document)
-                            # TODO: YARA: loop sections???
+                            pipeline = YaraPipeline(document, bson_document, ["./io/test.yara"])
                         # TODO: CSV/ARFF
                         case _:
                             raise ValueError(f"unknown pipeline '{args.pipeline}'")

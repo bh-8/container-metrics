@@ -3,8 +3,8 @@ import json
 from pathlib import Path
 
 class JsonPipeline(AbstractPipeline):
-    def __init__(self, document: dict, gridfsdata) -> None:
-        super().__init__(document)
+    def __init__(self, document: dict, gridfsdata: bytes) -> None:
+        super().__init__("json", document)
         self.raw: bytes = gridfsdata
 
     def process(self) -> None:
@@ -27,9 +27,6 @@ class JsonPipeline(AbstractPipeline):
                     out_dict["sections"][i]["segments"][k][j]["raw"] = f"{data}"
 
         # write output
-        output_path: Path = Path("./io/_json").resolve()
-        output_path.mkdir(exist_ok=True)
-        output_file: str = f"{out_dict['_id']}_{out_dict['meta']['file']['name']}.json"
-        with open(output_path / output_file, "w") as handle:
+        with open(self.output_path / f"{self.output_id}.json", "w") as handle:
             json.dump(out_dict, handle)
             handle.close()
