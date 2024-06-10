@@ -1,6 +1,7 @@
 import "console"
+import "cm"
 
-rule my_rule : main {
+rule example_rule : main {
     condition:
-        console.log("test.yara: Hello, World @ ", filename)
+        cm.greeting == "Hello World!" and console.log("test.yara: Hello, World @ ", filename)
 }
