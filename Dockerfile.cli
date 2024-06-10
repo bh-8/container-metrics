@@ -1,7 +1,9 @@
 FROM debian AS container-metrics
     RUN apt-get update && apt-get install -y \
         git \
+        libbson-dev \
         libmagic1 \
+        libmongoc-dev \
         python3 \
         python3-pip \
         python3-venv
@@ -15,6 +17,7 @@ FROM debian AS container-metrics
     # yara
     RUN git clone --recursive https://github.com/VirusTotal/yara-python
     COPY ./src/yara_patch/cm /yara-python/yara/libyara/modules/cm
+    COPY ./src/yara_patch/setup.py /yara-python/setup.py
     RUN echo "MODULE(cm)" >> /yara-python/yara/libyara/modules/module_list
     COPY ./src/yara_patch/Makefile.am /yara-python/yara/Makefile.am
     RUN cd /yara-python && python3 setup.py build
@@ -32,4 +35,4 @@ FROM debian AS container-metrics
 
     WORKDIR /home/container-metrics
     COPY ./src /home/container-metrics/
-    ENTRYPOINT [ "/home/entrypoint.sh" ]
+    #ENTRYPOINT [ "/home/entrypoint.sh" ]

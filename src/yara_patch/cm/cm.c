@@ -1,4 +1,5 @@
 #include <yara/modules.h>
+#include <mongoc/mongoc.h>
 
 #define MODULE_NAME cm
 
