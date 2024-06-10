@@ -1,5 +1,7 @@
 from abstract_structure_mapping import ContainerSection, ContainerSegment, ContainerFragment, Coverage
+from abstract_pipeline import AbstractPipeline
 from container_formats import *
+from pipeline_formats import *
 from alive_progress import alive_bar
 import argparse
 import datetime
@@ -28,6 +30,7 @@ class StructureMapping():
         self.analysis_depth_cap: int = analysis_depth_cap
 
         self.structure_mapping: dict = {
+            "_gridfs": None,
             "meta": {
                 "file_name": None,
                 "file": {
@@ -44,8 +47,7 @@ class StructureMapping():
                 "investigation": {
                     "started": None,
                     "finished": None
-                },
-                "gridfs": None
+                }
             },
             "sections": []
         }
@@ -282,7 +284,7 @@ class Main:
                     grid_fs_id = grid_fs.put(structure_mapping.get_file_data(), filename=file_path.name)
 
                     # TODO: implement optional parameter to set the collection name (scalability)
-                    structure_mapping_dict["meta"]["gridfs"] = grid_fs_id
+                    structure_mapping_dict["_gridfs"] = grid_fs_id
                     target_collection = MongoInterface.get_connection()[db_name][c_name]
                     target_collection.insert_one(structure_mapping_dict)
 
@@ -319,7 +321,7 @@ class Main:
         parser.add_argument("pipeline",
             type=str,
             #metavar="<pipeline>",
-            choices=["yara"], # TODO: csv arff ...
+            choices=["json", "yara"], # TODO: csv arff ...
             help="output format"
         )
         parser.add_argument("--log",
@@ -358,17 +360,30 @@ class Main:
             if not c_name in MongoInterface.get_connection()[db_name].list_collection_names():
                 raise ValueError(f"database '{db_name}' has no collection named '{c_name}'")
 
+            # read bson
+
+            target_db = MongoInterface.get_connection()[db_name]
+            grid_fs = gridfs.GridFS(target_db, "gridfs")
+            #bson_document = grid_fs.put(structure_mapping.get_file_data(), filename=file_path.name)
+
             target_collection = MongoInterface.get_connection()[db_name][c_name]
 
             # loop entries
             with alive_bar(target_collection.count_documents({}), title="querying progress") as pbar:
                 for document in target_collection.find():
-                    print(document["meta"]["file"]["name"])
-
-                    # TODO: Weitere Verzeichnisstruktur 'pipeline_formats'
-                    # TODO: JSON mit Datenfeldern in Fragmenten und Streams
-                    # TODO: CSV/ARFF
-                    # TODO: YARA: loop sections???
+                    logger.debug(f"loading metrics from database '{db_name}/{c_name}'...")
+                    bson_document = grid_fs.get(document["_gridfs"]).read()
+                    pipeline: AbstractPipeline = None
+                    match args.pipeline:
+                        case "json":
+                            pipeline = JsonPipeline(document, bson_document)
+                        case "yara":
+                            pipeline = ExamplePipeline(document)
+                            # TODO: YARA: loop sections???
+                        # TODO: CSV/ARFF
+                        case _:
+                            raise ValueError(f"unknown pipeline '{args.pipeline}'")
+                    pipeline.process()
 
                     pbar(1)
             logger.info("done")

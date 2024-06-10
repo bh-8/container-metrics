@@ -108,7 +108,7 @@ class Coverage():
         self._segment: ContainerSegment = ContainerSegment()
 
         if len(data) == 0:
-            self._segment.add_fragment(ContainerFragment(position, coverage_limit))
+            self._segment.add_fragment(ContainerFragment(0, coverage_limit))
             return
 
         # sort
