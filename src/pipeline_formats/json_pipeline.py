@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 
 class JsonPipeline(AbstractPipeline):
-    def __init__(self, document: dict, gridfsdata: bytes) -> None:
+    def __init__(self, document: dict, gridfsdata: bytes, dummy: any) -> None:
         super().__init__("json", document)
         self.raw: bytes = gridfsdata
 

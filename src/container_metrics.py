@@ -260,7 +260,7 @@ class Main:
             path_list = flatten_paths([Path(x).resolve() for x in args.paths], args.recursive)
             logger.info(f"found {len(path_list)} file(s) in total")
 
-            # load 'mime_mapping.json'
+            # load 'mapping.json'
             supported_mime_types: dict = {}
             with open(MIME_INFO) as json_handle:
                 supported_mime_types = json.loads(json_handle.read())
@@ -321,7 +321,7 @@ class Main:
         parser.add_argument("pipeline",
             type=str,
             #metavar="<pipeline>",
-            choices=["json", "yara"], # TODO: csv arff ...
+            choices=["csv", "json", "yara"], # TODO: csv arff ...
             help="output format"
         )
         parser.add_argument("--log",
@@ -360,28 +360,38 @@ class Main:
             if not c_name in MongoInterface.get_connection()[db_name].list_collection_names():
                 raise ValueError(f"database '{db_name}' has no collection named '{c_name}'")
 
-            # read bson
-
             target_db = MongoInterface.get_connection()[db_name]
             grid_fs = gridfs.GridFS(target_db, "gridfs")
-            #bson_document = grid_fs.put(structure_mapping.get_file_data(), filename=file_path.name)
 
             target_collection = MongoInterface.get_connection()[db_name][c_name]
+
+            # check existence of required implementation
+            pipeline_id: str = f"{args.pipeline}_pipeline"
+            class_label: str = f"{to_camel_case(pipeline_id)}"
+            if not class_label in globals():
+                raise NotImplementedError(f"could not find class '{class_label}', expected definition in '{pipeline_id}.py'")
+
+            params: any = None
+            match args.pipeline:
+                case "csv":
+                    params: list[str] = ["sections.3.segments.body.*.offset","sections.3.segments.body.*.length"]#, "meta.file.name", "sections.*.segments.jpeg_segments.*.offset"]
+                case "json":
+                    pass
+                case "yara":
+                    params: list[str] = ["./io/test.yara"]
+                case _:
+                    raise ValueError(f"unknown pipeline '{args.pipeline}'")
 
             # loop entries
             with alive_bar(target_collection.count_documents({}), title="querying progress") as pbar:
                 for document in target_collection.find():
+                    # read bson
                     logger.debug(f"loading metrics from database '{db_name}/{c_name}'...")
                     bson_document = grid_fs.get(document["_gridfs"]).read()
-                    pipeline: AbstractPipeline = None
-                    match args.pipeline:
-                        case "json":
-                            pipeline = JsonPipeline(document, bson_document)
-                        case "yara":
-                            pipeline = YaraPipeline(document, bson_document, ["./io/test.yara"])
-                        # TODO: CSV/ARFF
-                        case _:
-                            raise ValueError(f"unknown pipeline '{args.pipeline}'")
+
+
+                    # initiate format specific analysis
+                    pipeline: AbstractPipeline = globals()[class_label](document, bson_document, params)
                     pipeline.process()
 
                     pbar(1)

@@ -35,4 +35,4 @@ FROM debian AS container-metrics
 
     WORKDIR /home/container-metrics
     COPY ./src /home/container-metrics/
-    #ENTRYPOINT [ "/home/entrypoint.sh" ]
+    ENTRYPOINT [ "/home/entrypoint.sh" ]
