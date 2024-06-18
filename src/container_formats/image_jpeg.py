@@ -397,7 +397,7 @@ class ImageJpegAnalysis(AbstractStructureAnalysis):
     def __init__(self) -> None:
         super().__init__()
 
-    def process_section(self, section: ContainerSection):
+    def process_section(self, section: ContainerSection) -> ContainerSection:
         jpeg_segs: ContainerSegment = ContainerSegment()
         offset: int = 0
 

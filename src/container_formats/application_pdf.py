@@ -430,7 +430,7 @@ class ApplicationPdfAnalysis(AbstractStructureAnalysis):
                 return self.full_tokens[i+1].offset
         return input_offset
 
-    def process_section(self, section: ContainerSection):
+    def process_section(self, section: ContainerSection) -> ContainerSection:
         # split data into tokens
         _pdf_tokenizer = PdfTokenizer(section.get_data())
         _pdf_tokenizer.tokenize()

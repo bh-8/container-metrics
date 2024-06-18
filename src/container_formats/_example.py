@@ -4,5 +4,5 @@ class ExampleAnalysis(AbstractStructureAnalysis):
     def __init__(self) -> None:
         super().__init__()
 
-    def process_section(self, section: ContainerSection):
+    def process_section(self, section: ContainerSection) -> ContainerSection:
         return section
