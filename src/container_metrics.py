@@ -66,6 +66,7 @@ class StructureMapping():
         self.file_structure_analysis()
 
     def queue_analysis(self, position: int, depth: int = 0, length: int | None = None) -> None:
+        self.logger.info(f"appending data to analysis queue from position {position}")
         self.analysis_queue.append({
             "position": position,
             "length": length,

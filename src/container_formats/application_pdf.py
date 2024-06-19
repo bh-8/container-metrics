@@ -213,6 +213,9 @@ class PdfTokenizer():
                     self.token_list.append(PdfToken(pos, token[:check_pos]))
 
                 _line_end = self.pdf_data.find(b"\x0a", pos + check_pos)
+                if _line_end == -1:
+                    break # stop tokenizer when hitting an incomplete line
+
                 token = self.pdf_data[pos + check_pos:_line_end].rstrip()
 
                 self.token_list.append(PdfToken(pos + check_pos, token))

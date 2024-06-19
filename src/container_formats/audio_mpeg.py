@@ -57,8 +57,15 @@ class AudioMpegAnalysis(AbstractStructureAnalysis):
 
     def process_section(self, section: ContainerSection) -> ContainerSection:
         mpeg_frames: ContainerSegment = ContainerSegment()
-        data: bytes = section.get_data()
+        offset: int = 0
 
-        # TODO
+        data: bytes = section.get_data()
+        while True:
+            ff: int = data.find(b"\xff", offset)
+            if ff < 0:
+                break
+            if not ff + 4 < len(data):
+                break
+            offset = ff + 4
 
         return section
