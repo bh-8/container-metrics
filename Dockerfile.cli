@@ -10,6 +10,7 @@ FROM debian AS container-metrics
     RUN python3 -m venv /home/container-metrics/venv
     RUN . /home/container-metrics/venv/bin/activate && pip3 install \
         alive-progress \
+        bitarray \
         pymongo \
         python-magic \
         && deactivate

@@ -1,5 +1,9 @@
 from abstract_structure_mapping import *
 import math
+from bitarray import bitarray
+from bitarray.util import ba2int
+
+# http://www.mp3-tech.org/programmer/docs/mp3_theory.pdf p20
 
 FRAME_SAMPLES = { # L x V -> Samples
     1: { 1:  384, 2:  384 },
@@ -124,60 +128,298 @@ ID3V1_GENRE = {
     190: 'Garage Rock ', 191: 'Psybient', 255: 'None'
 }
 
+SLEN = [
+    [0, 0], [0, 1], [0, 2], [0, 3], [3, 0], [1, 1], [1, 2], [1, 3],
+    [2, 1], [2, 2], [2, 3], [3, 1], [3, 2], [3, 3], [4, 2], [4, 3]
+]
+
+class FrameHeader():
+    def __init__(self, header: bytes) -> None:
+        self.__raw = header
+        self.__version:    float =      VERSION.get((self.__raw[1] & 0b00011000) >> 3, None)
+        self.__layer:        int =        LAYER.get((self.__raw[1] & 0b00000110) >> 1, None)
+        self.__crc:         bool =          CRC.get((self.__raw[1] & 0b00000001) >> 0, None)
+        self.__dbitrate:    dict =      BITRATE.get((self.__raw[2] & 0b11110000) >> 4, None)
+        self.__dfrequency:  dict =     SAMPLING.get((self.__raw[2] & 0b00001100) >> 2, None)
+        self.__padding:     bool =      PADDING.get((self.__raw[2] & 0b00000010) >> 1, None)
+        self.__private:     bool =      PRIVATE.get((self.__raw[2] & 0b00000001) >> 0, None)
+        self.__channel_mode: str = CHANNEL_MODE.get((self.__raw[3] & 0b11000000) >> 6, None)
+        self.__dmode_ext:   dict =     MODE_EXT.get((self.__raw[3] & 0b00110000) >> 4, None)
+        self.__copyright:   bool =    COPYRIGHT.get((self.__raw[3] & 0b00001000) >> 3, None)
+        self.__original:    bool =     ORIGINAL.get((self.__raw[3] & 0b00000100) >> 2, None)
+        self.__emphasis:     str =     EMPHASIS.get((self.__raw[3] & 0b00000011) >> 0, None)
+        self.__bitrate:      int = None
+        self.__frequency:    int = None
+        self.__mode_extension:     str = None
+        if self.__version is None or self.__layer is None or self.__dbitrate is None:
+            return
+        self.__bitrate: int = 1000 * self.__dbitrate.get((int(self.__version), self.__layer))
+        self.__frequency: int = self.__dfrequency.get(self.__version)
+        self.__mode_extension: str = self.__dmode_ext.get(self.__layer)
+        self.__channels: int = 1 if self.__channel_mode == "Mono" else 2
+        self.__samples: int = FRAME_SAMPLES.get(self.__layer).get(int(self.__version))
+
+    @property
+    def version(self) -> float:
+        return self.__version
+    @property
+    def layer(self) -> int:
+        return self.__layer
+    @property
+    def crc(self) -> bool:
+        return self.__crc
+    @property
+    def bitrate(self) -> int:
+        return self.__bitrate
+    @property
+    def frequency(self) -> int:
+        return self.__frequency
+    @property
+    def padding(self) -> bool:
+        return self.__padding
+    @property
+    def private(self) -> bool:
+        return self.__private
+    @property
+    def channel_mode(self) -> str:
+        return self.__channel_mode
+    @property
+    def mode_extension(self) -> str:
+        return self.__mode_extension
+    @property
+    def copyright(self) -> bool:
+        return self.__copyright
+    @property
+    def original(self) -> bool:
+        return self.__original
+    @property
+    def emphasis(self) -> str:
+        return self.__emphasis
+    @property
+    def samples(self) -> int:
+        return self.__samples
+    @property
+    def channels(self) -> int:
+        return self.__channels
+    @property
+    def as_dictionary(self) -> dict:
+        return {
+            "version": self.__version,
+            "layer": self.__layer,
+            "crc": self.__crc,
+            "bitrate": self.__bitrate,
+            "frequency": self.__frequency,
+            "padding": self.__padding,
+            "private": self.__private,
+            "channel_mode": self.__channel_mode,
+            "mode_extension": self.__mode_extension,
+            "copyright": self.__copyright,
+            "original": self.__original,
+            "emphasis": self.__emphasis,
+            "samples": self.__samples
+        }
+
+class SideInformation():
+    def __init__(self, side_info: bytes, header: FrameHeader) -> None:
+        self.__is_mono: bool = header.channels == 1
+        self.__raw: bytes = side_info[0:17 if self.__is_mono else 32]
+        self.__raw_bits: bitarray = bitarray(endian="big")
+        self.__raw_bits.frombytes(self.__raw)
+
+        _bit_offset: int = 0
+
+        self.__main_data_begin: int = ba2int(self.__raw_bits[_bit_offset:_bit_offset + 9])
+        _bit_offset = _bit_offset + 9
+
+        self.__private_bits: int = ba2int(self.__raw_bits[_bit_offset:_bit_offset + (5 if self.__is_mono else 3)])
+        _bit_offset = _bit_offset + (5 if self.__is_mono else 3)
+
+        self.__scfsi: list[list[bool]] = [[ba2int(self.__raw_bits[_bit_offset + 4 * c + i:_bit_offset + 4 * c + i + 1]) == 1 for i in range(4)] for c in range(header.channels)]
+        _bit_offset = _bit_offset + 4 * header.channels
+
+        self.__part2_3_length:         list[list[int]] = [[0 for x in range(header.channels)] for y in range(2)]
+        self.__big_values:             list[list[int]] = [[0 for x in range(header.channels)] for y in range(2)]
+        self.__global_gain:            list[list[int]] = [[0 for x in range(header.channels)] for y in range(2)]
+        self.__scalefac_compress:      list[list[int]] = [[0 for x in range(header.channels)] for y in range(2)]
+        self.__slen1:                  list[list[int]] = [[0 for x in range(header.channels)] for y in range(2)]
+        self.__slen2:                  list[list[int]] = [[0 for x in range(header.channels)] for y in range(2)]
+        self.__windows_switching_flag: list[list[bool]] = [[False for x in range(header.channels)] for y in range(2)]
+        self.__block_type:             list[list[int]] = [[0 for x in range(header.channels)] for y in range(2)]
+        self.__mixed_block_flag:       list[list[bool]] = [[False for x in range(header.channels)] for y in range(2)]
+        self.__table_select:           list[list[list[int]]] = [[[0 for z in range(3)] for x in range(header.channels)] for y in range(2)]
+        self.__subblock_gain:          list[list[list[int]]] = [[[0 for z in range(3)] for x in range(header.channels)] for y in range(2)]
+        self.__region0_count:          list[list[int]] = [[0 for x in range(header.channels)] for y in range(2)]
+        self.__region1_count:          list[list[int]] = [[0 for x in range(header.channels)] for y in range(2)]
+        self.__preflag:                list[list[bool]] = [[False for x in range(header.channels)] for y in range(2)]
+        self.__scalefac_scale:         list[list[bool]] = [[False for x in range(header.channels)] for y in range(2)]
+        self.__count1table_select:     list[list[bool]] = [[False for x in range(header.channels)] for y in range(2)]
+        for granule in range(2):
+            for channel in range(header.channels):
+                self.__part2_3_length[granule][channel] = ba2int(self.__raw_bits[_bit_offset:_bit_offset + 12])
+                _bit_offset = _bit_offset + 12
+                self.__big_values[granule][channel] = ba2int(self.__raw_bits[_bit_offset:_bit_offset + 9])
+                _bit_offset = _bit_offset + 9
+                self.__global_gain[granule][channel] = ba2int(self.__raw_bits[_bit_offset:_bit_offset + 8])
+                _bit_offset = _bit_offset + 8
+                self.__scalefac_compress[granule][channel] = ba2int(self.__raw_bits[_bit_offset:_bit_offset + 4])
+                self.__slen1[granule][channel] = SLEN[self.__scalefac_compress[granule][channel]][0]
+                self.__slen2[granule][channel] = SLEN[self.__scalefac_compress[granule][channel]][1]
+                _bit_offset = _bit_offset + 4
+                self.__windows_switching_flag[granule][channel] = ba2int(self.__raw_bits[_bit_offset:_bit_offset + 1]) == 1
+                _bit_offset = _bit_offset + 1
+
+                if self.__windows_switching_flag[granule][channel]:
+                    self.__block_type[granule][channel] = ba2int(self.__raw_bits[_bit_offset:_bit_offset + 2])
+                    _bit_offset = _bit_offset + 2
+                    self.__mixed_block_flag[granule][channel] = ba2int(self.__raw_bits[_bit_offset:_bit_offset + 1]) == 1
+                    _bit_offset = _bit_offset + 1
+                    # TODO: omitted switch_point_l/s!
+
+                    for region in range(2):
+                        self.__table_select[granule][channel][region] = ba2int(self.__raw_bits[_bit_offset:_bit_offset + 5])
+                        _bit_offset = _bit_offset + 5
+                    for window in range(3):
+                        self.__subblock_gain[granule][channel][window] = ba2int(self.__raw_bits[_bit_offset:_bit_offset + 3])
+                        _bit_offset = _bit_offset + 3
+                    self.__region0_count[granule][channel] = 8 if self.__block_type[granule][channel] == 2 else 7
+                    self.__region1_count[granule][channel] = 20 - self.__region0_count[granule][channel]
+                else:
+                    self.__block_type[granule][channel] = 0
+                    self.__mixed_block_flag[granule][channel] = False
+
+                    for region in range(3):
+                        self.__table_select[granule][channel][region] = ba2int(self.__raw_bits[_bit_offset:_bit_offset + 5])
+                        _bit_offset = _bit_offset + 5
+                    self.__subblock_gain[granule][channel] = None
+
+                    self.__region0_count[granule][channel] = ba2int(self.__raw_bits[_bit_offset:_bit_offset + 4])
+                    _bit_offset = _bit_offset + 4
+                    self.__region1_count[granule][channel] = ba2int(self.__raw_bits[_bit_offset:_bit_offset + 3])
+                    _bit_offset = _bit_offset + 3
+
+                self.__preflag[granule][channel] = ba2int(self.__raw_bits[_bit_offset:_bit_offset + 1]) == 1
+                _bit_offset = _bit_offset + 1
+                self.__scalefac_scale[granule][channel] = ba2int(self.__raw_bits[_bit_offset:_bit_offset + 1]) == 1
+                _bit_offset = _bit_offset + 1
+                self.__count1table_select[granule][channel] = ba2int(self.__raw_bits[_bit_offset:_bit_offset + 1]) == 1
+                _bit_offset = _bit_offset + 1
+
+    @property
+    def main_data_begin(self) -> int:
+        return self.__main_data_begin
+    @property
+    def private_bits(self) -> int:
+        return self.__private_bits
+    @property
+    def scfsi(self) -> list[list[bool]]:
+        return self.__scfsi
+    @property
+    def part2_3_length(self) -> list[list[int]]:
+        return self.__part2_3_length
+    @property
+    def big_values(self) -> list[list[int]]:
+        return self.__big_values
+    @property
+    def global_gain(self) -> list[list[int]]:
+        return self.__global_gain
+    @property
+    def scalefac_compress(self) -> list[list[int]]:
+        return self.__scalefac_compress
+    @property
+    def slen1(self) -> list[list[int]]:
+        return self.__slen1
+    @property
+    def slen2(self) -> list[list[int]]:
+        return self.__slen2
+    @property
+    def windows_switching_flag(self) -> list[list[bool]]:
+        return self.__windows_switching_flag
+    @property
+    def block_type(self) -> list[list[int]]:
+        return self.__block_type
+    @property
+    def mixed_block_flag(self) -> list[list[bool]]:
+        return self.__mixed_block_flag
+    @property
+    def table_select(self) -> list[list[list[int]]]:
+        return self.__table_select
+    @property
+    def subblock_gain(self) -> list[list[list[int]]]:
+        return self.__subblock_gain
+    @property
+    def region0_count(self) -> list[list[int]]:
+        return self.__region0_count
+    @property
+    def region1_count(self) -> list[list[int]]:
+        return self.__region1_count
+    @property
+    def preflag(self) -> list[list[bool]]:
+        return self.__preflag
+    @property
+    def scalefac_scale(self) -> list[list[bool]]:
+        return self.__scalefac_scale
+    @property
+    def count1table_select(self) -> list[list[bool]]:
+        return self.__count1table_select
+    @property
+    def as_dictionary(self) -> dict:
+        return {
+            "main_data_begin": self.__main_data_begin,
+            "private_bits": self.__private_bits,
+            "scfsi": self.__scfsi,
+            "granule_info": [
+                {
+                    "part2_3_length": self.__part2_3_length[granule],
+                    "big_values": self.__big_values[granule],
+                    "global_gain": self.__global_gain[granule],
+                    "scalefac_compress": self.__scalefac_compress[granule],
+                    "slen1": self.__slen1[granule],
+                    "slen2": self.__slen2[granule],
+                    "windows_switching_flag": self.__windows_switching_flag[granule],
+                    "block_type": self.__block_type[granule],
+                    "mixed_block_flag": self.__mixed_block_flag[granule],
+                    "table_select": self.__table_select[granule],
+                    "subblock_gain": self.__subblock_gain[granule],
+                    "region0_count": self.__region0_count[granule],
+                    "region1_count": self.__region1_count[granule],
+                    "preflag": self.__preflag[granule],
+                    "scalefac_scale": self.__scalefac_scale[granule],
+                    "count1table_select": self.__count1table_select[granule]
+                } for granule in range(2)
+            ]
+        }
+
 class MpegFrame():
     def __init__(self, data: bytes, offset: int) -> None:
-        self._data: bytes = data
-        self._header: bytes = data[offset:offset + 4]
-        self._offset: int = offset
-        self._length: int = 4
-        self._version:    float =      VERSION.get((self._header[1] & 0b00011000) >> 3, None)
-        self._layer:        int =        LAYER.get((self._header[1] & 0b00000110) >> 1, None)
-        self._crc:         bool =          CRC.get((self._header[1] & 0b00000001) >> 0, None)
-        self._dbitrate:    dict =      BITRATE.get((self._header[2] & 0b11110000) >> 4, None)
-        self._dfrequency:  dict =     SAMPLING.get((self._header[2] & 0b00001100) >> 2, None)
-        self._padding:     bool =      PADDING.get((self._header[2] & 0b00000010) >> 1, None)
-        self._private:     bool =      PRIVATE.get((self._header[2] & 0b00000001) >> 0, None)
-        self._channel_mode: str = CHANNEL_MODE.get((self._header[3] & 0b11000000) >> 6, None)
-        self._dmode_ext:   dict =     MODE_EXT.get((self._header[3] & 0b00110000) >> 4, None)
-        self._copyright:   bool =    COPYRIGHT.get((self._header[3] & 0b00001000) >> 3, None)
-        self._original:    bool =     ORIGINAL.get((self._header[3] & 0b00000100) >> 2, None)
-        self._emphasis:     str =     EMPHASIS.get((self._header[3] & 0b00000011) >> 0, None)
-        self._bitrate:      int = None
-        self._frequency:    int = None
-        self._mode_ext:     str = None
-        if self._version is None or self._layer is None or self._dbitrate is None:
-            return
-        self._bitrate: int = 1000 * self._dbitrate.get((int(self._version), self._layer))
-        self._frequency: int = self._dfrequency.get(self._version)
-        self._mode_ext: str = self._dmode_ext.get(self._layer)
-        self._channels: int = 1 if self._channel_mode == "Mono" else 2
-        self._samples: int = FRAME_SAMPLES.get(self._layer).get(self._version)
-    def is_invalid(self) -> bool:
-        return (self._version is None) or (self._layer is None) or (self._bitrate is None) or (self._frequency is None) or (self._samples is None)
-    def default_length(self) -> None:
-        fl: float = (self._samples * self._bitrate) / (8 * self._frequency)
-        if self._padding:
-            self._length = math.ceil(fl)
+        self.__offset: int = offset
+        self.__length: int = 4
+        self.__header: FrameHeader = FrameHeader(data[self.__offset:self.__offset + 4])
+        self.__side_info: SideInformation = SideInformation(data[self.__offset + 4:self.__offset + 4 + 32], self.__header)
+    def calculate_length(self) -> None:
+        fl: float = (self.__header.samples * self.__header.bitrate) / (8 * self.__header.frequency)
+        if self.__header.padding:
+            self.__length = math.ceil(fl)
         else:
-            self._length = math.floor(fl)
-    def get_length(self) -> int:
-        return self._length
-    def as_fragment(self) -> ContainerFragment:
-        fragment: ContainerFragment = ContainerFragment(self._offset, self._length)
+            self.__length = math.floor(fl)
 
-        fragment.set_attribute("version", self._version)
-        fragment.set_attribute("layer", self._layer)
-        fragment.set_attribute("crc", self._crc)
-        fragment.set_attribute("bitrate", self._bitrate)
-        fragment.set_attribute("frequency", self._frequency)
-        fragment.set_attribute("padding", self._padding)
-        fragment.set_attribute("private_bit", self._private)
-        fragment.set_attribute("channel_mode", self._channel_mode)
-        fragment.set_attribute("mode_extension", self._mode_ext)
-        fragment.set_attribute("copyright", self._copyright)
-        fragment.set_attribute("original", self._original)
-        fragment.set_attribute("emphasis", self._emphasis)
-        fragment.set_attribute("samples", self._samples)
+    @property
+    def header(self) -> FrameHeader:
+        return self.__header
+    @property
+    def side_info(self) -> SideInformation:
+        return self.__side_info
+    @property
+    def length(self) -> int:
+        return self.__length
+    @property
+    def is_invalid(self) -> bool:
+        return (self.__header.version is None) or (self.__header.layer is None) or (self.__header.bitrate is None) or (self.__header.frequency is None) or (self.__header.samples is None)
+    @property
+    def as_fragment(self) -> ContainerFragment:
+        fragment: ContainerFragment = ContainerFragment(self.__offset, self.__length)
+
+        fragment.set_attribute("header", self.__header.as_dictionary)
+        fragment.set_attribute("side_info", self.__side_info.as_dictionary)
 
         return fragment
 
@@ -199,17 +441,16 @@ class AudioMpegAnalysis(AbstractStructureAnalysis):
         data: bytes = section.get_data()
         while True:
             ff: int = data.find(b"\xff", offset)
-            if (ff < 0) or (not ff + 4 < len(data)) or (data[ff + 1] < 224):
+            if (ff < 0) or (not ff + 4 + 32 < len(data)) or (data[ff + 1] < 224):
                 break
 
             mpeg_frame: MpegFrame = MpegFrame(data, offset)
-            if mpeg_frame.is_invalid():
+            if mpeg_frame.is_invalid:
                 break
-            mpeg_frame.default_length()
+            mpeg_frame.calculate_length()
+            mpeg_frames.add_fragment(mpeg_frame.as_fragment)
 
-            mpeg_frames.add_fragment(mpeg_frame.as_fragment())
-
-            offset = ff + mpeg_frame.get_length()
+            offset = ff + mpeg_frame.length
         section.add_segment("mpeg_frames", mpeg_frames)
 
         if offset < len(data):
