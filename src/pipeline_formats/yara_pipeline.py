@@ -4,9 +4,8 @@ from pathlib import Path
 import yara
 
 class YaraPipeline(AbstractPipeline):
-    def __init__(self, document: dict, gridfsdata: bytes, yara_files: list[str]) -> None:
-        super().__init__("yara", document)
-        self.raw: bytes = gridfsdata
+    def __init__(self, document: dict, raw: bytes, yara_files: list[str]) -> None:
+        super().__init__("yara", document, raw)
         self.rule_files: list[Path] = [Path(p).resolve() for p in yara_files if Path(p).exists()]
 
     def process(self) -> None:

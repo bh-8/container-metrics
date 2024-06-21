@@ -375,7 +375,7 @@ class Main:
             params: any = None
             match args.pipeline:
                 case "csv":
-                    params: list[str] = ["sections.3.segments.body.*.offset", "sections.3.segments.body.*.length", "meta.file.name", "sections.*.segments.jpeg_segments.*.offset"]#, ]
+                    params: list[str] = ["image/jpeg:jpeg_segments:offset,length,id,long_name", "application/pdf:xref:offset,length,object_number", "application/pdf:body:offset,object_number,data"]
                 case "json":
                     pass
                 case "yara":
