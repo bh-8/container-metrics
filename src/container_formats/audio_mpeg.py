@@ -1,16 +1,27 @@
+"""
+audio_mpeg.py
+
+references:
+    - http://www.mp3-tech.org/programmer/docs/mp3_theory.pdf
+    - https://github.com/tomershay100/mp3-steganography-lib
+    - https://sourceforge.net/p/mp3filestructureanalyser
+
+"""
+
+# IMPORTS
+
 from abstract_structure_mapping import *
 import math
 from bitarray import bitarray
 from bitarray.util import ba2int
 
-# http://www.mp3-tech.org/programmer/docs/mp3_theory.pdf p20
+# GLOBAL STATIC MAPPINGS
 
 FRAME_SAMPLES = { # L x V -> Samples
     1: { 1:  384, 2:  384 },
     2: { 1: 1152, 2: 1152 },
     3: { 1: 1152, 2:  576 }
 }
-
 VERSION = {
     0: 2.5,
     1: None,
@@ -65,7 +76,7 @@ CHANNEL_MODE = {
     2: "DualChannel",
     3: "Mono"
 }
-MODE_EXT = {
+MODE_EXT = { # ME x L -> Mode Extension
     0: { 1: "bands 4 to 31",  2: "bands 4 to 31",  3: { "intensity_stereo": False, "ms_stereo": False } },
     1: { 1: "bands 8 to 31",  2: "bands 8 to 31",  3: { "intensity_stereo":  True, "ms_stereo": False } },
     2: { 1: "bands 12 to 31", 2: "bands 12 to 31", 3: { "intensity_stereo": False, "ms_stereo":  True } },
@@ -85,8 +96,7 @@ EMPHASIS = {
     2: "reserved",
     3: "CCIT J.17"
 }
-
-ID3V1_GENRE = {
+ID3V1_GENRES = {
     0: 'Blues', 1: 'Classic Rock', 2: 'Country', 3: 'Dance', 4: 'Disco',
     5: 'Funk', 6: 'Grunge', 7: 'Hip-Hop', 8: 'Jazz', 9: 'Metal',
     10: 'New Age', 11: 'Oldies', 12: 'Other', 13: 'Pop', 14: 'R&B',
@@ -127,37 +137,44 @@ ID3V1_GENRE = {
     185: 'Neue Deutsche Welle', 186: 'Podcast', 187: 'Indie-Rock', 188: 'G-Funk', 189: 'Dubstep',
     190: 'Garage Rock ', 191: 'Psybient', 255: 'None'
 }
-
 SLEN = [
     [0, 0], [0, 1], [0, 2], [0, 3], [3, 0], [1, 1], [1, 2], [1, 3],
     [2, 1], [2, 2], [2, 3], [3, 1], [3, 2], [3, 3], [4, 2], [4, 3]
 ]
 
+# SPECIFIC MEDIA FORMAT PARTS
+
 class FrameHeader():
     def __init__(self, header: bytes) -> None:
         self.__raw = header
-        self.__version:    float =      VERSION.get((self.__raw[1] & 0b00011000) >> 3, None)
-        self.__layer:        int =        LAYER.get((self.__raw[1] & 0b00000110) >> 1, None)
-        self.__crc:         bool =          CRC.get((self.__raw[1] & 0b00000001) >> 0, None)
-        self.__dbitrate:    dict =      BITRATE.get((self.__raw[2] & 0b11110000) >> 4, None)
-        self.__dfrequency:  dict =     SAMPLING.get((self.__raw[2] & 0b00001100) >> 2, None)
-        self.__padding:     bool =      PADDING.get((self.__raw[2] & 0b00000010) >> 1, None)
-        self.__private:     bool =      PRIVATE.get((self.__raw[2] & 0b00000001) >> 0, None)
-        self.__channel_mode: str = CHANNEL_MODE.get((self.__raw[3] & 0b11000000) >> 6, None)
-        self.__dmode_ext:   dict =     MODE_EXT.get((self.__raw[3] & 0b00110000) >> 4, None)
-        self.__copyright:   bool =    COPYRIGHT.get((self.__raw[3] & 0b00001000) >> 3, None)
-        self.__original:    bool =     ORIGINAL.get((self.__raw[3] & 0b00000100) >> 2, None)
-        self.__emphasis:     str =     EMPHASIS.get((self.__raw[3] & 0b00000011) >> 0, None)
-        self.__bitrate:      int = None
-        self.__frequency:    int = None
-        self.__mode_extension:     str = None
-        if self.__version is None or self.__layer is None or self.__dbitrate is None:
+        self.__version:       float =      VERSION.get((self.__raw[1] & 0b00011000) >> 3, None)
+        self.__layer:           int =        LAYER.get((self.__raw[1] & 0b00000110) >> 1, None)
+        self.__crc:            bool =          CRC.get((self.__raw[1] & 0b00000001) >> 0, None)
+        self.__dbitrate:       dict =      BITRATE.get((self.__raw[2] & 0b11110000) >> 4, None)
+        self.__dfrequency:     dict =     SAMPLING.get((self.__raw[2] & 0b00001100) >> 2, None)
+        self.__padding:        bool =      PADDING.get((self.__raw[2] & 0b00000010) >> 1, None)
+        self.__private:        bool =      PRIVATE.get((self.__raw[2] & 0b00000001) >> 0, None)
+        self.__channel_mode:    str = CHANNEL_MODE.get((self.__raw[3] & 0b11000000) >> 6, None)
+        self.__dmode_ext:      dict =     MODE_EXT.get((self.__raw[3] & 0b00110000) >> 4, None)
+        self.__copyright:      bool =    COPYRIGHT.get((self.__raw[3] & 0b00001000) >> 3, None)
+        self.__original:       bool =     ORIGINAL.get((self.__raw[3] & 0b00000100) >> 2, None)
+        self.__emphasis:        str =     EMPHASIS.get((self.__raw[3] & 0b00000011) >> 0, None)
+        self.__bitrate:         int =         None
+        self.__frequency:       int =         None
+        self.__mode_extension:  str =         None
+        self.__samples:         int =         None
+        self.__validated:      bool =        False
+
+        # check whether frame is invalid
+        if self.__version is None or self.__layer is None or self.__dbitrate is None or self.__dfrequency is None or self.__dmode_ext is None:
             return
-        self.__bitrate: int = 1000 * self.__dbitrate.get((int(self.__version), self.__layer))
-        self.__frequency: int = self.__dfrequency.get(self.__version)
-        self.__mode_extension: str = self.__dmode_ext.get(self.__layer)
-        self.__channels: int = 1 if self.__channel_mode == "Mono" else 2
-        self.__samples: int = FRAME_SAMPLES.get(self.__layer).get(int(self.__version))
+
+        self.__validated:      bool =         True
+        self.__channels:        int = 1 if self.__channel_mode == CHANNEL_MODE[3] else 2
+        self.__bitrate:         int = 1000 * self.__dbitrate.get((int(self.__version), self.__layer))
+        self.__frequency:       int =      self.__dfrequency.get(self.__version)
+        self.__mode_extension:  str =       self.__dmode_ext.get(self.__layer)
+        self.__samples:         int =          FRAME_SAMPLES.get(self.__layer).get(int(self.__version))
 
     @property
     def version(self) -> float:
@@ -195,12 +212,16 @@ class FrameHeader():
     @property
     def emphasis(self) -> str:
         return self.__emphasis
+
     @property
     def samples(self) -> int:
         return self.__samples
     @property
     def channels(self) -> int:
         return self.__channels
+    @property
+    def is_validated(self) -> bool:
+        return self.__validated
     @property
     def as_dictionary(self) -> dict:
         return {
@@ -228,6 +249,7 @@ class SideInformation():
 
         _bit_offset: int = 0
 
+        # read side info fields
         self.__main_data_begin: int = ba2int(self.__raw_bits[_bit_offset:_bit_offset + 9])
         _bit_offset = _bit_offset + 9
 
@@ -237,23 +259,27 @@ class SideInformation():
         self.__scfsi: list[list[bool]] = [[ba2int(self.__raw_bits[_bit_offset + 4 * c + i:_bit_offset + 4 * c + i + 1]) == 1 for i in range(4)] for c in range(header.channels)]
         _bit_offset = _bit_offset + 4 * header.channels
 
-        self.__part2_3_length:         list[list[int]] = [[0 for x in range(header.channels)] for y in range(2)]
-        self.__big_values:             list[list[int]] = [[0 for x in range(header.channels)] for y in range(2)]
-        self.__global_gain:            list[list[int]] = [[0 for x in range(header.channels)] for y in range(2)]
-        self.__scalefac_compress:      list[list[int]] = [[0 for x in range(header.channels)] for y in range(2)]
-        self.__slen1:                  list[list[int]] = [[0 for x in range(header.channels)] for y in range(2)]
-        self.__slen2:                  list[list[int]] = [[0 for x in range(header.channels)] for y in range(2)]
-        self.__windows_switching_flag: list[list[bool]] = [[False for x in range(header.channels)] for y in range(2)]
-        self.__block_type:             list[list[int]] = [[0 for x in range(header.channels)] for y in range(2)]
-        self.__mixed_block_flag:       list[list[bool]] = [[False for x in range(header.channels)] for y in range(2)]
-        self.__table_select:           list[list[list[int]]] = [[[0 for z in range(3)] for x in range(header.channels)] for y in range(2)]
-        self.__subblock_gain:          list[list[list[int]]] = [[[0 for z in range(3)] for x in range(header.channels)] for y in range(2)]
-        self.__region0_count:          list[list[int]] = [[0 for x in range(header.channels)] for y in range(2)]
-        self.__region1_count:          list[list[int]] = [[0 for x in range(header.channels)] for y in range(2)]
-        self.__preflag:                list[list[bool]] = [[False for x in range(header.channels)] for y in range(2)]
-        self.__scalefac_scale:         list[list[bool]] = [[False for x in range(header.channels)] for y in range(2)]
-        self.__count1table_select:     list[list[bool]] = [[False for x in range(header.channels)] for y in range(2)]
+        # allocating matrices for granule info
+        self.__part2_3_length:               list[list[int]] = [[None for x in range(header.channels)] for y in range(2)]
+        self.__big_values:                   list[list[int]] = [[None for x in range(header.channels)] for y in range(2)]
+        self.__global_gain:                  list[list[int]] = [[None for x in range(header.channels)] for y in range(2)]
+        self.__scalefac_compress:            list[list[int]] = [[None for x in range(header.channels)] for y in range(2)]
+        self.__slen1:                        list[list[int]] = [[None for x in range(header.channels)] for y in range(2)]
+        self.__slen2:                        list[list[int]] = [[None for x in range(header.channels)] for y in range(2)]
+        self.__windows_switching_flag:      list[list[bool]] = [[None for x in range(header.channels)] for y in range(2)]
+        self.__block_type:                   list[list[int]] = [[None for x in range(header.channels)] for y in range(2)]
+        self.__mixed_block_flag:            list[list[bool]] = [[None for x in range(header.channels)] for y in range(2)]
+        self.__table_select:           list[list[list[int]]] = [[[None for x in range(3)] for y in range(header.channels)] for z in range(2)]
+        self.__subblock_gain:          list[list[list[int]]] = [[[None for x in range(3)] for y in range(header.channels)] for z in range(2)]
+        self.__region0_count:                list[list[int]] = [[None for x in range(header.channels)] for y in range(2)]
+        self.__region1_count:                list[list[int]] = [[None for x in range(header.channels)] for y in range(2)]
+        self.__preflag:                     list[list[bool]] = [[None for x in range(header.channels)] for y in range(2)]
+        self.__scalefac_scale:              list[list[bool]] = [[None for x in range(header.channels)] for y in range(2)]
+        self.__count1table_select:          list[list[bool]] = [[None for x in range(header.channels)] for y in range(2)]
+
+        # granule info
         for granule in range(2):
+            # 1 channel if mono otherwise 2 channels
             for channel in range(header.channels):
                 self.__part2_3_length[granule][channel] = ba2int(self.__raw_bits[_bit_offset:_bit_offset + 12])
                 _bit_offset = _bit_offset + 12
@@ -273,7 +299,6 @@ class SideInformation():
                     _bit_offset = _bit_offset + 2
                     self.__mixed_block_flag[granule][channel] = ba2int(self.__raw_bits[_bit_offset:_bit_offset + 1]) == 1
                     _bit_offset = _bit_offset + 1
-                    # TODO: omitted switch_point_l/s!
 
                     for region in range(2):
                         self.__table_select[granule][channel][region] = ba2int(self.__raw_bits[_bit_offset:_bit_offset + 5])
@@ -389,11 +414,17 @@ class SideInformation():
             ]
         }
 
+class Id3v1Tag():
+    pass # TODO
+
+class Id3v2Tag():
+    pass # TODO
+
 class MpegFrame():
     def __init__(self, data: bytes, offset: int) -> None:
-        self.__offset: int = offset
-        self.__length: int = 4
-        self.__header: FrameHeader = FrameHeader(data[self.__offset:self.__offset + 4])
+        self.__offset:                int = offset
+        self.__length:                int = 4
+        self.__header:        FrameHeader = FrameHeader(data[self.__offset:self.__offset + 4])
         self.__side_info: SideInformation = SideInformation(data[self.__offset + 4:self.__offset + 4 + 32], self.__header)
     def calculate_length(self) -> None:
         fl: float = (self.__header.samples * self.__header.bitrate) / (8 * self.__header.frequency)
@@ -412,8 +443,8 @@ class MpegFrame():
     def length(self) -> int:
         return self.__length
     @property
-    def is_invalid(self) -> bool:
-        return (self.__header.version is None) or (self.__header.layer is None) or (self.__header.bitrate is None) or (self.__header.frequency is None) or (self.__header.samples is None)
+    def is_valid(self) -> bool:
+        return self.__header.is_validated
     @property
     def as_fragment(self) -> ContainerFragment:
         fragment: ContainerFragment = ContainerFragment(self.__offset, self.__length)
@@ -423,36 +454,40 @@ class MpegFrame():
 
         return fragment
 
-#class Id3v2Tag():
-#    pass # TODO
-#class Id3v1Tag():
-#    pass # TODO
+# MODULE ENTRYPOINT
 
 class AudioMpegAnalysis(AbstractStructureAnalysis):
     def __init__(self) -> None:
         super().__init__()
 
     def process_section(self, section: ContainerSection) -> ContainerSection:
-        #id3v2_tags: ContainerSegment = ContainerSegment()
-        mpeg_frames: ContainerSegment = ContainerSegment()
-        #id3v1_tags: ContainerSegment = ContainerSegment()
+        data: bytes = section.get_data()
         offset: int = 0
 
-        data: bytes = section.get_data()
+        # id3v2
+        pass # TODO
+
+        # mpeg frames
+        mpeg_frames: ContainerSegment = ContainerSegment()
         while True:
             ff: int = data.find(b"\xff", offset)
             if (ff < 0) or (not ff + 4 + 32 < len(data)) or (data[ff + 1] < 224):
                 break
 
             mpeg_frame: MpegFrame = MpegFrame(data, offset)
-            if mpeg_frame.is_invalid:
-                break
-            mpeg_frame.calculate_length()
-            mpeg_frames.add_fragment(mpeg_frame.as_fragment)
+            if mpeg_frame.is_valid:
+                mpeg_frame.calculate_length()
+                mpeg_frames.add_fragment(mpeg_frame.as_fragment)
 
-            offset = ff + mpeg_frame.length
+                offset = ff + mpeg_frame.length
+                continue
+            break
         section.add_segment("mpeg_frames", mpeg_frames)
 
+        # id3v1
+        pass # TODO
+
+        # check whether data left
         if offset < len(data):
             section.new_analysis(offset)
             section.set_length(offset)
