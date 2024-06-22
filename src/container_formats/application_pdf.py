@@ -1,7 +1,20 @@
-from abstract_structure_mapping import *
-from static_utils import try_utf8_conv
+"""
+application_pdf.py
+
+references:
+    - https://www.iso.org/standard/75839.html
+    - https://pdfa.org/resource/iso-32000-2/
+
+"""
+
+# IMPORTS
+
 import abc
+from abstract_structure_mapping import *
 import re
+from static_utils import try_utf8_conv
+
+# GLOBAL STATIC MAPPINGS
 
 WHITESPACE_CHARACTERS: list[bytes] = [
     b"\x00", b"\x09", b"\x0a", b"\x0c", b"\x0d", b"\x20"
@@ -15,6 +28,8 @@ DELIMITER_CHARACTERS: list[bytes] = [
 ]
 WHITESPACE_PATTERN: re.Pattern[bytes] = re.compile(DELIMITER_CHARACTERS[4] + b"".join([re.escape(wc) for wc in WHITESPACE_CHARACTERS]) + DELIMITER_CHARACTERS[5])
 WHITESPACE_ANTI_PATTERN: re.Pattern[bytes] = re.compile(b"[^" + b"".join([re.escape(wc) for wc in WHITESPACE_CHARACTERS]) + DELIMITER_CHARACTERS[5])
+
+# SPECIFIC MEDIA FORMAT PARTS
 
 class PdfToken():
     def __init__(self, offset: int, raw: bytes, is_stream: bool = False) -> None:
@@ -420,6 +435,8 @@ class ArrayObject(AbstractObject): # <<<>>>
         self.fragment.set_attribute("offset", None)
         self.fragment.set_attribute("length", None)
         self.fragment.set_attribute("data", nested_list)
+
+# MODULE ENTRYPOINT
 
 class ApplicationPdfAnalysis(AbstractStructureAnalysis):
     def __init__(self) -> None:

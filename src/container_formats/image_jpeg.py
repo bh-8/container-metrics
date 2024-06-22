@@ -1,4 +1,16 @@
+"""
+image_jpeg.py
+
+references:
+    - https://dev.exiv2.org/projects/exiv2/wiki/The_Metadata_in_JPEG_files
+
+"""
+
+# IMPORTS
+
 from abstract_structure_mapping import *
+
+# GLOBAL STATIC MAPPINGS
 
 SEGMENT_TYPES = {
     192: { #FF C0
@@ -318,112 +330,111 @@ SEGMENT_TYPES = {
     }
 }
 
+# SPECIFIC MEDIA FORMAT PARTS
+
 class JpegSegment():
     def __init__(self, data: bytes, offset: int, id: int) -> None:
-        self._data: bytes = data
-        self._offset: int = offset
-        self._length: int = 2
-        self._id: int = id
-        self._info: dict = SEGMENT_TYPES.get(id, {
+        self.__data: bytes = data
+        self.__offset: int = offset
+        self.__length: int = 2
+        self.__id: int = id
+        self.__info: dict = SEGMENT_TYPES.get(id, {
             "abbr": "unknown",
             "name": "(unknown segment)",
             "info": "unknown segment"
         })
-        self._payload = None
-        if id < 216 or id > 218:
-            self.match_segment_id()
-    def default_length(self) -> None:
-        x: int = self._offset + 2
-        y: int = self._offset + 3
-        if not y < len(self._data):
+        self.__payload = None
+        if self.__id < 216 or self.__id > 218:
+            # TODO: match segments and add detailed attributes to fragment..
+            match self.__id:
+                case 192 | 193 | 194 | 195: # SOF 0-3
+                    pass
+                case 196: # DHT
+                    pass
+                case 197 | 198 | 199: # SOF 5-7
+                    pass
+                case 200: # JPG
+                    pass 
+                case 201 | 202 | 203: # SOF 9-11
+                    pass
+                case 204: # DAC
+                    pass
+                case 205 | 206 | 207: # SOF 13-15
+                    pass
+                case 208 | 209 | 210 | 211 | 212 | 213 | 214 | 215: # RST 0-7
+                    pass
+                # 216-218 already handled!
+                case 219: # DQT
+                    pass
+                case 220: # DNL
+                    pass
+                case 221: # DRI
+                    pass
+                case 222: # DHP
+                    pass
+                case 223: # EXP
+                    pass
+                case 224 | 225 | 226 | 227 | 228 | 229 | 230 | 231 | 232 | 233 | 234 | 235 | 236 | 237 | 238 | 239: # APP0-15
+                    pass
+                case 240 | 241 | 242 | 243 | 244 | 245 | 246 | 247 | 248 | 249 | 250 | 251 | 252 | 253: # JPG0-13
+                    pass
+                case 254: # COM
+                    pass
+    def calculate_length(self) -> None:
+        x: int = self.__offset + 2
+        y: int = self.__offset + 3
+        if not y < len(self.__data):
             return
-        self._length = 2 + (256 * self._data[x] + self._data[y])
+        self.__length = 2 + (256 * self.__data[x] + self.__data[y])
     def set_length(self, length: int) -> None:
-        self._length = length
-    def get_length(self) -> int:
-        return self._length
-    def set_payload_offset(self, has_length_info: bool = True):
-        self._payload = {
-            "o": self._offset + (4 if has_length_info else 2),
-            "l": self._length - (4 if has_length_info else 2)
+        self.__length = length
+    def set_payload(self, has_length_info: bool = True):
+        self.__payload = {
+            "o": self.__offset + (4 if has_length_info else 2),
+            "l": self.__length - (4 if has_length_info else 2)
         }
-    def match_segment_id(self):
-        # TODO: match segments and add detailed attributes to fragment..
-        match self._id:
-            case 192 | 193 | 194 | 195: # SOF 0-3
-                pass
-            case 196: # DHT
-                pass
-            case 197 | 198 | 199: # SOF 5-7
-                pass
-            case 200: # JPG
-                pass 
-            case 201 | 202 | 203: # SOF 9-11
-                pass
-            case 204: # DAC
-                pass
-            case 205 | 206 | 207: # SOF 13-15
-                pass
-            case 208 | 209 | 210 | 211 | 212 | 213 | 214 | 215: # RST 0-7
-                pass
-            # 216-218 already handled!
-            case 219: # DQT
-                pass
-            case 220: # DNL
-                pass
-            case 221: # DRI
-                pass
-            case 222: # DHP
-                pass
-            case 223: # EXP
-                pass
-            case 224 | 225 | 226 | 227 | 228 | 229 | 230 | 231 | 232 | 233 | 234 | 235 | 236 | 237 | 238 | 239: # APP0-15
-                pass
-            case 240 | 241 | 242 | 243 | 244 | 245 | 246 | 247 | 248 | 249 | 250 | 251 | 252 | 253: # JPG0-13
-                pass
-            case 254: # COM
-                pass
+
+    @property
+    def length(self) -> int:
+        return self.__length
+    @property
     def as_fragment(self) -> ContainerFragment:
-        fragment: ContainerFragment = ContainerFragment(self._offset, self._length)
-        fragment.set_attribute("id", self._id)
-        fragment.set_attribute("name", self._info["abbr"])
-        fragment.set_attribute("long_name", self._info["name"])
-        if not self._payload is None:
-            payload_fragment: ContainerFragment = ContainerFragment(self._payload["o"], self._payload["l"])
+        fragment: ContainerFragment = ContainerFragment(self.__offset, self.__length)
+        fragment.set_attribute("id", self.__id)
+        fragment.set_attribute("name", self.__info["abbr"])
+        fragment.set_attribute("long_name", self.__info["name"])
+        if not self.__payload is None:
+            payload_fragment: ContainerFragment = ContainerFragment(self.__payload["o"], self.__payload["l"])
             fragment.set_attribute("payload", payload_fragment.get_dictionary())
         return fragment
+
+# MODULE ENTRYPOINT
 
 class ImageJpegAnalysis(AbstractStructureAnalysis):
     def __init__(self) -> None:
         super().__init__()
 
     def process_section(self, section: ContainerSection) -> ContainerSection:
-        jpeg_segs: ContainerSegment = ContainerSegment()
+        data: bytes = section.get_data()
         offset: int = 0
 
-        data: bytes = section.get_data()
-
+        # parse jpeg segments
+        jpeg_segs: ContainerSegment = ContainerSegment()
         while True:
             ff: int = data.find(b"\xff", offset)
-            if ff < 0:
+            if (ff < 0) or (not ff + 1 < len(data)) or (data[ff + 1] < 192 or data[ff + 1] > 254):
                 break
-            ix: int = ff + 1
-            if ix >= len(data):
-                break
-            id: int = data[ix]
-            if id < 192 or id > 254:
-                offset = ff + 1
-                continue
 
+            id: int = data[ff + 1]
             js: JpegSegment = JpegSegment(data, ff, id)
 
             # segments without payload
             if id == 216: # \xff\xd8 - Magic Number
-                jpeg_segs.add_fragment(js.as_fragment())
+                jpeg_segs.add_fragment(js.as_fragment)
                 offset = ff + 2
                 continue
             if id == 217: # \xff\xd9 - End of Image
-                jpeg_segs.add_fragment(js.as_fragment())
+                jpeg_segs.add_fragment(js.as_fragment)
                 offset = ff + 2
                 if offset < len(data):
                     section.new_analysis(offset)
@@ -437,16 +448,16 @@ class ImageJpegAnalysis(AbstractStructureAnalysis):
                     js.set_length(len(data) - offset)
                 else:
                     js.set_length(eoi - offset)
-                js.set_payload_offset(False)
-                offset = ff + js.get_length()
-                jpeg_segs.add_fragment(js.as_fragment())
+                js.set_payload(False)
+                offset = ff + js.length
+                jpeg_segs.add_fragment(js.as_fragment)
                 continue
 
             # default segments
-            js.default_length()
-            js.set_payload_offset(True)
-            offset = ff + js.get_length()
-            jpeg_segs.add_fragment(js.as_fragment())
+            js.calculate_length()
+            js.set_payload(True)
+            offset = ff + js.length
+            jpeg_segs.add_fragment(js.as_fragment)
 
         section.add_segment("jpeg_segments", jpeg_segs)
         section.calculate_length()
