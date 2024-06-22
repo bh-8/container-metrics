@@ -101,7 +101,7 @@ class AbstractStructureAnalysis(abc.ABC):
         raise NotImplementedError("no implementation available")
 
 class Coverage():
-    def __init__(self, data: list[dict], position: int, coverage_limit: int | None) -> None:
+    def __init__(self, data: list[dict], coverage_limit: int | None) -> None:
         if coverage_limit is None:
             raise ValueError("coverage section length is null")
 
@@ -139,7 +139,7 @@ class Coverage():
             for k in section.get_section()["segments"].keys():
                 for f in section.get_section()["segments"][k]:
                     _coverage_data.append({"o": f["offset"], "l": f["length"]})
-        return cls(_coverage_data, section.get_position(), section.get_length())
+        return cls(_coverage_data, section.get_length())
 
     def get_uncovered_segment(self) -> ContainerSegment:
         return self._segment

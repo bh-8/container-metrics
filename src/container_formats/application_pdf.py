@@ -385,7 +385,7 @@ class DictionaryObject(AbstractObject): # <<<>>>
         # if segments available
         if i + 3 < len(self.pdf_tokens):
             token_stream_start: PdfToken = self.pdf_tokens[i+1]
-            token_stream: PdfToken = self.pdf_tokens[i+2]
+            token_stream: PdfToken = self.pdf_tokens[i + 2]
 
             # check for stream element
             if token_stream_start.type == "stream":
@@ -441,93 +441,94 @@ class ArrayObject(AbstractObject): # <<<>>>
 class ApplicationPdfAnalysis(AbstractStructureAnalysis):
     def __init__(self) -> None:
         super().__init__()
-        self.full_tokens: list[PdfToken] = None
-        self.pdf_tokens: list[PdfToken] = None
 
-    def calculate_next_token_position(self, input_offset: int) -> int:
-        for i in range(len(self.full_tokens)):
-            if self.full_tokens[i].offset >= input_offset:
-                return self.full_tokens[i+1].offset
+    @staticmethod
+    def find_next_token_position(full_token_list: list[PdfToken], input_offset: int) -> int:
+        for i in range(len(full_token_list)):
+            if full_token_list[i].offset >= input_offset:
+                return full_token_list[i+1].offset
         return input_offset
 
     def process_section(self, section: ContainerSection) -> ContainerSection:
-        # split data into tokens
-        _pdf_tokenizer = PdfTokenizer(section.get_data())
-        _pdf_tokenizer.tokenize()
-        self.full_tokens = _pdf_tokenizer.get_token_list()
-        self.pdf_tokens = _pdf_tokenizer.get_token_list()
+        pdf_tokenizer: PdfTokenizer = PdfTokenizer(section.get_data())
+        pdf_tokenizer.tokenize()
 
-        _comment_segment: ContainerSegment = ContainerSegment()
-        for x in [ContainerFragment(t.offset, self.calculate_next_token_position(t.offset) - t.offset) for t in self.pdf_tokens if t.type == "_comment"]:
-            _comment_segment.add_fragment(x)
+        tokens_all: list[PdfToken] = pdf_tokenizer.get_token_list()
+        tokens_coms: list[PdfToken] = [t for t in pdf_tokenizer.get_token_list() if t.type == "_comment"]
+        tokens_func: list[PdfToken] = [t for t in pdf_tokenizer.get_token_list() if t.type != "_comment"]
 
-        self.pdf_tokens = [t for t in self.pdf_tokens if t.type != "_comment"]
-
-        i = 0
+        i: int = 0
 
         # header segment
-        _header_segment: ContainerSegment = ContainerSegment()
-        while i < len(self.pdf_tokens):
-            token: PdfToken = self.pdf_tokens[i]
+        pdf_header: ContainerSegment = ContainerSegment()
+        while i < len(tokens_func):
+            token: PdfToken = tokens_func[i]
             if token.type == "_header":
-                _header_fragment: ContainerFragment = ContainerFragment(token.offset, self.calculate_next_token_position(token.offset) - token.offset)
-                _header_fragment.set_attribute("version", float(str(token.raw, "utf-8")[5:8]))
-                _header_segment.add_fragment(_header_fragment)
+                fragment: ContainerFragment = ContainerFragment(token.offset, self.find_next_token_position(tokens_all, token.offset) - token.offset)
+                fragment.set_attribute("version", float(str(token.raw, "utf-8")[5:8]))
+                pdf_header.add_fragment(fragment)
 
                 i = i + 1
                 break
             i = i + 1
-        section.add_segment("header", _header_segment)
+        section.add_segment("header", pdf_header)
 
-        while i < len(self.pdf_tokens):
+        while i < len(tokens_func):
             # body segment
-            _body_segment: ContainerSegment = ContainerSegment()
-            while i < len(self.pdf_tokens):
-                token: PdfToken = self.pdf_tokens[i]
+            pdf_body: ContainerSegment = ContainerSegment()
+            while i < len(tokens_func):
+                token: PdfToken = tokens_func[i]
                 match token.type:
                     case "numeric":
-                        obj = NumericObject(self.pdf_tokens, i)
-                        _fragment: ContainerFragment = obj.get_fragment()
-                        _fragment.set_attribute("length", self.calculate_next_token_position(self.pdf_tokens[i+obj.get_length()-1].offset) - token.offset)
-                        _body_segment.add_fragment(_fragment)
+                        obj = NumericObject(tokens_func, i)
+
+                        fragment: ContainerFragment = obj.get_fragment()
+                        fragment.set_attribute("length", self.find_next_token_position(tokens_all, tokens_func[i + obj.get_length() - 1].offset) - token.offset)
+                        pdf_body.add_fragment(fragment)
+
                         i = i + obj.get_length()
                     case "_xref" | "_trailer" | "_startxref":
                         break
                     case _:
                         section.new_analysis(token.offset)
                         section.set_length(token.offset)
-                        i = len(self.pdf_tokens) # use condition to abort loop
+                        i = len(tokens_func) # use condition to abort loop
                         continue
-            if i == len(self.pdf_tokens):
+            section.add_segment("body", pdf_body)
+            if i == len(tokens_func):
                 break
-            section.add_segment("body", _body_segment)
 
             # xref segment
-            _xref_segment: ContainerSegment = ContainerSegment()
-            if self.pdf_tokens[i].type == "_xref":
-                _marker: ContainerFragment = ContainerFragment(self.pdf_tokens[i].offset, self.calculate_next_token_position(self.pdf_tokens[i].offset) - self.pdf_tokens[i].offset)
-                _xref_segment.add_fragment(_marker)
-                while i < len(self.pdf_tokens):
-                    token: PdfToken = self.pdf_tokens[i]
+            pdf_xref_table: ContainerSegment = ContainerSegment()
+            if tokens_func[i].type == "_xref":
+                # add fragment for xref marker
+                fragment: ContainerFragment = ContainerFragment(tokens_func[i].offset, self.find_next_token_position(tokens_all, tokens_func[i].offset) - tokens_func[i].offset)
+                pdf_xref_table.add_fragment(fragment)
+
+                while i < len(tokens_func):
+                    token: PdfToken = tokens_func[i]
 
                     match token.type:
                         case "numeric":
-                            range_offset: int = self.pdf_tokens[i].data
-                            cross_ref_entries: int = self.pdf_tokens[i+1].data
+                            range_offset: int = token.data
+                            cross_ref_entries: int = tokens_func[i + 1].data
 
-                            ref_tab_header: ContainerFragment = ContainerFragment(self.pdf_tokens[i].offset, self.pdf_tokens[i + 2].offset - self.pdf_tokens[i].offset)
-                            _xref_segment.add_fragment(ref_tab_header)
+                            # add fragment for xref table segment
+                            fragment: ContainerFragment = ContainerFragment(token.offset, tokens_func[i + 2].offset - token.offset)
+                            pdf_xref_table.add_fragment(fragment)
 
                             i = i + 2
                             c: int = 0
-                            while c < cross_ref_entries and i + 3 < len(self.pdf_tokens):
-                                ref_tab_entry: ContainerFragment = ContainerFragment(self.pdf_tokens[i].offset, self.pdf_tokens[i + 3].offset - self.pdf_tokens[i].offset)
-                                ref_tab_entry.set_attribute("object_number", range_offset + c)
-                                ref_tab_entry.set_attribute("byte_offset", self.pdf_tokens[i].data)
-                                ref_tab_entry.set_attribute("generation_number", self.pdf_tokens[i+1].data)
-                                ref_tab_entry.set_attribute("in_use", self.pdf_tokens[i + 2].raw == b"n")
+                            while c < cross_ref_entries and i + 3 < len(tokens_func):
+                                # add fragment for each xref table entry
+                                token: PdfToken = tokens_func[i]
+                                fragment: ContainerFragment = ContainerFragment(token.offset, tokens_func[i + 3].offset - token.offset)
+                                fragment.set_attribute("object_number", range_offset + c)
+                                fragment.set_attribute("byte_offset", token.data)
+                                fragment.set_attribute("generation_number", tokens_func[i + 1].data)
+                                fragment.set_attribute("in_use", tokens_func[i + 2].raw == b"n")
 
-                                _xref_segment.add_fragment(ref_tab_entry)
+                                pdf_xref_table.add_fragment(fragment)
                                 i = i + 3
                                 c = c + 1
                         case "_trailer" | "_startxref":
@@ -535,61 +536,76 @@ class ApplicationPdfAnalysis(AbstractStructureAnalysis):
                         case _:
                             # logger.critical(f"application_pdf.py: 'XRefParser' is missing implementation to handle '{token.type}' (token #{i})")
                             i = i + 1
-            section.add_segment("xref", _xref_segment)
+            section.add_segment("xref", pdf_xref_table)
 
             # trailer segment
-            _trailer_segment: ContainerSegment = ContainerSegment()
-            if self.pdf_tokens[i].type == "_trailer":
-                _marker: ContainerFragment = ContainerFragment(self.pdf_tokens[i].offset, self.calculate_next_token_position(self.pdf_tokens[i].offset) - self.pdf_tokens[i].offset)
-                _trailer_segment.add_fragment(_marker)
-                while i < len(self.pdf_tokens):
-                    token: PdfToken = self.pdf_tokens[i]
+            pdf_trailer: ContainerSegment = ContainerSegment()
+            if tokens_func[i].type == "_trailer":
+                # add fragment for trailer marker
+                fragment: ContainerFragment = ContainerFragment(tokens_func[i].offset, self.find_next_token_position(tokens_all, tokens_func[i].offset) - tokens_func[i].offset)
+                pdf_trailer.add_fragment(fragment)
+
+                while i < len(tokens_func):
+                    token: PdfToken = tokens_func[i]
 
                     match token.type:
                         case "dictionary":
-                            obj = DictionaryObject(self.pdf_tokens, i)
-                            _fragment: ContainerFragment = obj.get_fragment()
-                            _fragment.set_attribute("offset", self.pdf_tokens[i].offset)
-                            _fragment.set_attribute("length", self.pdf_tokens[i+obj.get_length()].offset - self.pdf_tokens[i].offset)
-                            _trailer_segment.add_fragment(_fragment)
+                            obj = DictionaryObject(tokens_func, i)
+
+                            fragment: ContainerFragment = obj.get_fragment()
+                            fragment.set_attribute("offset", token.offset)
+                            fragment.set_attribute("length", tokens_func[i + obj.get_length()].offset - token.offset)
+                            pdf_trailer.add_fragment(fragment)
+
                             i = i + obj.get_length()
                         case "_startxref":
                             break
                         case _:
                             # logger.critical(f"application_pdf.py: 'TrailerParser' is missing implementation to handle '{token.type}' (token #{i})")
                             i = i + 1
-            section.add_segment("trailer", _trailer_segment)
+            section.add_segment("trailer", pdf_trailer)
 
             # startxref segment
-            _startxref_segment: ContainerSegment = ContainerSegment()
-            if self.pdf_tokens[i].type == "_startxref":
-                _marker: ContainerFragment = ContainerFragment(self.pdf_tokens[i].offset, self.pdf_tokens[i+1].offset - self.pdf_tokens[i].offset)
-                _startxref: ContainerFragment = ContainerFragment(self.pdf_tokens[i+1].offset, self.pdf_tokens[i+2].offset - self.pdf_tokens[i+1].offset)
-                numeric_token: PdfToken = self.pdf_tokens[i+1]
-                _startxref.set_attribute("reference", numeric_token.data)
+            pdf_startxref: ContainerSegment = ContainerSegment()
+            if tokens_func[i].type == "_startxref":
+                token: PdfToken = tokens_func[i]
+                token_numeric: PdfToken = tokens_func[i + 1]
 
-                _startxref_segment.add_fragment(_marker)
-                _startxref_segment.add_fragment(_startxref)
+                fragment: ContainerFragment = ContainerFragment(token.offset, token_numeric.offset - token.offset)
+                fragment_numeric: ContainerFragment = ContainerFragment(token_numeric.offset, tokens_func[i + 2].offset - token_numeric.offset)
+                fragment_numeric.set_attribute("reference", token_numeric.data)
+
+                pdf_startxref.add_fragment(fragment)
+                pdf_startxref.add_fragment(fragment_numeric)
+
                 i = i + 2
-            section.add_segment("startxref", _startxref_segment)
+            section.add_segment("startxref", pdf_startxref)
 
             # eof segment
-            _eof_segment: ContainerSegment = ContainerSegment()
-            if self.pdf_tokens[i].type == "_eof":
-                eof_end: int
-                if i + 1 < len(self.pdf_tokens):
-                    eof_end = self.calculate_next_token_position(self.pdf_tokens[i].offset) - self.pdf_tokens[i].offset
-                else:
-                    eof_end = len(section.get_data()) - self.pdf_tokens[i].offset
+            pdf_eof: ContainerSegment = ContainerSegment()
+            if tokens_func[i].type == "_eof":
+                token: PdfToken = tokens_func[i]
 
-                _marker = ContainerFragment(self.pdf_tokens[i].offset, eof_end)
-                _eof_segment.add_fragment(_marker)
+                token_length: int = (self.find_next_token_position(tokens_all, token.offset) if i + 1 < len(tokens_func) else len(section.get_data())) - token.offset
+                #if i + 1 < len(tokens_func):
+                #    token_length = self.find_next_token_position(tokens_all, token.offset) - token.offset
+                #else:
+                #    token_length = len(section.get_data()) - token.offset
+
+                fragment = ContainerFragment(token.offset, token_length)
+                pdf_eof.add_fragment(fragment)
 
                 i = i + 1
-            section.add_segment("eof", _eof_segment)
-            section.add_segment("comments", _comment_segment)
+
+            section.add_segment("eof", pdf_eof)
             section.calculate_length()
-            _whitespace_coverage: Coverage = Coverage([{"o": t.offset, "l": t.length} for t in self.full_tokens], 0, section.get_length())
-            section.add_segment("whitespaces", _whitespace_coverage.get_uncovered_segment())
+
+            pdf_comments: ContainerSegment = ContainerSegment()
+            for x in [ContainerFragment(t.offset, self.find_next_token_position(tokens_all, t.offset) - t.offset) for t in tokens_coms if t.offset < section.get_length()]:
+                pdf_comments.add_fragment(x)
+
+            section.add_segment("comments", pdf_comments)
+            pdf_whitespaces: Coverage = Coverage([{"o": t.offset, "l": t.length} for t in tokens_all if t.offset < section.get_length()], section.get_length())
+            section.add_segment("whitespaces", pdf_whitespaces.get_uncovered_segment())
 
         return section
