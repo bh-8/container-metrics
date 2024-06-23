@@ -1,48 +1,55 @@
+"""
+abstract_structure_mapping.py
+
+included in every file in ./container_formats/*
+"""
+
+# IMPORTS
+
 import abc
 from static_utils import StaticLogger
+
+# STRUCTURE MAPPING COMPONENTS
 
 class ContainerFragment():
     def __init__(self, offset: int, length: int) -> None:
         # use of dictionary enables mapping of nested objects
-        self._fragment: dict = {
+        self.__attributes: dict = {
             "offset": offset,
             "length": length
         }
 
     # value has to be JSON-serializable!
     def set_attribute(self, key: str, value: any) -> None:
-        if value == None and key in self._fragment:
-            del self._fragment[key]
+        if value == None and key in self.__attributes:
+            del self.__attributes[key]
         else:
-            self._fragment[key] = value
+            self.__attributes[key] = value
 
-    def get_dictionary(self) -> dict:
-        return self._fragment
+    @property
+    def to_dictionary(self) -> dict:
+        return self.__attributes
+
 class ContainerSegment():
-    def __init__(self) -> None:
-        self._segment: list[ContainerFragment] = []
+    def __init__(self, key: str) -> None:
+        self.__key: str = key
+        self.__list: list[ContainerFragment] = []
 
     def add_fragment(self, fragment: ContainerFragment) -> None:
-        self._segment.append(fragment)
+        self.__list.append(fragment)
 
-    def get_offset(self) -> int | None:
-        if len(self._segment) < 1:
-            return None
-        return self._segment[0].get_dictionary()["offset"]
+    @property
+    def key(self) -> str:
+        return self.__key
+    @property
+    def to_list(self) -> list[dict]:
+        return [f.to_dictionary for f in self.__list]
 
-    def get_length(self) -> int | None:
-        if len(self._segment) < 1:
-            return None
-        _f: dict = self._segment[-1].get_dictionary()
-        return (_f["offset"] + _f["length"]) - self.get_offset()
-
-    def get_list(self) -> list[dict]:
-        return [f.get_dictionary() for f in self._segment]
 class ContainerSection():
     def __init__(self, recursive: any, position: int, data: bytes, mime_type: str, analysis_depth: int) -> None:
-        self._recursive = recursive
-        self._data = data
-        self._section: dict = {
+        self.__recursive: any = recursive # container_metrics.py: StructureMapping instance
+        self.__data = data
+        self.__attribs: dict = {
             "position": position,
             "length": None,
             "mime_type": mime_type,
@@ -50,48 +57,43 @@ class ContainerSection():
             "analysis_depth": analysis_depth
         }
 
-    def new_analysis(self, offset: int, length: int | None = None) -> None:
-        self._recursive.queue_analysis(self._section["position"] + offset, self._section["analysis_depth"] + 1, length)
-
-    def get_position(self) -> int:
-        return self._section["position"]
-
-    def get_length(self) -> int | None:
-        return self._section["length"]
-
-    def set_length(self, length: int) -> None:
-        self._section["length"] = length
-
-    def set_mime_name(self, mime_name: str) -> None:
-        self._section["mime_name"] = mime_name
-
-    def add_segment(self, key: str, segment: ContainerSegment) -> None:
-        if not "segments" in self._section:
-            self._section["segments"] = {}
-        if not key in self._section["segments"]:
-            self._section["segments"][key] = []
-        self._section["segments"][key] = self._section["segments"][key] + segment.get_list()
-
-    def get_data(self) -> bytes:
-        return self._data
-
-    def get_section(self) -> dict:
-        return self._section
-
-    def get_coverage_list(self) -> list:
-        if not "segments" in self._section:
+    def __build_coverage_list(self) -> list:
+        if not "segments" in self.__attribs:
             return []
         coverage_list: list[dict] = []
-        [[coverage_list.append({"o": f["offset"], "l": f["length"]}) for f in self._section["segments"][k]] for k in self._section["segments"].keys()]
+        [[coverage_list.append({"o": f["offset"], "l": f["length"]}) for f in self.__attribs["segments"][k]] for k in self.__attribs["segments"].keys()]
         return coverage_list
-
+    def new_analysis(self, offset: int, length: int | None = None) -> None:
+        self.__recursive.queue_analysis(self.__attribs["position"] + offset, self.__attribs["analysis_depth"] + 1, length)
+    def add_segment(self, segment: ContainerSegment) -> None:
+        if not "segments" in self.__attribs:
+            self.__attribs["segments"] = {}
+        if not segment.key in self.__attribs["segments"]:
+            self.__attribs["segments"][segment.key] = []
+        self.__attribs["segments"][segment.key] = self.__attribs["segments"][segment.key] + segment.to_list
     def calculate_length(self) -> None:
         _max: int = 0
-        for c in self.get_coverage_list():
+        for c in self.__build_coverage_list():
             s = c["o"] + c["l"]
             if s > _max:
                 _max = s
         self.set_length(_max)
+    def set_length(self, length: int) -> None:
+        self.__attribs["length"] = length
+    def set_mime_name(self, mime_name: str) -> None:
+        self.__attribs["mime_name"] = mime_name
+
+    @property
+    def data(self) -> bytes:
+        return self.__data
+    @property
+    def length(self) -> int | None:
+        return self.__attribs["length"]
+    @property
+    def to_dictionary(self) -> dict:
+        return self.__attribs
+
+# TODO: continue code review here ...
 
 class AbstractStructureAnalysis(abc.ABC):
     def __init__(self) -> None:
@@ -101,14 +103,14 @@ class AbstractStructureAnalysis(abc.ABC):
         raise NotImplementedError("no implementation available")
 
 class Coverage():
-    def __init__(self, data: list[dict], coverage_limit: int | None) -> None:
+    def __init__(self, identifier: str, data: list[dict], coverage_limit: int | None) -> None:
         if coverage_limit is None:
             raise ValueError("coverage section length is null")
 
-        self._segment: ContainerSegment = ContainerSegment()
+        self.__uncovered_segment: ContainerSegment = ContainerSegment(identifier)
 
         if len(data) == 0:
-            self._segment.add_fragment(ContainerFragment(0, coverage_limit))
+            self.__uncovered_segment.add_fragment(ContainerFragment(0, coverage_limit))
             return
 
         # sort
@@ -123,23 +125,23 @@ class Coverage():
                 coverage_offset = coverage_offset + c["l"]
             elif coverage_offset < c["o"]:
                 _gap: int = c["o"] - coverage_offset
-                self._segment.add_fragment(ContainerFragment(coverage_offset, _gap))
+                self.__uncovered_segment.add_fragment(ContainerFragment(coverage_offset, _gap))
                 coverage_offset = coverage_offset + _gap + c["l"]
             else:
                 # case for double-covered segments -> e.g. comments inside indirect objects/dictionaries/arrays/...
                 continue
 
         if coverage_offset < coverage_limit:
-            self._segment.add_fragment(ContainerFragment(coverage_offset, coverage_limit - coverage_offset))
+            self.__uncovered_segment.add_fragment(ContainerFragment(coverage_offset, coverage_limit - coverage_offset))
 
     @classmethod
     def from_section(cls, section: ContainerSection):
         _coverage_data: list[dict] = []
-        if "segments" in section.get_section():
-            for k in section.get_section()["segments"].keys():
-                for f in section.get_section()["segments"][k]:
+        if "segments" in section.to_dictionary:
+            for k in section.to_dictionary["segments"].keys():
+                for f in section.to_dictionary["segments"][k]:
                     _coverage_data.append({"o": f["offset"], "l": f["length"]})
-        return cls(_coverage_data, section.get_length())
+        return cls("uncovered", _coverage_data, section.length)
 
     def get_uncovered_segment(self) -> ContainerSegment:
-        return self._segment
+        return self.__uncovered_segment

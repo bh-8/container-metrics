@@ -405,7 +405,7 @@ class JpegSegment():
         fragment.set_attribute("long_name", self.__info["name"])
         if not self.__payload is None:
             payload_fragment: ContainerFragment = ContainerFragment(self.__payload["o"], self.__payload["l"])
-            fragment.set_attribute("payload", payload_fragment.get_dictionary())
+            fragment.set_attribute("payload", payload_fragment.to_dictionary)
         return fragment
 
 # MODULE ENTRYPOINT
@@ -415,11 +415,11 @@ class ImageJpegAnalysis(AbstractStructureAnalysis):
         super().__init__()
 
     def process_section(self, section: ContainerSection) -> ContainerSection:
-        data: bytes = section.get_data()
+        data: bytes = section.data
         offset: int = 0
 
         # parse jpeg segments
-        jpeg_segs: ContainerSegment = ContainerSegment()
+        jpeg_segs: ContainerSegment = ContainerSegment("jpeg_segments")
         while True:
             ff: int = data.find(b"\xff", offset)
             if (ff < 0) or (not ff + 1 < len(data)) or (data[ff + 1] < 192 or data[ff + 1] > 254):
@@ -459,6 +459,6 @@ class ImageJpegAnalysis(AbstractStructureAnalysis):
             offset = ff + js.length
             jpeg_segs.add_fragment(js.as_fragment)
 
-        section.add_segment("jpeg_segments", jpeg_segs)
+        section.add_segment(jpeg_segs)
         section.calculate_length()
         return section

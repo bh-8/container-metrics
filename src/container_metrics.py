@@ -138,12 +138,12 @@ class StructureMapping():
             # coverage
             try:
                 _coverage: Coverage = Coverage.from_section(_section)
-                _section.add_segment("uncovered", _coverage.get_uncovered_segment())
+                _section.add_segment(_coverage.get_uncovered_segment())
             except ValueError:
                 self.logger.critical("could not perform coverage analysis as section has no length")
-                _section.add_segment("uncovered", ContainerSegment())
+                _section.add_segment(ContainerSegment("uncovered"))
 
-            self.structure_mapping["sections"].append(_section.get_section())
+            self.structure_mapping["sections"].append(_section.to_dictionary)
 
     def get_structure_mapping(self) -> dict:
         self.structure_mapping["meta"]["investigation"]["finished"] = datetime.datetime.now().isoformat()

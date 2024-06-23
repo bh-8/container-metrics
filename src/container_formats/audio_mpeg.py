@@ -461,14 +461,14 @@ class AudioMpegAnalysis(AbstractStructureAnalysis):
         super().__init__()
 
     def process_section(self, section: ContainerSection) -> ContainerSection:
-        data: bytes = section.get_data()
+        data: bytes = section.data
         offset: int = 0
 
         # id3v2
         pass # TODO
 
         # mpeg frames
-        mpeg_frames: ContainerSegment = ContainerSegment()
+        mpeg_frames: ContainerSegment = ContainerSegment("mpeg_frames")
         while True:
             ff: int = data.find(b"\xff", offset)
             if (ff < 0) or (not ff + 4 + 32 < len(data)) or (data[ff + 1] < 224):
@@ -482,7 +482,7 @@ class AudioMpegAnalysis(AbstractStructureAnalysis):
                 offset = ff + mpeg_frame.length
                 continue
             break
-        section.add_segment("mpeg_frames", mpeg_frames)
+        section.add_segment(mpeg_frames)
 
         # id3v1
         pass # TODO
