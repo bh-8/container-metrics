@@ -33,51 +33,68 @@ WHITESPACE_ANTI_PATTERN: re.Pattern[bytes] = re.compile(b"[^" + b"".join([re.esc
 
 class PdfToken():
     def __init__(self, offset: int, raw: bytes, is_stream: bool = False) -> None:
-        self.offset: int = offset
-        self.length: int = len(raw)
-        self.type: str | None = "stream" if is_stream else None
-        self.raw: bytes = raw
-        self.data = try_utf8_conv(self.raw)
+        self.__offset: int = offset
+        self.__length: int = len(raw)
+        self.__type: str | None = "stream" if is_stream else None
+        self.__raw: bytes = raw
+        self.__data = try_utf8_conv(self.__raw)
 
-        if self.type == None:
-            if self.raw.startswith(b"\x25PDF-") and self.length == 8:
-                self.type = "_header"
-            elif self.raw == b"xref":
-                self.type = "_xref"
-            elif self.raw == b"trailer":
-                self.type = "_trailer"
-            elif self.raw == b"startxref":
-                self.type = "_startxref"
-            elif self.raw == b"\x25\x25EOF":
-                self.type = "_eof"
-            elif self.raw.startswith(DELIMITER_CHARACTERS[9]):
-                self.type = "_comment"
-            elif self.raw == b"obj":
-                self.type = "indirect_obj"
-            elif self.raw == b"stream":
-                self.type = "stream"
-            elif self.raw == b"true" or self.raw == b"false":
-                self.type = "boolean"
-                self.data = self.raw == b"true"
-            elif self.raw == b"null":
-                self.type = "null"
-            elif self.raw.startswith(DELIMITER_CHARACTERS[0]) and self.raw.endswith(DELIMITER_CHARACTERS[1]):
-                self.type = "literal_str"
-            elif self.raw.startswith(DELIMITER_CHARACTERS[2]) and self.raw.endswith(DELIMITER_CHARACTERS[3]):
-                self.type = "hex_str"
-            elif self.raw.startswith(DELIMITER_CHARACTERS[8]):
-                self.type = "name"
-            elif self.raw == b"[":
-                self.type = "array"
-            elif self.raw == b"<<":
-                self.type = "dictionary"
-            elif isinstance(self.data, str):
-                if self.data.replace("-", "", 1).isnumeric():
-                    self.type = "numeric"
-                    self.data = int(self.data)
-                elif self.data.replace(".", "", 1).replace("-", "", 1).isdigit():
-                    self.type = "numeric"
-                    self.data = float(self.data)
+        if self.__type == None:
+            if self.__raw.startswith(b"\x25PDF-") and self.__length == 8:
+                self.__type = "_header"
+            elif self.__raw == b"xref":
+                self.__type = "_xref"
+            elif self.__raw == b"trailer":
+                self.__type = "_trailer"
+            elif self.__raw == b"startxref":
+                self.__type = "_startxref"
+            elif self.__raw == b"\x25\x25EOF":
+                self.__type = "_eof"
+            elif self.__raw.startswith(DELIMITER_CHARACTERS[9]):
+                self.__type = "_comment"
+            elif self.__raw == b"obj":
+                self.__type = "indirect_obj"
+            elif self.__raw == b"stream":
+                self.__type = "stream"
+            elif self.__raw == b"true" or self.__raw == b"false":
+                self.__type = "boolean"
+                self.__data = self.__raw == b"true"
+            elif self.__raw == b"null":
+                self.__type = "null"
+            elif self.__raw.startswith(DELIMITER_CHARACTERS[0]) and self.__raw.endswith(DELIMITER_CHARACTERS[1]):
+                self.__type = "literal_str"
+            elif self.__raw.startswith(DELIMITER_CHARACTERS[2]) and self.__raw.endswith(DELIMITER_CHARACTERS[3]):
+                self.__type = "hex_str"
+            elif self.__raw.startswith(DELIMITER_CHARACTERS[8]):
+                self.__type = "name"
+            elif self.__raw == b"[":
+                self.__type = "array"
+            elif self.__raw == b"<<":
+                self.__type = "dictionary"
+            elif isinstance(self.__data, str):
+                if self.__data.replace("-", "", 1).isnumeric():
+                    self.__type = "numeric"
+                    self.__data = int(self.__data)
+                elif self.__data.replace(".", "", 1).replace("-", "", 1).isdigit():
+                    self.__type = "numeric"
+                    self.__data = float(self.__data)
+
+    @property
+    def offset(self) -> int:
+        return self.__offset
+    @property
+    def length(self) -> int:
+        return self.__length
+    @property
+    def type(self) -> str | None:
+        return self.__type
+    @property
+    def raw(self) -> bytes:
+        return self.__raw
+    @property
+    def data(self) -> str | bytes:
+        return self.__data
+
 class PdfTokenizer():
     def __init__(self, pdf_data: bytes) -> None:
         self.__pdf_data: bytes = pdf_data
@@ -88,12 +105,12 @@ class PdfTokenizer():
 
         while True:
             # skip whitespaces
-            pos: int = self.jump_to_next_token(pos)
+            pos: int = self.__jump_to_next_token(pos)
             if pos == -1:
                 break
 
             # search for potential end of token
-            pos_end: int = self.read_token(pos)
+            pos_end: int = self.__read_token(pos)
             if pos_end == -1:
                 break
 
@@ -110,7 +127,7 @@ class PdfTokenizer():
             if token == b"stream":
                 self.__token_list.append(PdfToken(pos, token))
 
-                stream_begin = self.jump_to_next_token(pos_end)
+                stream_begin = self.__jump_to_next_token(pos_end)
                 stream_end = self.__pdf_data.find(b"endstream", stream_begin)
 
                 self.__token_list.append(PdfToken(stream_begin, self.__pdf_data[stream_begin:stream_end].rstrip(), True))
@@ -221,7 +238,7 @@ class PdfTokenizer():
             pos = pos + len(token)
 
     # searches for the next whitespace occurance
-    def read_token(self, offset: int) -> int:
+    def __read_token(self, offset: int) -> int:
         match = WHITESPACE_PATTERN.search(self.__pdf_data, offset)
         if match is None:
             return -1
@@ -229,7 +246,7 @@ class PdfTokenizer():
             return match.start()
 
     # search for the next non-whitespace character
-    def jump_to_next_token(self, offset: int) -> int:
+    def __jump_to_next_token(self, offset: int) -> int:
         match = WHITESPACE_ANTI_PATTERN.search(self.__pdf_data, offset)
         if match is None:
             return -1
@@ -243,150 +260,152 @@ class PdfTokenizer():
 
 class AbstractObject(abc.ABC):
     def __init__(self, pdf_tokens: list[PdfToken], index: int) -> None:
-        self.pdf_tokens: list[PdfToken] = pdf_tokens
-        self.index: int = index
+        self._pdf_tokens: list[PdfToken] = pdf_tokens
+        self._index: int = index
 
         # by default, an object is constructed by one (or more) tokens
-        self.object_length: int = 1
+        self._token_length: int = 1
 
         # initialize object stats from first token
-        token: PdfToken = self.pdf_tokens[self.index]
-        self.fragment: ContainerFragment = ContainerFragment(token.offset, token.length)
-        self.fragment.set_attribute("type", token.type)
-
-    def determine_object(self, token: PdfToken, i: int):
+        token: PdfToken = self._pdf_tokens[self._index]
+        self._fragment: ContainerFragment = ContainerFragment(token.offset, token.length)
+        self._fragment.set_attribute("type", token.type)
+    def _determine_object(self, token: PdfToken, i: int):
         match token.type:
             case "numeric":
-                return NumericObject(self.pdf_tokens, i)
+                return NumericObject(self._pdf_tokens, i)
             case "dictionary":
-                return DictionaryObject(self.pdf_tokens, i)
+                return DictionaryObject(self._pdf_tokens, i)
             case "array":
-                return ArrayObject(self.pdf_tokens, i)
+                return ArrayObject(self._pdf_tokens, i)
             case "name" | "null" | "hex_str" | "literal_str" | "boolean":
-                return ArbitraryObject(self.pdf_tokens, i)
+                return ArbitraryObject(self._pdf_tokens, i)
             case _:
                 return None
 
     # number of tokens used
-    def get_length(self) -> int:
-        return self.object_length
+    @property
+    def token_length(self) -> int:
+        return self._token_length
+    @property
+    def as_fragment(self) -> ContainerFragment:
+        return self._fragment
 
-    # output
-    def get_fragment(self) -> ContainerFragment:
-        return self.fragment
 class ArbitraryObject(AbstractObject):
     def __init__(self, pt: list[PdfToken], n: int) -> None:
         super().__init__(pt, n)
-        self.fragment.set_attribute("offset", None)
-        self.fragment.set_attribute("length", None)
-        self.fragment.set_attribute("data", self.pdf_tokens[self.index].data)
+        self._fragment.set_attribute("offset", None)
+        self._fragment.set_attribute("length", None)
+        self._fragment.set_attribute("data", self._pdf_tokens[self._index].data)
+
 class NumericObject(AbstractObject): # <<<>>>
     def __init__(self, pt: list[PdfToken], n: int) -> None:
         super().__init__(pt, n)
 
         # check whether enough tokens are available
-        if self.index + 4 < len(self.pdf_tokens):
-            token_0_current: PdfToken = self.pdf_tokens[self.index]
-            token_1_future: PdfToken = self.pdf_tokens[self.index + 1]
-            token_2_future: PdfToken = self.pdf_tokens[self.index + 2]
-            token_3_future: PdfToken = self.pdf_tokens[self.index + 3]
+        if self._index + 4 < len(self._pdf_tokens):
+            token_0_current: PdfToken = self._pdf_tokens[self._index]
+            token_1_future: PdfToken = self._pdf_tokens[self._index + 1]
+            token_2_future: PdfToken = self._pdf_tokens[self._index + 2]
+            token_3_future: PdfToken = self._pdf_tokens[self._index + 3]
 
             # case 1: indirect object (n m obj) (endobj)
             if token_1_future.type == "numeric" and token_2_future.type == "indirect_obj":
                 # indirect object frame requires 4 tokens: n m obj endobj
-                self.object_length = 4
+                self._token_length = 4
 
                 # as indirect objects are modeled as numeric objects, the type has to be set manually
                 
-                self.fragment.set_attribute("type", token_2_future.type)
+                self._fragment.set_attribute("type", token_2_future.type)
 
                 # gather numbers
-                self.fragment.set_attribute("object_number", token_0_current.data)
-                self.fragment.set_attribute("generation_number", token_1_future.data)
+                self._fragment.set_attribute("object_number", token_0_current.data)
+                self._fragment.set_attribute("generation_number", token_1_future.data)
 
                 # handle all types which can be encapsulated in an indirect object
-                i: int = self.index + 3
-                obj = self.determine_object(token_3_future, i)
+                i: int = self._index + 3
+                obj = self._determine_object(token_3_future, i)
                 if obj is None:
                     # logger.critical(f"application_pdf.py: 'IndirectObject' is missing implementation to handle '{token_3_future.type}' (token #{i})")
                     return
 
                 # add token length during recursion
-                self.object_length = self.object_length + obj.get_length()
+                self._token_length = self._token_length + obj.token_length
 
                 # set (nested) data
-                self.fragment.set_attribute("data", obj.get_fragment().get_dictionary())
+                self._fragment.set_attribute("data", obj.as_fragment.get_dictionary())
 
                 return
             # case 2: reference object (n m R)
             if token_1_future.type == "numeric" and token_2_future.raw == b"R":
                 # reference object requires 3 tokens: n m R
-                self.object_length = 3
+                self._token_length = 3
 
                 # as reference objects are modeled as numeric objects, the type has to be set manually
-                self.fragment.set_attribute("offset", None)
-                self.fragment.set_attribute("length", None)
-                self.fragment.set_attribute("type", "reference")
-                self.fragment.set_attribute("object_number", token_0_current.data)
-                self.fragment.set_attribute("generation_number", token_1_future.data)
+                self._fragment.set_attribute("offset", None)
+                self._fragment.set_attribute("length", None)
+                self._fragment.set_attribute("type", "reference")
+                self._fragment.set_attribute("object_number", token_0_current.data)
+                self._fragment.set_attribute("generation_number", token_1_future.data)
 
                 return
         # case 3: actual numerical value
-        self.fragment.set_attribute("offset", None)
-        self.fragment.set_attribute("length", None)
-        self.fragment.set_attribute("data", self.pdf_tokens[self.index].data)
+        self._fragment.set_attribute("offset", None)
+        self._fragment.set_attribute("length", None)
+        self._fragment.set_attribute("data", self._pdf_tokens[self._index].data)
+
 class DictionaryObject(AbstractObject): # <<<>>>
     def __init__(self, pt: list[PdfToken], n: int) -> None:
         super().__init__(pt, n)
 
         # dictionaries are always encapsulated in two tokens
-        self.object_length = 2
+        self._token_length = 2
 
         # collector for nested objects
         nested_dict: dict = {}
 
-        i: int = self.index + 1
-        while self.pdf_tokens[i].type == "name":
+        i: int = self._index + 1
+        while self._pdf_tokens[i].type == "name":
             # first name is key
-            dictionary_key: str = self.pdf_tokens[i].data
+            dictionary_key: str = self._pdf_tokens[i].data
 
             # key is also one token each
-            self.object_length = self.object_length + 1
+            self._token_length = self._token_length + 1
 
             # increment
             i = i + 1
 
             # second item is value
-            dictionary_value: PdfToken = self.pdf_tokens[i]
+            dictionary_value: PdfToken = self._pdf_tokens[i]
 
             # make sure key exists
             if not dictionary_key in nested_dict:
                 nested_dict[dictionary_key] = None
 
-            obj = self.determine_object(dictionary_value, i)
+            obj = self._determine_object(dictionary_value, i)
             if obj is None:
                 nested_dict[dictionary_key] = None
                 # logger.critical(f"application_pdf.py: 'DictionaryObject' is missing implementation to handle '{dictionary_value.type}' (token #{i})")
                 continue
 
             # skip processed tokens
-            i = i + obj.get_length()
+            i = i + obj.token_length
 
             # add tokens
-            self.object_length = self.object_length + obj.get_length()
+            self._token_length = self._token_length + obj.token_length
 
             # add dictionary key
-            nested_dict[dictionary_key] = obj.get_fragment().get_dictionary()
+            nested_dict[dictionary_key] = obj.as_fragment.get_dictionary()
 
         # if segments available
-        if i + 3 < len(self.pdf_tokens):
-            token_stream_start: PdfToken = self.pdf_tokens[i + 1]
-            token_stream: PdfToken = self.pdf_tokens[i + 2]
+        if i + 3 < len(self._pdf_tokens):
+            token_stream_start: PdfToken = self._pdf_tokens[i + 1]
+            token_stream: PdfToken = self._pdf_tokens[i + 2]
 
             # check for stream element
             if token_stream_start.type == "stream":
                 # add tokens
-                self.object_length = self.object_length + 3
+                self._token_length = self._token_length + 3
 
                 # append stream element
                 _stream_fragment: ContainerFragment = ContainerFragment(token_stream.offset, token_stream.length)
@@ -394,25 +413,26 @@ class DictionaryObject(AbstractObject): # <<<>>>
 
                 nested_dict["stream"] = _stream_fragment.get_dictionary()
 
-        self.fragment.set_attribute("offset", None)
-        self.fragment.set_attribute("length", None)
-        self.fragment.set_attribute("data", nested_dict)
+        self._fragment.set_attribute("offset", None)
+        self._fragment.set_attribute("length", None)
+        self._fragment.set_attribute("data", nested_dict)
+
 class ArrayObject(AbstractObject): # <<<>>>
     def __init__(self, pt: list[PdfToken], n: int) -> None:
         super().__init__(pt, n)
 
         # arrays are always encapsulated in two tokens
-        self.object_length = 2
+        self._token_length = 2
 
         # collector for nested items
         nested_list: list = []
 
-        i: int = self.index + 1
-        while i < len(self.pdf_tokens) and self.pdf_tokens[i].raw != DELIMITER_CHARACTERS[5]:
+        i: int = self._index + 1
+        while i < len(self._pdf_tokens) and self._pdf_tokens[i].raw != DELIMITER_CHARACTERS[5]:
             # access next array element
-            token: PdfToken = self.pdf_tokens[i]
+            token: PdfToken = self._pdf_tokens[i]
 
-            obj = self.determine_object(token, i)
+            obj = self._determine_object(token, i)
             if obj is None:
                 nested_list.append(None)
                 # logger.critical(f"application_pdf.py: 'ArrayObject' is missing implementation to handle '{token.type}' (token #{i})")
@@ -420,17 +440,17 @@ class ArrayObject(AbstractObject): # <<<>>>
                 continue
 
             # skip processed tokens
-            i = i + obj.get_length()
+            i = i + obj.token_length
 
             # add tokens
-            self.object_length = self.object_length + obj.get_length()
+            self._token_length = self._token_length + obj.token_length
 
             # add dictionary key
-            nested_list.append(obj.get_fragment().get_dictionary())
+            nested_list.append(obj.as_fragment.get_dictionary())
 
-        self.fragment.set_attribute("offset", None)
-        self.fragment.set_attribute("length", None)
-        self.fragment.set_attribute("data", nested_list)
+        self._fragment.set_attribute("offset", None)
+        self._fragment.set_attribute("length", None)
+        self._fragment.set_attribute("data", nested_list)
 
 # MODULE ENTRYPOINT
 
@@ -439,7 +459,7 @@ class ApplicationPdfAnalysis(AbstractStructureAnalysis):
         super().__init__()
 
     @staticmethod
-    def find_next_token_position(tokens: list[PdfToken], input_offset: int) -> int:
+    def __find_next_token_position(tokens: list[PdfToken], input_offset: int) -> int:
         for i in range(len(tokens)):
             if tokens[i].offset >= input_offset:
                 return tokens[i + 1].offset
@@ -459,7 +479,7 @@ class ApplicationPdfAnalysis(AbstractStructureAnalysis):
         while i < len(tokens_func):
             token: PdfToken = tokens_func[i]
             if token.type == "_header":
-                fragment: ContainerFragment = ContainerFragment(token.offset, self.find_next_token_position(tokens_all, token.offset) - token.offset)
+                fragment: ContainerFragment = ContainerFragment(token.offset, self.__find_next_token_position(tokens_all, token.offset) - token.offset)
                 fragment.set_attribute("version", float(str(token.raw, "utf-8")[5:8]))
                 pdf_header.add_fragment(fragment)
 
@@ -477,11 +497,11 @@ class ApplicationPdfAnalysis(AbstractStructureAnalysis):
                     case "numeric":
                         obj = NumericObject(tokens_func, i)
 
-                        fragment: ContainerFragment = obj.get_fragment()
-                        fragment.set_attribute("length", self.find_next_token_position(tokens_all, tokens_func[i + obj.get_length() - 1].offset) - token.offset)
+                        fragment: ContainerFragment = obj.as_fragment
+                        fragment.set_attribute("length", self.__find_next_token_position(tokens_all, tokens_func[i + obj.token_length - 1].offset) - token.offset)
                         pdf_body.add_fragment(fragment)
 
-                        i = i + obj.get_length()
+                        i = i + obj.token_length
                     case "_xref" | "_trailer" | "_startxref":
                         break
                     case _:
@@ -497,7 +517,7 @@ class ApplicationPdfAnalysis(AbstractStructureAnalysis):
             pdf_xref_table: ContainerSegment = ContainerSegment()
             if tokens_func[i].type == "_xref":
                 # add fragment for xref marker
-                fragment: ContainerFragment = ContainerFragment(tokens_func[i].offset, self.find_next_token_position(tokens_all, tokens_func[i].offset) - tokens_func[i].offset)
+                fragment: ContainerFragment = ContainerFragment(tokens_func[i].offset, self.__find_next_token_position(tokens_all, tokens_func[i].offset) - tokens_func[i].offset)
                 pdf_xref_table.add_fragment(fragment)
 
                 while i < len(tokens_func):
@@ -537,7 +557,7 @@ class ApplicationPdfAnalysis(AbstractStructureAnalysis):
             pdf_trailer: ContainerSegment = ContainerSegment()
             if tokens_func[i].type == "_trailer":
                 # add fragment for trailer marker
-                fragment: ContainerFragment = ContainerFragment(tokens_func[i].offset, self.find_next_token_position(tokens_all, tokens_func[i].offset) - tokens_func[i].offset)
+                fragment: ContainerFragment = ContainerFragment(tokens_func[i].offset, self.__find_next_token_position(tokens_all, tokens_func[i].offset) - tokens_func[i].offset)
                 pdf_trailer.add_fragment(fragment)
 
                 while i < len(tokens_func):
@@ -547,12 +567,12 @@ class ApplicationPdfAnalysis(AbstractStructureAnalysis):
                         case "dictionary":
                             obj = DictionaryObject(tokens_func, i)
 
-                            fragment: ContainerFragment = obj.get_fragment()
+                            fragment: ContainerFragment = obj.as_fragment
                             fragment.set_attribute("offset", token.offset)
-                            fragment.set_attribute("length", tokens_func[i + obj.get_length()].offset - token.offset)
+                            fragment.set_attribute("length", tokens_func[i + obj.token_length].offset - token.offset)
                             pdf_trailer.add_fragment(fragment)
 
-                            i = i + obj.get_length()
+                            i = i + obj.token_length
                         case "_startxref":
                             break
                         case _:
@@ -581,11 +601,7 @@ class ApplicationPdfAnalysis(AbstractStructureAnalysis):
             if tokens_func[i].type == "_eof":
                 token: PdfToken = tokens_func[i]
 
-                token_length: int = (self.find_next_token_position(tokens_all, token.offset) if i + 1 < len(tokens_func) else len(section.get_data())) - token.offset
-                #if i + 1 < len(tokens_func):
-                #    token_length = self.find_next_token_position(tokens_all, token.offset) - token.offset
-                #else:
-                #    token_length = len(section.get_data()) - token.offset
+                token_length: int = (self.__find_next_token_position(tokens_all, token.offset) if i + 1 < len(tokens_func) else len(section.get_data())) - token.offset
 
                 fragment = ContainerFragment(token.offset, token_length)
                 pdf_eof.add_fragment(fragment)
@@ -596,7 +612,7 @@ class ApplicationPdfAnalysis(AbstractStructureAnalysis):
             section.calculate_length()
 
             pdf_comments: ContainerSegment = ContainerSegment()
-            for x in [ContainerFragment(t.offset, self.find_next_token_position(tokens_all, t.offset) - t.offset) for t in tokens_coms if t.offset < section.get_length()]:
+            for x in [ContainerFragment(t.offset, self.__find_next_token_position(tokens_all, t.offset) - t.offset) for t in tokens_coms if t.offset < section.get_length()]:
                 pdf_comments.add_fragment(x)
 
             section.add_segment("comments", pdf_comments)
