@@ -110,40 +110,40 @@ class PdfTokenizer():
             if token == b"stream":
                 self.__token_list.append(PdfToken(pos, token))
 
-                _stream_start = self.jump_to_next_token(pos_end)
-                _stream_end = self.__pdf_data.find(b"endstream", _stream_start)
+                stream_begin = self.jump_to_next_token(pos_end)
+                stream_end = self.__pdf_data.find(b"endstream", stream_begin)
 
-                self.__token_list.append(PdfToken(_stream_start, self.__pdf_data[_stream_start:_stream_end].rstrip(), True))
-                self.__token_list.append(PdfToken(_stream_end, self.__pdf_data[_stream_end:_stream_end + 9]))
-                pos = _stream_end + 9
+                self.__token_list.append(PdfToken(stream_begin, self.__pdf_data[stream_begin:stream_end].rstrip(), True))
+                self.__token_list.append(PdfToken(stream_end, self.__pdf_data[stream_end:stream_end + 9]))
+                pos = stream_end + 9
 
                 continue
 
             # special treatment for '('
             if token.startswith(DELIMITER_CHARACTERS[0]):
-                _parenthesis_position = pos + 1
+                pt_position = pos + 1
                 _parenthesis_open = 1
                 while _parenthesis_open > 0:
-                    _next_parenthesis_open = self.__pdf_data.find(DELIMITER_CHARACTERS[0], _parenthesis_position)
-                    _next_parenthesis_close = self.__pdf_data.find(DELIMITER_CHARACTERS[1], _parenthesis_position)
+                    pt_open_next = self.__pdf_data.find(DELIMITER_CHARACTERS[0], pt_position)
+                    pt_close_next = self.__pdf_data.find(DELIMITER_CHARACTERS[1], pt_position)
 
-                    if _next_parenthesis_close != -1 and _next_parenthesis_open != -1:
-                        if _next_parenthesis_close < _next_parenthesis_open:
+                    if pt_close_next != -1 and pt_open_next != -1:
+                        if pt_close_next < pt_open_next:
                             _parenthesis_open = _parenthesis_open - 1
-                            _parenthesis_position = _next_parenthesis_close + 1
+                            pt_position = pt_close_next + 1
                             continue
-                        if _next_parenthesis_open < _next_parenthesis_close:
+                        if pt_open_next < pt_close_next:
                             _parenthesis_open = _parenthesis_open + 1
-                            _parenthesis_position = _next_parenthesis_open + 1
+                            pt_position = pt_open_next + 1
                             continue
-                    if _next_parenthesis_close != -1:
+                    if pt_close_next != -1:
                         _parenthesis_open = _parenthesis_open - 1
-                        _parenthesis_position = _next_parenthesis_close + 1
+                        pt_position = pt_close_next + 1
                         continue
                     break
-                token = self.__pdf_data[pos:_parenthesis_position]
+                token = self.__pdf_data[pos:pt_position]
                 self.__token_list.append(PdfToken(pos, token))
-                pos = _parenthesis_position
+                pos = pt_position
                 continue
 
             # special treatment for '<'
