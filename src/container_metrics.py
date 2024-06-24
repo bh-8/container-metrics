@@ -129,19 +129,19 @@ class StructureMapping():
 
                 # initiate format specific analysis
                 _format_specific_analysis = globals()[_class_label]()
-                _section = _format_specific_analysis.process_section(_section)
+                _section = _format_specific_analysis.process(_section)
             else:
                 _section.set_length(_analysis_length)
 
             # coverage
             try:
                 _coverage: Coverage = Coverage.from_section(_section)
-                _section.add_segment(_coverage.get_uncovered_segment())
+                _section.add_segment(_coverage.uncovered_segment)
             except ValueError:
                 self.logger.critical("could not perform coverage analysis as section has no length")
                 _section.add_segment(ContainerSegment("uncovered"))
 
-            self.structure_mapping["sections"].append(_section.to_dictionary)
+            self.structure_mapping["sections"].append(_section.as_dictionary)
 
     def get_structure_mapping(self) -> dict:
         self.structure_mapping["meta"]["investigation"]["finished"] = datetime.datetime.now().isoformat()

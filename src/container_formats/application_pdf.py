@@ -333,7 +333,7 @@ class NumericObject(AbstractObject): # <<<>>>
                 self._token_length = self._token_length + obj.token_length
 
                 # set (nested) data
-                self._fragment.set_attribute("data", obj.as_fragment.to_dictionary)
+                self._fragment.set_attribute("data", obj.as_fragment.as_dictionary)
 
                 return
             # case 2: reference object (n m R)
@@ -395,7 +395,7 @@ class DictionaryObject(AbstractObject): # <<<>>>
             self._token_length = self._token_length + obj.token_length
 
             # add dictionary key
-            nested_dict[dictionary_key] = obj.as_fragment.to_dictionary
+            nested_dict[dictionary_key] = obj.as_fragment.as_dictionary
 
         # if segments available
         if i + 3 < len(self._pdf_tokens):
@@ -411,7 +411,7 @@ class DictionaryObject(AbstractObject): # <<<>>>
                 _stream_fragment: ContainerFragment = ContainerFragment(token_stream.offset, token_stream.length)
                 _stream_fragment.set_attribute("type", token_stream.type)
 
-                nested_dict["stream"] = _stream_fragment.to_dictionary
+                nested_dict["stream"] = _stream_fragment.as_dictionary
 
         self._fragment.set_attribute("offset", None)
         self._fragment.set_attribute("length", None)
@@ -446,7 +446,7 @@ class ArrayObject(AbstractObject): # <<<>>>
             self._token_length = self._token_length + obj.token_length
 
             # add dictionary key
-            nested_list.append(obj.as_fragment.to_dictionary)
+            nested_list.append(obj.as_fragment.as_dictionary)
 
         self._fragment.set_attribute("offset", None)
         self._fragment.set_attribute("length", None)
@@ -465,7 +465,7 @@ class ApplicationPdfAnalysis(AbstractStructureAnalysis):
                 return tokens[i + 1].offset
         return input_offset
 
-    def process_section(self, section: ContainerSection) -> ContainerSection:
+    def process(self, section: ContainerSection) -> ContainerSection:
         pdf_tokenizer: PdfTokenizer = PdfTokenizer(section.data)
 
         tokens_all: list[PdfToken] = pdf_tokenizer.token_list
@@ -617,6 +617,6 @@ class ApplicationPdfAnalysis(AbstractStructureAnalysis):
 
             section.add_segment(pdf_comments)
             pdf_whitespaces: Coverage = Coverage("whitespaces", [{"o": t.offset, "l": t.length} for t in tokens_all if t.offset < section.length], section.length)
-            section.add_segment(pdf_whitespaces.get_uncovered_segment())
+            section.add_segment(pdf_whitespaces.uncovered_segment)
 
         return section

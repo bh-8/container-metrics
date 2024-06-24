@@ -27,7 +27,7 @@ class ContainerFragment():
             self.__attributes[key] = value
 
     @property
-    def to_dictionary(self) -> dict:
+    def as_dictionary(self) -> dict:
         return self.__attributes
 
 class ContainerSegment():
@@ -43,7 +43,7 @@ class ContainerSegment():
         return self.__key
     @property
     def to_list(self) -> list[dict]:
-        return [f.to_dictionary for f in self.__list]
+        return [f.as_dictionary for f in self.__list]
 
 class ContainerSection():
     def __init__(self, recursive: any, position: int, data: bytes, mime_type: str, analysis_depth: int) -> None:
@@ -90,20 +90,18 @@ class ContainerSection():
     def length(self) -> int | None:
         return self.__attribs["length"]
     @property
-    def to_dictionary(self) -> dict:
+    def as_dictionary(self) -> dict:
         return self.__attribs
 
 # ABSTRACT CONTAINER FORMAT
 
-# TODO:REVIEW
 class AbstractStructureAnalysis(abc.ABC):
     def __init__(self) -> None:
         self.logger = StaticLogger.get_logger()
 
-    def process_section(self, section: ContainerSection) -> ContainerSection:
+    def process(self, section: ContainerSection) -> ContainerSection:
         raise NotImplementedError("no implementation available")
 
-# TODO:REVIEW
 class Coverage():
     def __init__(self, identifier: str, data: list[dict], coverage_limit: int | None) -> None:
         if coverage_limit is None:
@@ -116,11 +114,11 @@ class Coverage():
             return
 
         # sort
-        _coverage_data = sorted(data, key=lambda d: d["o"])
+        coverage_data = sorted(data, key=lambda d: d["o"])
         
         # coverage algorithm
         coverage_offset: int = 0
-        for c in _coverage_data:
+        for c in coverage_data:
             if c["o"] >= coverage_limit:
                 break
             elif coverage_offset == c["o"]:
@@ -138,12 +136,13 @@ class Coverage():
 
     @classmethod
     def from_section(cls, section: ContainerSection):
-        _coverage_data: list[dict] = []
-        if "segments" in section.to_dictionary:
-            for k in section.to_dictionary["segments"].keys():
-                for f in section.to_dictionary["segments"][k]:
-                    _coverage_data.append({"o": f["offset"], "l": f["length"]})
-        return cls("uncovered", _coverage_data, section.length)
+        coverage_data: list[dict] = []
+        if "segments" in section.as_dictionary:
+            for k in section.as_dictionary["segments"].keys():
+                for f in section.as_dictionary["segments"][k]:
+                    coverage_data.append({"o": f["offset"], "l": f["length"]})
+        return cls("uncovered", coverage_data, section.length)
 
-    def get_uncovered_segment(self) -> ContainerSegment:
+    @property
+    def uncovered_segment(self) -> ContainerSegment:
         return self.__uncovered_segment

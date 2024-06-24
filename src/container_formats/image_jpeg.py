@@ -405,7 +405,7 @@ class JpegSegment():
         fragment.set_attribute("long_name", self.__info["name"])
         if not self.__payload is None:
             payload_fragment: ContainerFragment = ContainerFragment(self.__payload["o"], self.__payload["l"])
-            fragment.set_attribute("payload", payload_fragment.to_dictionary)
+            fragment.set_attribute("payload", payload_fragment.as_dictionary)
         return fragment
 
 # MODULE ENTRYPOINT
@@ -414,7 +414,7 @@ class ImageJpegAnalysis(AbstractStructureAnalysis):
     def __init__(self) -> None:
         super().__init__()
 
-    def process_section(self, section: ContainerSection) -> ContainerSection:
+    def process(self, section: ContainerSection) -> ContainerSection:
         data: bytes = section.data
         offset: int = 0
 

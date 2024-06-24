@@ -14,28 +14,39 @@ from static_utils import StaticLogger
 
 class AbstractPipeline(abc.ABC):
     def __init__(self, pipeline: str, document: dict, raw: bytes) -> None:
-        self.pipeline: str = pipeline
-        self.document: dict = document
-        self.raw: bytes = raw
         self.logger = StaticLogger.get_logger()
-        self.output_path: Path = Path(f"./io/_{pipeline}").resolve()
-        self.output_path.mkdir(exist_ok=True)
-        self.output_id: str = f"{self.document['_id']}_{Path(self.document['meta']['file']['name'])}"
+        self.__pipeline: str = pipeline
+        self.__document: dict = document
+        self.__raw: bytes = raw
 
     def process(self) -> None:
         raise NotImplementedError("processing not implemented")
-
     def get_raw_document(self, hex: bool = False) -> dict:
-        _raw_doc: dict = self.document
+        raw_document: dict = self.__document
         # insert fragment data
-        for i in range(len(_raw_doc["sections"])):
-            s: dict = _raw_doc["sections"][i]["segments"]
+        for i in range(len(raw_document["sections"])):
+            s: dict = raw_document["sections"][i]["segments"]
             for k in s.keys():
                 for j in range(len(s[k])):
-                    f: dict = _raw_doc["sections"][i]["segments"][k][j]
-                    position: int = _raw_doc["sections"][i]["position"] + f["offset"]
+                    f: dict = raw_document["sections"][i]["segments"][k][j]
+                    position: int = raw_document["sections"][i]["position"] + f["offset"]
                     end: int = position + f["length"]
-                    data: bytes = self.raw[position:end]
-                    _raw_doc["sections"][i]["segments"][k][j]["raw"] = data.hex() if hex else f"{data}"
+                    data: bytes = self.__raw[position:end]
+                    raw_document["sections"][i]["segments"][k][j]["raw"] = data.hex() if hex else f"{data}"
 
-        return _raw_doc
+        return raw_document
+
+    @property
+    def document(self) -> dict:
+        return self.__document
+    @property
+    def raw(self) -> dict:
+        return self.__raw
+    @property
+    def output_id(self) -> str:
+        return f"{self.__document['_id']}_{Path(self.__document['meta']['file']['name'])}"
+    @property
+    def output_path(self) -> Path:
+        path: Path = Path(f"./io/_{self.__pipeline}").resolve()
+        path.mkdir(exist_ok=True)
+        return path

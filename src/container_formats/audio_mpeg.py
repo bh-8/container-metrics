@@ -460,7 +460,7 @@ class AudioMpegAnalysis(AbstractStructureAnalysis):
     def __init__(self) -> None:
         super().__init__()
 
-    def process_section(self, section: ContainerSection) -> ContainerSection:
+    def process(self, section: ContainerSection) -> ContainerSection:
         data: bytes = section.data
         offset: int = 0
 
