@@ -171,6 +171,8 @@ class FrameHeader():
         # check whether frame is invalid
         if self.__version is None or self.__layer is None or self.__dbitrate is None or self.__dfrequency is None or self.__dmode_ext is None:
             return
+        elif self.__dbitrate.get((int(self.__version), self.__layer)) is None:
+            return
 
         self.__validated:      bool =         True
         self.__channels:        int = 1 if self.__channel_mode == CHANNEL_MODE[3] else 2
@@ -428,7 +430,8 @@ class MpegFrame():
         self.__offset:                int = offset
         self.__length:                int = 4
         self.__header:        FrameHeader = FrameHeader(data[self.__offset:self.__offset + 4])
-        self.__side_info: SideInformation = SideInformation(data[self.__offset + 4:self.__offset + 4 + 32], self.__header)
+        if self.__header.is_validated:
+            self.__side_info: SideInformation = SideInformation(data[self.__offset + 4:self.__offset + 4 + 32], self.__header)
     def calculate_length(self) -> None:
         fl: float = (self.__header.samples * self.__header.bitrate) / (8 * self.__header.frequency)
         if self.__header.padding:

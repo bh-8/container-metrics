@@ -40,7 +40,6 @@ class StructureMapping():
         self.__structure_mapping: dict = {
             "_gridfs": None,
             "meta": {
-                "file_name": None,
                 "file": {
                     "name": None,
                     "size": None,

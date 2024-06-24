@@ -16,7 +16,7 @@ an extensible framework for feature extraction of container format files
 - `docker compose build && ./container-metrics query mongodb://admin:admin@mongo-db:27017 collection yara --log=info`
 - `docker compose build && ./container-metrics query mongodb://admin:admin@mongo-db:27017 collection json --log=info`
 - `docker compose build && ./container-metrics query mongodb://admin:admin@mongo-db:27017 collection csv --log=info`
-- `sudo rm -drf io/_csv/ io/_json/ io/_yara/ io/db/ && docker compose build && ./container-metrics acquire mongodb://admin:admin@mongo-db:27017 collection io/mixed3.blob --log=info && ./container-metrics query mongodb://admin:admin@mongo-db:27017 collection json --log=info`
+- `docker compose build && sudo rm -drf io/_csv/ io/_json/ io/_yara/ io/db/ && ./container-metrics acquire mongodb://admin:admin@mongo-db:27017 collection io/mixed3.blob --log=info && ./container-metrics query mongodb://admin:admin@mongo-db:27017 collection json --log=info`
 ## code conventions
 - `general_identifier`
 - `CamelCaseClassNames`
