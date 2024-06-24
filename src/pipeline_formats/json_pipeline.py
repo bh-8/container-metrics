@@ -1,6 +1,17 @@
+"""
+json_pipeline.py
+
+references:
+    - 
+
+"""
+
+# IMPORTS
+
 from abstract_pipeline import AbstractPipeline
 import json
-from pathlib import Path
+
+# MODULE ENTRYPOINT
 
 class JsonPipeline(AbstractPipeline):
     def __init__(self, document: dict, raw: bytes, dummy: any) -> None:

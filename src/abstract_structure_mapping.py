@@ -93,8 +93,9 @@ class ContainerSection():
     def to_dictionary(self) -> dict:
         return self.__attribs
 
-# TODO: continue code review here ...
+# ABSTRACT CONTAINER FORMAT
 
+# TODO:REVIEW
 class AbstractStructureAnalysis(abc.ABC):
     def __init__(self) -> None:
         self.logger = StaticLogger.get_logger()
@@ -102,6 +103,7 @@ class AbstractStructureAnalysis(abc.ABC):
     def process_section(self, section: ContainerSection) -> ContainerSection:
         raise NotImplementedError("no implementation available")
 
+# TODO:REVIEW
 class Coverage():
     def __init__(self, identifier: str, data: list[dict], coverage_limit: int | None) -> None:
         if coverage_limit is None:

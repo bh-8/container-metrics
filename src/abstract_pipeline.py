@@ -1,6 +1,16 @@
+"""
+abstract_pipeline.py
+
+included in every file in ./container_formats/*
+"""
+
+# IMPORTS
+
 import abc
 from pathlib import Path
 from static_utils import StaticLogger
+
+# ABSTRACT PIPELINE FORMAT
 
 class AbstractPipeline(abc.ABC):
     def __init__(self, pipeline: str, document: dict, raw: bytes) -> None:

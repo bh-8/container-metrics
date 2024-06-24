@@ -1,28 +1,27 @@
+"""
+csv_pipeline.py
+
+references:
+    - 
+
+"""
+
+# IMPORTS
+
 from abstract_pipeline import AbstractPipeline
+
+# GLOBAL STATIC MAPPINGS
 
 SEPARATOR = ","
 NEWLINE = "\n"
+
+# MODULE ENTRYPOINT
 
 class CsvPipeline(AbstractPipeline):
     def __init__(self, document: dict, raw: bytes, selections: list[str]) -> None:
         super().__init__("csv", document, raw)
         self.selections: list[str] = selections
-    """
-    def general_select(self, sel_path: list[str], i: int, sel_current: dict) -> dict:
-        if not i < len(sel_path):
-            return sel_current # path resolved completely
-        elif type(sel_current) is list:
-            if sel_path[i].isdigit() and int(sel_path[i]) < len(sel_current): # selection by index
-                return self.general_select(sel_path, i+1, sel_current[int(sel_path[i])])
-            if sel_path[i] == "*":
-                return [self.general_select(sel_path, i+1, item) for item in sel_current]
-            if sel_path[i] == "?": # return first match
-                return [i for i in [self.general_select(sel_path, i+1, item) for item in sel_current] if i is not None][0]
-        if sel_path[i] in sel_current: # selection by key name
-            return self.general_select(sel_path, i+1, sel_current[sel_path[i]])
-        else:
-            return None
-    """
+
     def process(self) -> None:
         raw_document: bytes = self.get_raw_document(hex=True)
 
@@ -45,3 +44,20 @@ class CsvPipeline(AbstractPipeline):
                 else:
                     self.logger.critical(f"could not access segment '{segment}' in mimetype section '{mime_type}'")
                     continue
+
+    """
+    def general_select(self, sel_path: list[str], i: int, sel_current: dict) -> dict:
+        if not i < len(sel_path):
+            return sel_current # path resolved completely
+        elif type(sel_current) is list:
+            if sel_path[i].isdigit() and int(sel_path[i]) < len(sel_current): # selection by index
+                return self.general_select(sel_path, i+1, sel_current[int(sel_path[i])])
+            if sel_path[i] == "*":
+                return [self.general_select(sel_path, i+1, item) for item in sel_current]
+            if sel_path[i] == "?": # return first match
+                return [i for i in [self.general_select(sel_path, i+1, item) for item in sel_current] if i is not None][0]
+        if sel_path[i] in sel_current: # selection by key name
+            return self.general_select(sel_path, i+1, sel_current[sel_path[i]])
+        else:
+            return None
+    """

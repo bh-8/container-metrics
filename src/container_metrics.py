@@ -13,8 +13,6 @@ import sys
 import hashlib
 import os
 
-# TODO: MP3
-
 # TODO: logging
 # TODO: todos
 # TODO: class variables start _; privates no underscore!

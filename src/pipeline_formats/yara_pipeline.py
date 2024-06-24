@@ -1,7 +1,19 @@
+"""
+yara_pipeline.py
+
+references:
+    - 
+
+"""
+
+# IMPORTS
+
 from abstract_pipeline import AbstractPipeline
 import json
 from pathlib import Path
 import yara
+
+# MODULE ENTRYPOINT
 
 class YaraPipeline(AbstractPipeline):
     def __init__(self, document: dict, raw: bytes, yara_files: list[str]) -> None:
@@ -21,6 +33,7 @@ class YaraPipeline(AbstractPipeline):
                 match.rule for match in yara_matches[i] if "main" in match.tags
             ]
         } for i in range(0, len(yara_matches))]
+
         for entry in match_dict:
             for key in entry:
                 if len(entry[key]) > 0:
