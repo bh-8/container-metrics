@@ -1,9 +1,19 @@
-from pathlib import Path
-import pymongo
+"""
+static_utils.py
+
+general utility functions
+"""
+
+# IMPORTS
+
 import logging
 import magic
 import mimetypes
+from pathlib import Path
+import pymongo
 log = logging.getLogger(__name__)
+
+# UTILS
 
 class MIMEDetector:
     @staticmethod

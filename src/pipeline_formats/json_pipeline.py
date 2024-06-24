@@ -8,10 +8,11 @@ references:
 
 # IMPORTS
 
-from abstract_pipeline import AbstractPipeline
 import json
 import logging
 log = logging.getLogger(__name__)
+
+from abstract_pipeline import AbstractPipeline
 
 # MODULE ENTRYPOINT
 

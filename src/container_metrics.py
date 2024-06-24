@@ -1,26 +1,35 @@
-from abstract_structure_mapping import ContainerSection, ContainerSegment, ContainerFragment, Coverage
-from abstract_pipeline import AbstractPipeline
+"""
+container_metrics.py
+
+core
+"""
+
+# IMPORTS
+
 from alive_progress import alive_bar
 import argparse
-from container_formats import *
-from pipeline_formats import *
 import datetime
 import gridfs
+import hashlib
 import json
 import logging
-from pathlib import Path
-from static_utils import MIMEDetector, MongoInterface, flatten_paths, to_camel_case
-import sys
-import hashlib
 import os
+from pathlib import Path
+import sys
 log = None
 
-# TODO: logging
-# TODO: todos
-# TODO: class variables start _; privates no underscore!
+from abstract_structure_mapping import ContainerSection, ContainerSegment, Coverage
+from abstract_pipeline import AbstractPipeline
+from container_formats import *
+from pipeline_formats import *
+from static_utils import MIMEDetector, MongoInterface, flatten_paths, to_camel_case
+
+# GLOBAL STATIC MAPPINGS
 
 PROG_NAME = "container-metrics"
 MIME_INFO = "./container_formats/mime_mapping.json"
+
+# STRUCTURE MAP ACQUISITION
 
 class StructureMapping():
     def __init__(self, file_path: Path, supported_mime_types: dict, analysis_depth_cap: int) -> None:
@@ -75,7 +84,6 @@ class StructureMapping():
     def __init_meta(self) -> None:
         self.__structure_mapping["meta"]["investigation"]["started"] = datetime.datetime.now().isoformat()
 
-        self.__structure_mapping["meta"]["file_name"] = self.__file_path.name #TODO: remove later
         self.__structure_mapping["meta"]["file"]["name"] = self.__file_path.name
         self.__structure_mapping["meta"]["file"]["size"] = len(self.__file_data)
         self.__structure_mapping["meta"]["file"]["type"]["magic"] = MIMEDetector.from_bytes_by_magic(self.__file_data)
@@ -106,10 +114,11 @@ class StructureMapping():
                 hitmap: list[dict] = []
                 for k in self.__supported_mime_types.keys():
                     if len(self.__supported_mime_types[k]) > 2:
-                        s: bytes = bytes.fromhex(self.__supported_mime_types[k][2])
-                        f: int = self.__file_data.find(s, _analysis_position)
-                        if f > _analysis_position:
-                            hitmap.append([f, f - _analysis_position])
+                        for t in self.__supported_mime_types[k][2]:
+                            s: bytes = bytes.fromhex(t)
+                            f: int = self.__file_data.find(s, _analysis_position)
+                            if f > _analysis_position:
+                                hitmap.append([f, f - _analysis_position])
                 if len(hitmap) > 0:
                     hit = sorted(hitmap, key=lambda d: d[0])[0]
                     self.queue_analysis(hit[0], _analysis_depth + 1)
@@ -152,6 +161,8 @@ class StructureMapping():
     @property
     def file_data(self) -> bytes:
         return self.__file_data
+
+# ENTRYPOINT
 
 class Main:
     # entry point

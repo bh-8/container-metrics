@@ -10,11 +10,12 @@ references:
 # IMPORTS
 
 import abc
-from abstract_structure_mapping import *
 import logging
 import re
-from static_utils import try_utf8_conv
 log = logging.getLogger(__name__)
+
+from abstract_structure_mapping import *
+from static_utils import try_utf8_conv
 
 # GLOBAL STATIC MAPPINGS
 
@@ -187,8 +188,9 @@ class PdfTokenizer():
 
             # special treatment for '{'
             if token.startswith(DELIMITER_CHARACTERS[6]):
-                pass
-                # TODO: implement this ...
+                log.critical(f"'PdfTokenizer' is missing implementation to handle '{{'")
+                pos = pos + 1
+                continue
 
             # special treatment for ']'
             check_pos = token.find(b"]")

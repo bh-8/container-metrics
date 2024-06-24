@@ -8,9 +8,10 @@ references:
 
 # IMPORTS
 
-from abstract_pipeline import AbstractPipeline
 import logging
 log = logging.getLogger(__name__)
+
+from abstract_pipeline import AbstractPipeline
 
 # GLOBAL STATIC MAPPINGS
 
