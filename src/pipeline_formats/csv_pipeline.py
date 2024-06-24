@@ -42,8 +42,8 @@ class CsvPipeline(AbstractPipeline):
                     csv_str: str = NEWLINE.join([s[2]] + [SEPARATOR.join([(str(fragment[attribute]) if attribute in fragment.keys() else "n/a") for attribute in attributes]) for fragment in section["segments"][segment]])
                     # write output
                     with open(self.output_path / f"{self.output_id}_{section['position']}-{segment}.csv", "w") as handle:
+                        log.info(f"writing output to './io/{self.output_path.name}/{self.output_id}_{section['position']}-{segment}.csv'...")
                         handle.write(csv_str)
-                        log.info(f"output stored in './io/{self.output_path.name}/{self.output_id}_{section['position']}-{segment}.csv'")
                         handle.close()
                 else:
                     self.logger.critical(f"could not access segment '{segment}' in mimetype section '{mime_type}'")

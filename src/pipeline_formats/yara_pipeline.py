@@ -41,7 +41,7 @@ class YaraPipeline(AbstractPipeline):
             for key in entry:
                 if len(entry[key]) > 0:
                     with open(self.output_path / f"{self.output_id}.json", "w") as handle:
+                        log.info(f"writing output to './io/{self.output_path.name}/{self.output_id}.json'...")
                         json.dump(match_dict, handle)
-                        log.info(f"output stored in './io/{self.output_path.name}/{self.output_id}.json'")
                         handle.close()
                         return

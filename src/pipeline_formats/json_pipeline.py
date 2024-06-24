@@ -29,6 +29,6 @@ class JsonPipeline(AbstractPipeline):
 
         # write output
         with open(self.output_path / f"{self.output_id}.json", "w") as handle:
+            log.info(f"writing output to './io/{self.output_path.name}/{self.output_id}.json'...")
             json.dump(out_dict, handle)
-            log.info(f"output stored in './io/{self.output_path.name}/{self.output_id}.json'")
             handle.close()

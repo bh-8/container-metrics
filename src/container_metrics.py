@@ -287,7 +287,7 @@ class Main:
             # loop supported files
             with alive_bar(len(path_list), title="acquisition progress") as pbar:
                 for file_path in path_list:
-                    log.info(f"inspecting file '{file_path}'...")
+                    log.info(f"processing file '{file_path.name}'...")
 
                     # analysis
                     structure_mapping: StructureMapping = StructureMapping(file_path, supported_mime_types, args.max_depth)
@@ -295,12 +295,13 @@ class Main:
                     structure_mapping_dict: dict = structure_mapping.as_dictionary
 
                     # insert json structure into database
-                    log.debug(f"storing metrics in database '{db_name}/{c_name}'...")
 
                     target_db = MongoInterface.get_connection()[db_name]
                     grid_fs = gridfs.GridFS(target_db, "gridfs")
+                    log.info(f"transferring raw data to gridfs: '{db_name}/gridfs'...")
                     grid_fs_id = grid_fs.put(structure_mapping.file_data, filename=file_path.name)
 
+                    log.info(f"transferring bson to mongodb: '{db_name}/{c_name}-gridfs:{grid_fs_id}'...")
                     structure_mapping_dict["_gridfs"] = grid_fs_id
                     target_collection = MongoInterface.get_connection()[db_name][c_name]
                     target_collection.insert_one(structure_mapping_dict)
@@ -397,9 +398,8 @@ class Main:
             with alive_bar(target_collection.count_documents({}), title="querying progress") as pbar:
                 for document in target_collection.find():
                     # read bson
-                    log.debug(f"loading metrics from database '{db_name}/{c_name}'...")
+                    log.info(f"retrieving data from database: '{db_name}/{c_name}-id:{document['_id']}-gridfs:{document['_gridfs']}'...")
                     bson_document = grid_fs.get(document["_gridfs"]).read()
-
 
                     # initiate format specific analysis
                     log.info(f"processing file '{document['meta']['file']['name']}'...")

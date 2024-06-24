@@ -173,6 +173,8 @@ class FrameHeader():
             return
         elif self.__dbitrate.get((int(self.__version), self.__layer)) is None:
             return
+        elif self.__dfrequency.get(self.__version) is None:
+            return
 
         self.__validated:      bool =         True
         self.__channels:        int = 1 if self.__channel_mode == CHANNEL_MODE[3] else 2
