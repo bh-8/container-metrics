@@ -11,9 +11,11 @@ references:
 # IMPORTS
 
 from abstract_structure_mapping import *
-import math
 from bitarray import bitarray
 from bitarray.util import ba2int
+import logging
+import math
+log = logging.getLogger(__name__)
 
 # GLOBAL STATIC MAPPINGS
 

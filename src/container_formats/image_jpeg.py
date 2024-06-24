@@ -9,6 +9,8 @@ references:
 # IMPORTS
 
 from abstract_structure_mapping import *
+import logging
+log = logging.getLogger(__name__)
 
 # GLOBAL STATIC MAPPINGS
 

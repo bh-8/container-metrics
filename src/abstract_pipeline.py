@@ -8,13 +8,13 @@ included in every file in ./container_formats/*
 
 import abc
 from pathlib import Path
-from static_utils import StaticLogger
+import logging
+log = logging.getLogger(__name__)
 
 # ABSTRACT PIPELINE FORMAT
 
 class AbstractPipeline(abc.ABC):
     def __init__(self, pipeline: str, document: dict, raw: bytes) -> None:
-        self.logger = StaticLogger.get_logger()
         self.__pipeline: str = pipeline
         self.__document: dict = document
         self.__raw: bytes = raw
@@ -34,6 +34,7 @@ class AbstractPipeline(abc.ABC):
                     data: bytes = self.__raw[position:end]
                     raw_document["sections"][i]["segments"][k][j]["raw"] = data.hex() if hex else f"{data}"
 
+        log.debug("inserted raw data to document for further pipelining")
         return raw_document
 
     @property

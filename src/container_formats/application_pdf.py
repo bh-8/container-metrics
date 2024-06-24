@@ -11,8 +11,10 @@ references:
 
 import abc
 from abstract_structure_mapping import *
+import logging
 import re
 from static_utils import try_utf8_conv
+log = logging.getLogger(__name__)
 
 # GLOBAL STATIC MAPPINGS
 
@@ -326,7 +328,7 @@ class NumericObject(AbstractObject): # <<<>>>
                 i: int = self._index + 3
                 obj = self._determine_object(token_3_future, i)
                 if obj is None:
-                    # logger.critical(f"application_pdf.py: 'IndirectObject' is missing implementation to handle '{token_3_future.type}' (token #{i})")
+                    log.critical(f"'NumericObject' is missing implementation to handle '{token_3_future.type}' (token #{i})")
                     return
 
                 # add token length during recursion
@@ -385,7 +387,7 @@ class DictionaryObject(AbstractObject): # <<<>>>
             obj = self._determine_object(dictionary_value, i)
             if obj is None:
                 nested_dict[dictionary_key] = None
-                # logger.critical(f"application_pdf.py: 'DictionaryObject' is missing implementation to handle '{dictionary_value.type}' (token #{i})")
+                log.critical(f"'DictionaryObject' is missing implementation to handle '{dictionary_value.type}' (token #{i})")
                 continue
 
             # skip processed tokens
@@ -435,7 +437,7 @@ class ArrayObject(AbstractObject): # <<<>>>
             obj = self._determine_object(token, i)
             if obj is None:
                 nested_list.append(None)
-                # logger.critical(f"application_pdf.py: 'ArrayObject' is missing implementation to handle '{token.type}' (token #{i})")
+                log.critical(f"'ArrayObject' is missing implementation to handle '{token.type}' (token #{i})")
                 i = i + 1
                 continue
 
@@ -520,6 +522,7 @@ class ApplicationPdfAnalysis(AbstractStructureAnalysis):
                 fragment: ContainerFragment = ContainerFragment(tokens_func[i].offset, self.__find_next_token_position(tokens_all, tokens_func[i].offset) - tokens_func[i].offset)
                 pdf_xref_table.add_fragment(fragment)
 
+                i = i + 1
                 while i < len(tokens_func):
                     token: PdfToken = tokens_func[i]
 
@@ -549,7 +552,7 @@ class ApplicationPdfAnalysis(AbstractStructureAnalysis):
                         case "_trailer" | "_startxref":
                             break
                         case _:
-                            # logger.critical(f"application_pdf.py: 'XRefParser' is missing implementation to handle '{token.type}' (token #{i})")
+                            log.critical(f"'XRefParser' is missing implementation to handle '{token.type}' (token #{i})")
                             i = i + 1
             section.add_segment(pdf_xref_table)
 
@@ -560,6 +563,7 @@ class ApplicationPdfAnalysis(AbstractStructureAnalysis):
                 fragment: ContainerFragment = ContainerFragment(tokens_func[i].offset, self.__find_next_token_position(tokens_all, tokens_func[i].offset) - tokens_func[i].offset)
                 pdf_trailer.add_fragment(fragment)
 
+                i = i + 1
                 while i < len(tokens_func):
                     token: PdfToken = tokens_func[i]
 
@@ -576,7 +580,7 @@ class ApplicationPdfAnalysis(AbstractStructureAnalysis):
                         case "_startxref":
                             break
                         case _:
-                            # logger.critical(f"application_pdf.py: 'TrailerParser' is missing implementation to handle '{token.type}' (token #{i})")
+                            log.critical(f"'TrailerParser' is missing implementation to handle '{token.type}' (token #{i})")
                             i = i + 1
             section.add_segment(pdf_trailer)
 
@@ -617,6 +621,6 @@ class ApplicationPdfAnalysis(AbstractStructureAnalysis):
 
             section.add_segment(pdf_comments)
             pdf_whitespaces: Coverage = Coverage("whitespaces", [{"o": t.offset, "l": t.length} for t in tokens_all if t.offset < section.length], section.length)
-            section.add_segment(pdf_whitespaces.uncovered_segment)
+            section.add_segment(pdf_whitespaces.as_uncovered_segment)
 
         return section

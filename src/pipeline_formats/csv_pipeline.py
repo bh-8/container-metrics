@@ -9,6 +9,8 @@ references:
 # IMPORTS
 
 from abstract_pipeline import AbstractPipeline
+import logging
+log = logging.getLogger(__name__)
 
 # GLOBAL STATIC MAPPINGS
 
@@ -40,6 +42,7 @@ class CsvPipeline(AbstractPipeline):
                     # write output
                     with open(self.output_path / f"{self.output_id}_{section['position']}-{segment}.csv", "w") as handle:
                         handle.write(csv_str)
+                        log.info(f"output stored in './io/{self.output_path.name}/{self.output_id}_{section['position']}-{segment}.csv'")
                         handle.close()
                 else:
                     self.logger.critical(f"could not access segment '{segment}' in mimetype section '{mime_type}'")

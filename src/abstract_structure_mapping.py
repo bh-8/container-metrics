@@ -7,7 +7,8 @@ included in every file in ./container_formats/*
 # IMPORTS
 
 import abc
-from static_utils import StaticLogger
+import logging
+log = logging.getLogger(__name__)
 
 # STRUCTURE MAPPING COMPONENTS
 
@@ -97,7 +98,7 @@ class ContainerSection():
 
 class AbstractStructureAnalysis(abc.ABC):
     def __init__(self) -> None:
-        self.logger = StaticLogger.get_logger()
+        pass
 
     def process(self, section: ContainerSection) -> ContainerSection:
         raise NotImplementedError("no implementation available")
@@ -124,9 +125,9 @@ class Coverage():
             elif coverage_offset == c["o"]:
                 coverage_offset = coverage_offset + c["l"]
             elif coverage_offset < c["o"]:
-                _gap: int = c["o"] - coverage_offset
-                self.__uncovered_segment.add_fragment(ContainerFragment(coverage_offset, _gap))
-                coverage_offset = coverage_offset + _gap + c["l"]
+                gap: int = c["o"] - coverage_offset
+                self.__uncovered_segment.add_fragment(ContainerFragment(coverage_offset, gap))
+                coverage_offset = coverage_offset + gap + c["l"]
             else:
                 # case for double-covered segments -> e.g. comments inside indirect objects/dictionaries/arrays/...
                 continue
@@ -141,8 +142,9 @@ class Coverage():
             for k in section.as_dictionary["segments"].keys():
                 for f in section.as_dictionary["segments"][k]:
                     coverage_data.append({"o": f["offset"], "l": f["length"]})
+        log.info(f"determining coverage for section of {section.length} bytes...")
         return cls("uncovered", coverage_data, section.length)
 
     @property
-    def uncovered_segment(self) -> ContainerSegment:
+    def as_uncovered_segment(self) -> ContainerSegment:
         return self.__uncovered_segment

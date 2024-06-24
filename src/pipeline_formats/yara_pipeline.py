@@ -10,8 +10,10 @@ references:
 
 from abstract_pipeline import AbstractPipeline
 import json
+import logging
 from pathlib import Path
 import yara
+log = logging.getLogger(__name__)
 
 # MODULE ENTRYPOINT
 
@@ -39,5 +41,6 @@ class YaraPipeline(AbstractPipeline):
                 if len(entry[key]) > 0:
                     with open(self.output_path / f"{self.output_id}.json", "w") as handle:
                         json.dump(match_dict, handle)
+                        log.info(f"output stored in './io/{self.output_path.name}/{self.output_id}.json'")
                         handle.close()
                         return

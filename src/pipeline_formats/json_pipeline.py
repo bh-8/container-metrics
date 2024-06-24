@@ -10,6 +10,8 @@ references:
 
 from abstract_pipeline import AbstractPipeline
 import json
+import logging
+log = logging.getLogger(__name__)
 
 # MODULE ENTRYPOINT
 
@@ -27,4 +29,5 @@ class JsonPipeline(AbstractPipeline):
         # write output
         with open(self.output_path / f"{self.output_id}.json", "w") as handle:
             json.dump(out_dict, handle)
+            log.info(f"output stored in './io/{self.output_path.name}/{self.output_id}.json'")
             handle.close()
