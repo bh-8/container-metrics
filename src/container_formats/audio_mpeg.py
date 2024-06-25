@@ -5,6 +5,7 @@ references:
     - http://www.mp3-tech.org/programmer/docs/mp3_theory.pdf
     - https://github.com/tomershay100/mp3-steganography-lib
     - https://sourceforge.net/p/mp3filestructureanalyser
+    - https://mutagen-specs.readthedocs.io/en/latest/id3/id3v2.4.0-structure.html
 
 """
 
@@ -12,14 +13,19 @@ references:
 
 from bitarray import bitarray
 from bitarray.util import ba2int
+from enum import Enum
+from functools import reduce
 import logging
 import math
 log = logging.getLogger(__name__)
 
 from abstract_structure_mapping import *
+from static_utils import try_utf8_conv
 
 # GLOBAL STATIC MAPPINGS
 
+ID3_1_TAG = b"TAG"
+ID3_2_TAG = b"ID3"
 FRAME_SAMPLES = { # L x V -> Samples
     1: { 1:  384, 2:  384 },
     2: { 1: 1152, 2: 1152 },
@@ -421,11 +427,139 @@ class SideInformation():
             ]
         }
 
-class Id3v1Tag():
-    pass # TODO
+class Id3v1():
+    def __init__(self, id3v1: bytes, offset: int):
+        self.__offset: int = offset
+        self.__title = id3v1[3:33].rstrip(b"\x00\x20").decode(errors = "ignore")
+        self.__artist = id3v1[33:63].rstrip(b"\x00\x20").decode(errors = "ignore")
+        self.__album = id3v1[63:93].rstrip(b"\x00\x20").decode(errors = "ignore")
+        self.__year = id3v1[93:97].decode(errors = "ignore")
+        self.__comment = id3v1[97:125].rstrip(b"\x00\x20").decode(errors = "ignore")
+        self.__track = None if id3v1[125:127] == b"\x00\x00" else ord(id3v1[126:127])
+        self.__genre = ID3V1_GENRES.get(id3v1[127], None)
+    @property
+    def title(self) -> str:
+        return self.__title
+    @property
+    def artist(self) -> str:
+        return self.__artist
+    @property
+    def album(self) -> str:
+        return self.__album
+    @property
+    def year(self) -> str:
+        return self.__year
+    @property
+    def comment(self) -> str:
+        return self.__comment
+    @property
+    def track(self) -> int:
+        return self.__track
+    @property
+    def genre(self) -> str:
+        return self.__genre
+    @property
+    def as_fragment(self) -> ContainerFragment:
+        fragment: ContainerFragment = ContainerFragment(self.__offset, 128)
+        fragment.set_attribute("title", self.__title)
+        fragment.set_attribute("artist", self.__artist)
+        fragment.set_attribute("album", self.__album)
+        fragment.set_attribute("year", self.__year)
+        fragment.set_attribute("comment", self.__comment)
+        fragment.set_attribute("track", self.__track)
+        fragment.set_attribute("genre", self.__genre)
+        return fragment
 
-class Id3v2Tag():
-    pass # TODO
+class Id3v2Frame():
+    def __init__(self, data: bytes, offset: int) -> None:
+        self.__data: bytes = data
+        self.__offset: int = offset
+        i = offset
+        self.__frame_id: str = try_utf8_conv(self.__data[i:i+4])
+        i = i + 4
+        self.__frame_size: int = int.from_bytes(self.__data[i:i+4], byteorder="big")
+        i = i + 4
+        self.__tag_alter_preservation_flag:   bool = ((self.__data[i+0] & 0b01000000) >> 6) == 1
+        self.__file_alter__preservation_flag: bool = ((self.__data[i+0] & 0b00100000) >> 5) == 1
+        self.__read_only_flag:                bool = ((self.__data[i+0] & 0b00010000) >> 4) == 1
+        self.__grouping_identity_flag:        bool = ((self.__data[i+1] & 0b01000000) >> 6) == 1
+        self.__compression_flag:              bool = ((self.__data[i+1] & 0b00001000) >> 3) == 1
+        self.__encryption_flag:               bool = ((self.__data[i+1] & 0b00000100) >> 2) == 1
+        self.__unsynchronisation_flag:        bool = ((self.__data[i+1] & 0b00000010) >> 1) == 1
+        self.__data_length_indicator_flag:    bool = ((self.__data[i+1] & 0b00000001) == 1)
+        self.__validated:                     bool = ((self.__data[i+0] & 0b10001111) == 0) and ((self.__data[i+1] & 0b10110000) == 0) and type(self.__frame_id) is str
+        self.__length: int = 10 + self.__frame_size
+
+    @property
+    def is_valid(self) -> bool:
+        return self.__validated
+    @property
+    def length(self) -> int:
+        return self.__length
+    @property
+    def as_fragment(self) -> ContainerFragment:
+        fragment: ContainerFragment = ContainerFragment(self.__offset, self.__length)
+
+        fragment.set_attribute("frame_id", self.__frame_id)
+        fragment.set_attribute("tag_alter_preservation_flag", self.__tag_alter_preservation_flag)
+        fragment.set_attribute("file_alter__preservation_flag", self.__file_alter__preservation_flag)
+        fragment.set_attribute("read_only_flag", self.__read_only_flag)
+        fragment.set_attribute("grouping_identity_flag", self.__grouping_identity_flag)
+        fragment.set_attribute("compression_flag", self.__compression_flag)
+        fragment.set_attribute("encryption_flag", self.__encryption_flag)
+        fragment.set_attribute("unsynchronisation_flag", self.__unsynchronisation_flag)
+        fragment.set_attribute("data_length_indicator_flag", self.__data_length_indicator_flag)
+        fragment.set_attribute("frame_size", self.__frame_size)
+
+        return fragment
+
+class Id3v2Header():
+    def __init__(self, id3v2header: bytes, offset: int) -> None:
+        self.__data: bytes = id3v2header
+        self.__offset: int = offset
+        self.__version: str = f"2.{self.__data[3]}.{self.__data[4]}"
+        self.__flag_unsynchronisation:      bool = ((self.__data[5] & 0b10000000) >> 7) == 1
+        self.__flag_extended_header:        bool = ((self.__data[5] & 0b01000000) >> 6) == 1
+        self.__flag_experimental_indicator: bool = ((self.__data[5] & 0b00100000) >> 5) == 1
+        self.__flag_footer_present:         bool = ((self.__data[5] & 0b00010000) >> 4) == 1
+        self.__validated:                   bool = ((self.__data[5] & 0b00001111)) == 0
+        self.__length: int = 10
+        if self.__validated:
+            self.__tag_size: int = 10 + self.__char2int(self.__data[6:10])
+
+            # TODO: handle extended header and footer later with sample files!
+            self.__extended_header_size: int = self.__char2int(self.__data[10:14]) if self.__flag_extended_header else 0
+            self.__footer_size: int = 10 if self.__flag_footer_present else 0
+
+    @staticmethod
+    def __char2int(four_bytes: bytes) -> int:
+        # required to convert sync save integers
+        num = 0x00
+        for i in range(4):
+            num = (num << 7) + four_bytes[i]
+        return int(num)
+
+    @property
+    def is_valid(self) -> bool:
+        return self.__validated
+    @property
+    def length(self) -> int:
+        return self.__length
+    @property
+    def tag_size(self) -> int:
+        return self.__tag_size
+    @property
+    def as_fragment(self) -> ContainerFragment:
+        fragment: ContainerFragment = ContainerFragment(self.__offset, self.__length)
+
+        fragment.set_attribute("version", self.__version)
+        fragment.set_attribute("unsynchronisation_flag", self.__flag_unsynchronisation)
+        fragment.set_attribute("extended_header_flag", self.__flag_extended_header)
+        fragment.set_attribute("experimental_indicator_flag", self.__flag_experimental_indicator)
+        fragment.set_attribute("footer_present_flag", self.__flag_footer_present)
+        fragment.set_attribute("tag_size", self.__tag_size)
+
+        return fragment
 
 class MpegFrame():
     def __init__(self, data: bytes, offset: int) -> None:
@@ -473,7 +607,31 @@ class AudioMpegAnalysis(AbstractStructureAnalysis):
         offset: int = 0
 
         # id3v2
-        pass # TODO
+        if (offset + 10 < len(data)) and (data[0:3] == ID3_2_TAG):
+            id3v2: ContainerSegment = ContainerSegment("id3v2")
+
+            # id3v2 header
+            id3v2header: Id3v2Header = Id3v2Header(data[offset:offset + 10], offset)
+            if id3v2header.is_valid:
+                id3v2.add_fragment(id3v2header.as_fragment)
+                offset = offset + id3v2header.length
+
+                # id3v2
+                while (offset < id3v2header.tag_size) and reduce(lambda a, b: a and b, [chr(c).isupper() or chr(c).isdigit() for c in data[offset:offset+4]], True):
+                    id3v2frame: Id3v2Frame = Id3v2Frame(data, offset)
+                    if id3v2frame.is_valid:
+                        id3v2.add_fragment(id3v2frame.as_fragment)
+                        offset = offset + id3v2frame.length
+                        continue
+                    break
+
+                # check for padding
+                padding: int = id3v2header.tag_size - offset
+                if padding > 0 and padding * b"\x00" == data[offset:id3v2header.tag_size]:
+                    id3v2.add_fragment(ContainerFragment(offset, padding))
+                    offset = offset + padding
+
+            section.add_segment(id3v2)
 
         # mpeg frames
         mpeg_frames: ContainerSegment = ContainerSegment("mpeg_frames")
@@ -493,7 +651,13 @@ class AudioMpegAnalysis(AbstractStructureAnalysis):
         section.add_segment(mpeg_frames)
 
         # id3v1
-        pass # TODO
+        if (offset + 128 <= len(data)) and (data[offset:offset + 3] == ID3_1_TAG):
+            id3v1: ContainerSegment = ContainerSegment("id3v1")
+            id3v1_tag: Id3v1 = Id3v1(data[offset:offset + 128], offset)
+            id3v1.add_fragment(id3v1_tag.as_fragment)
+
+            offset = offset + 128
+            section.add_segment(id3v1)
 
         # check whether data left
         if offset < len(data):
