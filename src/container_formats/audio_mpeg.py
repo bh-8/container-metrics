@@ -20,7 +20,7 @@ import math
 log = logging.getLogger(__name__)
 
 from abstract_structure_mapping import *
-from static_utils import try_utf8_conv
+from static_utils import try_utf8_conv, convert_unicode_str
 
 # GLOBAL STATIC MAPPINGS
 
@@ -489,6 +489,25 @@ class Id3v2Frame():
         self.__data_length_indicator_flag:    bool = ((self.__data[i+1] & 0b00000001) == 1)
         self.__validated:                     bool = ((self.__data[i+0] & 0b10001111) == 0) and ((self.__data[i+1] & 0b10110000) == 0) and type(self.__frame_id) is str
         self.__length: int = 10 + self.__frame_size
+        i = i + 2
+        self.__data_formatted = None
+        if self.__validated:
+            self.__data_formatted: any = self.__format_data(self.__frame_id, self.__data[i:i+self.__frame_size])
+
+    @staticmethod
+    def __format_data(frame_id: str, data: bytes) -> any:
+            try:
+                match frame_id:
+                    #fields to decode (text fields)
+                    case "TPE1" | "TPE2" | "TCOP" | "TPOS" | "TPUB" | "TCON" | "TCOM" | "TIT2" | "TALB" | "COMM" | "TRCK" | "TYER":
+                        return data.strip(b"\x00").decode(errors = "ignore") if data.find(b"\xff\xfe") == -1 else convert_unicode_str(data)
+                    #fields to decode to int (number fields)
+                    case "TLEN":
+                        return int(data.strip(b"\x00").decode(errors = "ignore") if data.find(b"\xff\xfe") == -1 else convert_unicode_str(data))
+                    case _:
+                        return None
+            except TypeError:
+                return None
 
     @property
     def is_valid(self) -> bool:
@@ -510,7 +529,8 @@ class Id3v2Frame():
         fragment.set_attribute("unsynchronisation_flag", self.__unsynchronisation_flag)
         fragment.set_attribute("data_length_indicator_flag", self.__data_length_indicator_flag)
         fragment.set_attribute("frame_size", self.__frame_size)
-
+        if not self.__data_formatted is None:
+            fragment.set_attribute("content", self.__data_formatted)
         return fragment
 
 class Id3v2Header():
@@ -629,7 +649,7 @@ class AudioMpegAnalysis(AbstractStructureAnalysis):
                 padding: int = id3v2header.tag_size - offset
                 if padding > 0 and padding * b"\x00" == data[offset:id3v2header.tag_size]:
                     id3v2.add_fragment(ContainerFragment(offset, padding))
-                    offset = offset + padding
+                offset = offset + padding
 
             section.add_segment(id3v2)
 
