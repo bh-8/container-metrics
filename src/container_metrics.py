@@ -331,11 +331,11 @@ class Main:
             help="mongodb collection identifier"
         )
 
-        parser.add_argument("pipeline",
+        parser.add_argument("pipeline_specification",
             type=str,
-            #metavar="<pipeline>",
-            choices=["csv", "json", "yara"], # TODO: csv arff ...
-            help="output format"
+            metavar="<parameter>",
+            nargs="+",
+            help="pipeline parameterization"
         )
         parser.add_argument("--log",
             type=str,
@@ -354,6 +354,25 @@ class Main:
         try:
             # subcommand arguments
             args = parser.parse_args(sys.argv[2:])
+
+            # check parameterization
+            pipeline_parameters: list[str] = []
+            match str(args.pipeline_specification[0]).lower():
+                case "csv":
+                    if len(args.pipeline_specification) <= 1:
+                        parser.print_help()
+                        sys.exit(1)
+                    pipeline_parameters = args.pipeline_specification[1:]
+                case "json":
+                    pass
+                case "yara":
+                    if len(args.pipeline_specification) <= 1:
+                        parser.print_help()
+                        sys.exit(1)
+                    pipeline_parameters = args.pipeline_specification[1:]
+                case _:
+                    parser.print_help()
+                    sys.exit(1)
 
             # init logger
             self.__init_logger(args.log)
@@ -378,21 +397,10 @@ class Main:
             target_collection = MongoInterface.get_connection()[db_name][c_name]
 
             # check existence of required implementation
-            pipeline_id: str = f"{args.pipeline}_pipeline"
+            pipeline_id: str = f"{args.pipeline_specification[0]}_pipeline"
             class_label: str = f"{to_camel_case(pipeline_id)}"
             if not class_label in globals():
                 raise NotImplementedError(f"could not find class '{class_label}', expected definition in '{pipeline_id}.py'")
-
-            params: any = None
-            match args.pipeline:
-                case "csv":
-                    params: list[str] = ["audio/mpeg:id3v2:offset,length,frame_id,content", "image/jpeg:jpeg_segments:offset,length,id,long_name", "application/pdf:xref:offset,length,object_number", "application/pdf:body:data.data./Nums.data.*.data,data.data./Nums.data.*,data.data./Matrix.data,data.data./BBox.data"]
-                case "json":
-                    pass
-                case "yara":
-                    params: list[str] = ["./io/test.yara"]
-                case _:
-                    raise ValueError(f"unknown pipeline '{args.pipeline}'")
 
             # loop entries
             with alive_bar(target_collection.count_documents({}), title="querying progress") as pbar:
@@ -403,7 +411,7 @@ class Main:
 
                     # initiate format specific analysis
                     log.info(f"processing file '{document['meta']['file']['name']}'...")
-                    pipeline: AbstractPipeline = globals()[class_label](document, bson_document, params)
+                    pipeline: AbstractPipeline = globals()[class_label](document, bson_document, pipeline_parameters)
                     pipeline.process()
 
                     pbar(1)

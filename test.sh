@@ -11,4 +11,5 @@ sudo rm -drf $cleanup \
     && docker compose build \
     && ./container-metrics acquire $mongodb $collection $@ $log \
     && ./container-metrics query $mongodb $collection json $log \
-    && ./container-metrics query $mongodb $collection csv $log
+    && ./container-metrics query $mongodb $collection csv application/pdf:xref:offset,length $log \
+    && ./container-metrics query $mongodb $collection yara io/test.yara $log
