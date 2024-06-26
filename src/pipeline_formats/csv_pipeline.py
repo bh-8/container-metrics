@@ -27,21 +27,29 @@ class CsvPipeline(AbstractPipeline):
         super().__init__("csv", document, raw)
         self.selections: list[str] = selections
 
-    def general_select(self, sel_path: list[str], i: int, sel_current: dict) -> dict:
+    def __json_select(self, sel_path: list[str], i: int, sel_current: dict) -> dict:
+        # path resolved completely
         if not i < len(sel_path):
-            return sel_current # path resolved completely
-        if type(sel_current) is list:
-            if sel_path[i].isdigit() and int(sel_path[i]) < len(sel_current): # selection by index
-                return self.general_select(sel_path, i+1, sel_current[int(sel_path[i])])
-            if sel_path[i] == "*": # return all matches
-                return [self.general_select(sel_path, i+1, item) for item in sel_current]
-            if sel_path[i] == "?": # return first match
-                return [i for i in [self.general_select(sel_path, i+1, item) for item in sel_current] if i is not None][0]
-        if type(sel_current) is dict and sel_path[i] in sel_current: # selection by key name
-            return self.general_select(sel_path, i+1, sel_current[sel_path[i]])
-        else:
-            return None
+            return sel_current
 
+        if type(sel_current) is list:
+            # return match by index
+            if sel_path[i].isdigit() and int(sel_path[i]) < len(sel_current): # selection by index
+                return self.__json_select(sel_path, i+1, sel_current[int(sel_path[i])])
+
+            # return all matches as wrapped in list
+            if sel_path[i] == "*":
+                return [self.__json_select(sel_path, i+1, item) for item in sel_current]
+
+            # return first match which is not None
+            if sel_path[i] == "?":
+                return [i for i in [self.__json_select(sel_path, i+1, item) for item in sel_current] if i is not None][0]
+
+        if type(sel_current) is dict and sel_path[i] in sel_current:
+            # selection by key name
+            return self.__json_select(sel_path, i+1, sel_current[sel_path[i]])
+
+        return None
     def __csv_format(self, char: str, input: any) -> str:
         if type(input) is list:
             return char.join([(f"<{type(s).__name__}>" if char == SEPARATOR2 else self.__csv_format(SEPARATOR2, s)) if (type(s) is dict or type(s) is list) else f"{s}" for s in input])
@@ -61,7 +69,7 @@ class CsvPipeline(AbstractPipeline):
             # loop sections which correspond to given mimetype
             for section in [section for section in raw_document["sections"] if section["mime_type"] == mime_type]:
                 if segment in section["segments"]:
-                    csv_str: str = NEWLINE.join([s[2]] + [SEPARATOR0.join([self.__csv_format(SEPARATOR1, self.general_select(query.split("."), 0, fragment)) for query in queries]) for fragment in section["segments"][segment]])
+                    csv_str: str = NEWLINE.join([s[2]] + [SEPARATOR0.join([self.__csv_format(SEPARATOR1, self.__json_select(query.split("."), 0, fragment)) for query in queries]) for fragment in section["segments"][segment]])
                     # write output
                     with open(self.output_path / f"{self.output_id}_{section['position']}-{segment}.csv", "w") as handle:
                         log.info(f"writing output to './io/{self.output_path.name}/{self.output_id}_{section['position']}-{segment}.csv'...")
