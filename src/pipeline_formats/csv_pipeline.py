@@ -15,7 +15,9 @@ from abstract_pipeline import AbstractPipeline
 
 # GLOBAL STATIC MAPPINGS
 
-SEPARATOR = ","
+SEPARATOR0 = ","
+SEPARATOR1 = ";"
+SEPARATOR2 = ":"
 NEWLINE = "\n"
 
 # MODULE ENTRYPOINT
@@ -40,13 +42,11 @@ class CsvPipeline(AbstractPipeline):
         else:
             return None
 
-    def __csv_format(self, input: any) -> str:
+    def __csv_format(self, char: str, input: any) -> str:
         if type(input) is list:
-            #while(len(input) == 1 and type(input[0]) is list):
-            #    input = input[0]
-            return "|".join([f"<{type(s).__name__}>" if type(s) is dict or type(s) is list else f"{s}" for s in input])
+            return char.join([(f"<{type(s).__name__}>" if char == SEPARATOR2 else self.__csv_format(SEPARATOR2, s)) if (type(s) is dict or type(s) is list) else f"{s}" for s in input])
         if type(input) is dict:
-            return "|".join([f"{k}=" + (f"<{type(input[k]).__name__}>" if type(input[k]) is dict or type(input[k]) is list else f"{input[k]}") for k in input.keys()])
+            return char.join([f"{k}=" + ((f"<{type(input[k]).__name__}>" if char == SEPARATOR2 else self.__csv_format(SEPARATOR2, input[k])) if (type(input[k]) is dict or type(input[k]) is list) else f"{input[k]}") for k in input.keys()])
         return str(input)
 
     def process(self) -> None:
@@ -61,7 +61,7 @@ class CsvPipeline(AbstractPipeline):
             # loop sections which correspond to given mimetype
             for section in [section for section in raw_document["sections"] if section["mime_type"] == mime_type]:
                 if segment in section["segments"]:
-                    csv_str: str = NEWLINE.join([s[2]] + [SEPARATOR.join([self.__csv_format(self.general_select(query.split("."), 0, fragment)) for query in queries]) for fragment in section["segments"][segment]])
+                    csv_str: str = NEWLINE.join([s[2]] + [SEPARATOR0.join([self.__csv_format(SEPARATOR1, self.general_select(query.split("."), 0, fragment)) for query in queries]) for fragment in section["segments"][segment]])
                     # write output
                     with open(self.output_path / f"{self.output_id}_{section['position']}-{segment}.csv", "w") as handle:
                         log.info(f"writing output to './io/{self.output_path.name}/{self.output_id}_{section['position']}-{segment}.csv'...")
