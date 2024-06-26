@@ -22,7 +22,7 @@ from abstract_structure_mapping import ContainerSection, ContainerSegment, Cover
 from abstract_pipeline import AbstractPipeline
 from container_formats import *
 from pipeline_formats import *
-from static_utils import MIMEDetector, MongoInterface, flatten_paths, to_camel_case
+from static_utils import MIMEDetector, MongoInterface, flatten_paths, to_camel_case, DocumentTooLarge
 
 # GLOBAL STATIC MAPPINGS
 
@@ -109,7 +109,7 @@ class StructureMapping():
 
             # find begin of files even when mime type is unknown at first
             if not _mime_type in self.__supported_mime_types:
-                log.warning(f"encountered unsupported mime type '{_mime_type}' on position {_analysis_position}")
+                log.warning(f"encountered unsupported mime type '{_mime_type}' in file '{self.__file_path.name}' on position {_analysis_position}")
                 hitmap: list[dict] = []
                 for k in self.__supported_mime_types.keys():
                     if len(self.__supported_mime_types[k]) > 2:
@@ -304,8 +304,11 @@ class Main:
                     log.info(f"transferring bson to mongodb: '{db_name}/{c_name}-gridfs:{grid_fs_id}'...")
                     structure_mapping_dict["_gridfs"] = grid_fs_id
                     target_collection = MongoInterface.get_connection()[db_name][c_name]
-                    target_collection.insert_one(structure_mapping_dict)
 
+                    try:
+                        target_collection.insert_one(structure_mapping_dict)
+                    except DocumentTooLarge:
+                        log.critical(f"could not insert document into database for file '{file_path.name}' as it's too large")
                     pbar(1)
             log.info("done")
         except Exception as e:

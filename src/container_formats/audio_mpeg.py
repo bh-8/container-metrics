@@ -481,7 +481,7 @@ class Id3v2Frame():
         self.__frame_size: int = int.from_bytes(self.__data[i:i+4], byteorder="big")
         i = i + 4
         self.__tag_alter_preservation_flag:   bool = ((self.__data[i+0] & 0b01000000) >> 6) == 1
-        self.__file_alter__preservation_flag: bool = ((self.__data[i+0] & 0b00100000) >> 5) == 1
+        self.__file_alter_preservation_flag: bool = ((self.__data[i+0] & 0b00100000) >> 5) == 1
         self.__read_only_flag:                bool = ((self.__data[i+0] & 0b00010000) >> 4) == 1
         self.__grouping_identity_flag:        bool = ((self.__data[i+1] & 0b01000000) >> 6) == 1
         self.__compression_flag:              bool = ((self.__data[i+1] & 0b00001000) >> 3) == 1
@@ -533,7 +533,7 @@ class Id3v2Frame():
 
         fragment.set_attribute("frame_id", self.__frame_id)
         fragment.set_attribute("tag_alter_preservation_flag", self.__tag_alter_preservation_flag)
-        fragment.set_attribute("file_alter__preservation_flag", self.__file_alter__preservation_flag)
+        fragment.set_attribute("file_alter_preservation_flag", self.__file_alter_preservation_flag)
         fragment.set_attribute("read_only_flag", self.__read_only_flag)
         fragment.set_attribute("grouping_identity_flag", self.__grouping_identity_flag)
         fragment.set_attribute("compression_flag", self.__compression_flag)

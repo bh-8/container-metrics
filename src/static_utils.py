@@ -11,6 +11,7 @@ import magic
 import mimetypes
 from pathlib import Path
 import pymongo
+from pymongo.errors import DocumentTooLarge
 log = logging.getLogger(__name__)
 
 # UTILS
