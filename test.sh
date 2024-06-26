@@ -7,7 +7,8 @@ collection="test"
 log="--log=info"
 #log=""
 
-docker compose build \
-    && sudo rm -drf $cleanup \
+sudo rm -drf $cleanup \
+    && docker compose build \
     && ./container-metrics acquire $mongodb $collection $@ $log \
-    && ./container-metrics query $mongodb $collection json $log
+    && ./container-metrics query $mongodb $collection json $log \
+    && ./container-metrics query $mongodb $collection csv $log
