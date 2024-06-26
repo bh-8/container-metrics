@@ -6,6 +6,7 @@ references:
     - https://github.com/tomershay100/mp3-steganography-lib
     - https://sourceforge.net/p/mp3filestructureanalyser
     - https://mutagen-specs.readthedocs.io/en/latest/id3/id3v2.4.0-structure.html
+    - https://mutagen-specs.readthedocs.io/en/latest/id3/id3v2.4.0-frames.html
 
 """
 
@@ -471,7 +472,7 @@ class Id3v1():
         return fragment
 
 class Id3v2Frame():
-    def __init__(self, data: bytes, offset: int) -> None:
+    def __init__(self, data: bytes, offset: int, section: ContainerSection) -> None:
         self.__data: bytes = data
         self.__offset: int = offset
         i = offset
@@ -492,12 +493,23 @@ class Id3v2Frame():
         i = i + 2
         self.__data_formatted = None
         if self.__validated:
-            self.__data_formatted: any = self.__format_data(self.__frame_id, self.__data[i:i+self.__frame_size])
+            self.__recursive = section.new_analysis
+            self.__data_formatted: any = self.__format_data(self.__data[i:i+self.__frame_size])
 
-    @staticmethod
-    def __format_data(frame_id: str, data: bytes) -> any:
+    def __format_data(self, data: bytes) -> any:
             try:
-                match frame_id:
+                match self.__frame_id:
+                    case "APIC":
+                        mime_type_end: int = data.find(b"\x00", 1)
+                        description_end: int = data.find(b"\x00", mime_type_end+2)
+
+                        self.__recursive(self.__offset + description_end + 11, self.__length - description_end - 11)
+                        return {
+                            "encoding": data[0],
+                            "mime_type": data[1:mime_type_end].decode("utf-8", errors="ignore"),
+                            "picture_type": data[mime_type_end+1],
+                            "description": data[mime_type_end+2:description_end].decode("utf-8", errors="ignore")
+                        }
                     #fields to decode (text fields)
                     case "TPE1" | "TPE2" | "TCOP" | "TPOS" | "TPUB" | "TCON" | "TCOM" | "TIT2" | "TALB" | "COMM" | "TRCK" | "TYER":
                         return data.strip(b"\x00").decode(errors = "ignore") if data.find(b"\xff\xfe") == -1 else convert_unicode_str(data)
@@ -638,7 +650,7 @@ class AudioMpegAnalysis(AbstractStructureAnalysis):
 
                 # id3v2
                 while (offset < id3v2header.tag_size) and reduce(lambda a, b: a and b, [chr(c).isupper() or chr(c).isdigit() for c in data[offset:offset+4]], True):
-                    id3v2frame: Id3v2Frame = Id3v2Frame(data, offset)
+                    id3v2frame: Id3v2Frame = Id3v2Frame(data, offset, section)
                     if id3v2frame.is_valid:
                         id3v2.add_fragment(id3v2frame.as_fragment)
                         offset = offset + id3v2frame.length
