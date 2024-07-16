@@ -4,7 +4,7 @@ cleanup="io/_csv/ io/_json/ io/_yara/ io/db/"
 mongodb="mongodb://admin:admin@mongo-db:27017"
 input="io/pdfs/ io/jpegs/ io/mp3s/"
 collection="test"
-log="" #"--log=info"
+log="" #"--log=debug"
 #log=""
 
 sudo rm -drf $cleanup \

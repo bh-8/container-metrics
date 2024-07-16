@@ -332,6 +332,9 @@ class BuildExtCommand(build_ext):
       else:
         exclusions.append('yara/libyara/modules/macho/macho.c')
 
+      module.libraries.append('mongoc-1.0')
+      module.libraries.append('bson-1.0')
+
       # exclude pb_tests module
       exclusions.append('yara/libyara/modules/pb_tests/pb_tests.c')
       exclusions.append('yara/libyara/modules/pb_tests/pb_tests.pb-c.c')

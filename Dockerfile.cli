@@ -1,5 +1,6 @@
 FROM debian AS container-metrics
     RUN apt-get update && apt-get install -y \
+        curl \
         git \
         libbson-dev \
         libmagic1 \
@@ -11,9 +12,15 @@ FROM debian AS container-metrics
     RUN . /home/container-metrics/venv/bin/activate && pip3 install \
         alive-progress \
         bitarray \
+        bson \
         pymongo \
         python-magic \
         && deactivate
+
+    # jq
+    RUN curl -Lo /home/container-metrics/jp \
+        https://github.com/jmespath/jp/releases/latest/download/jp-linux-amd64 \
+        && chmod +x /home/container-metrics/jp
 
     # yara
     RUN git clone --recursive https://github.com/VirusTotal/yara-python
@@ -21,9 +28,8 @@ FROM debian AS container-metrics
     COPY ./src/yara_patch/setup.py /yara-python/setup.py
     RUN echo "MODULE(cm)" >> /yara-python/yara/libyara/modules/module_list
     COPY ./src/yara_patch/Makefile.am /yara-python/yara/Makefile.am
-    RUN cd /yara-python && python3 setup.py build
     RUN . /home/container-metrics/venv/bin/activate && cd /yara-python \
-        && python3 setup.py install && deactivate
+        && python3 setup.py build && python3 setup.py install && deactivate
 
     # create entrypoint
     RUN echo "#!/bin/bash">/home/entrypoint.sh

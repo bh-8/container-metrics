@@ -25,8 +25,7 @@ class YaraPipeline(AbstractPipeline):
 
     def process(self) -> None:
         yara_externals = {
-            "filename": self.document["meta"]["file"]["name"],
-            "fileid": str(self.document["_id"])
+            "mdb_oid": str(self.document["_id"])
         }
         yara_rules = [yara.compile(str(rule_file), externals=yara_externals) for rule_file in self.rule_files]
         yara_matches = [yara_rule.match(data=self.raw, timeout=60) for yara_rule in yara_rules]
