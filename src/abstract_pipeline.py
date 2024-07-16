@@ -7,6 +7,7 @@ included in every file in ./container_formats/*
 # IMPORTS
 
 import abc
+import jmespath
 from pathlib import Path
 import logging
 log = logging.getLogger(__name__)
@@ -36,6 +37,15 @@ class AbstractPipeline(abc.ABC):
 
         log.debug("inserted raw data to document for further pipelining")
         return raw_document
+    def jmesq(self, query_str: str) -> dict:
+        return jmespath.search(query_str, self.__document)
+    def stringify(self, chars: list[str], index: int, data: any) -> str:
+        # if index < len(chars):
+        if type(data) is list:
+            return chars[index].join([(self.stringify(chars, index + 1, i) if index + 1 < len(chars) else f"<{type(i).__name__}>") if (type(i) is dict or type(i) is list) else f"{i}" for i in data])
+        if type(data) is dict:
+            return chars[index].join([f"{k}={{" + ((self.stringify(chars, index + 1, data[k]) if index + 1 < len(chars) else f"<{type(data[k]).__name__}>") if (type(data[k]) is dict or type(data[k]) is list) else f"{data[k]}") + f"}}" for k in data.keys()])
+        return str(data)
 
     @property
     def document(self) -> dict:

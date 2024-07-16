@@ -13,6 +13,7 @@ FROM debian AS container-metrics
         alive-progress \
         bitarray \
         bson \
+        jmespath \
         pymongo \
         python-magic \
         && deactivate

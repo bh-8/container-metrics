@@ -9,16 +9,14 @@ references:
 # IMPORTS
 
 import logging
+from pathlib import Path
 log = logging.getLogger(__name__)
 
 from abstract_pipeline import AbstractPipeline
 
 # GLOBAL STATIC MAPPINGS
 
-SEPARATOR0 = ","
-SEPARATOR1 = ";"
-SEPARATOR2 = ":"
-NEWLINE = "\n"
+CSV_SEPARATORS = ["\n", ",", ";", ":"]
 
 # MODULE ENTRYPOINT
 
@@ -27,6 +25,7 @@ class CsvPipeline(AbstractPipeline):
         super().__init__("csv", document, raw)
         self.selections: list[str] = selections
 
+    """
     def __json_select(self, sel_path: list[str], i: int, sel_current: dict) -> dict:
         # path resolved completely
         if not i < len(sel_path):
@@ -54,13 +53,25 @@ class CsvPipeline(AbstractPipeline):
         if type(input) is list:
             return char.join([(f"<{type(s).__name__}>" if char == SEPARATOR2 else self.__csv_format(SEPARATOR2, s)) if (type(s) is dict or type(s) is list) else f"{s}" for s in input])
         if type(input) is dict:
-            return char.join([f"{k}=" + ((f"<{type(input[k]).__name__}>" if char == SEPARATOR2 else self.__csv_format(SEPARATOR2, input[k])) if (type(input[k]) is dict or type(input[k]) is list) else f"{input[k]}") for k in input.keys()])
+            return char.join([f"{{{k}=" + ((f"<{type(input[k]).__name__}>}}" if char == SEPARATOR2 else self.__csv_format(SEPARATOR2, input[k])) if (type(input[k]) is dict or type(input[k]) is list) else f"{input[k]}}}") for k in input.keys()])
         return str(input)
+    """
 
     def process(self) -> None:
-        raw_document: bytes = self.get_raw_document(hex=True)
-
         for selection in self.selections:
+            query_result: list = self.jmesq(selection)
+            if type(query_result) is list and len(query_result) == 0:
+                return
+
+            csv_str: str = self.stringify(CSV_SEPARATORS, 0, query_result)
+            csv_file: Path = self.output_path / f"{self.output_id}.csv"
+
+            # write output
+            with open(csv_file, "w") as handle:
+                log.info(f"writing output to '{csv_file}'...")
+                handle.write(csv_str)
+                handle.close()
+            """
             s: list[str] = selection.split(":")
             mime_type: str = s[0]
             segment: str = s[1]
@@ -78,3 +89,4 @@ class CsvPipeline(AbstractPipeline):
                 else:
                     self.logger.critical(f"could not access segment '{segment}' in mimetype section '{mime_type}'")
                     continue
+            """
