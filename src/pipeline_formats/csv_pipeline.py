@@ -58,13 +58,13 @@ class CsvPipeline(AbstractPipeline):
     """
 
     def process(self) -> None:
-        for selection in self.jmes_query_strings:
-            query_result: list = self.jmesq(selection)
+        for h in range(len(self.jmes_query_strings)):
+            query_result: list = self.jmesq(self.jmes_query_strings[h])
             if type(query_result) is list and len(query_result) == 0:
-                return
+                continue
 
             csv_str: str = self.stringify(CSV_SEPARATORS, 0, query_result)
-            csv_file: Path = self.output_path / f"{self.output_id}.csv"
+            csv_file: Path = self.output_path / f"{self.output_id}-{h}.csv"
 
             # write output
             with open(csv_file, "w") as handle:

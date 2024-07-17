@@ -26,15 +26,16 @@ class SvgPipeline(AbstractPipeline):
         self.jmes_query_strings: list[str] = jmes_query_strings
 
     def process(self) -> None:
-        for selection in self.jmes_query_strings:
-            query_result: list = self.jmesq(selection)
+        for h in range(len(self.jmes_query_strings)):
+            query_result: list = self.jmesq(self.jmes_query_strings[h])
             if type(query_result) is list and len(query_result) == 0:
-                return
+                continue
 
             n = len(query_result[0])
             fig, axs = plt.subplots(n)
             fig.set_figwidth(16)
             fig.set_figheight(2.4 * n)
+            fig.tight_layout()
 
             x = list(range(len(query_result)))
             for i in range(n):
@@ -46,7 +47,7 @@ class SvgPipeline(AbstractPipeline):
                     continue
                 axs[i].plot(x, y)
 
-            svg_file: Path = self.output_path / f"{self.output_id}.svg"
+            svg_file: Path = self.output_path / f"{self.output_id}-{h}.svg"
 
             plt.savefig(svg_file)
             plt.close()

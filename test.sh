@@ -11,7 +11,7 @@ log="" #"--log=debug"
 
 sudo rm -drf $cleanup \
     && docker compose build \
-    && ./container-metrics query $mongodb $collection csv "sections[?mime_type=='audio/mpeg'].segments.mpeg_frames[].[header.private,header.copyright,header.original,side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length]" $log \
-    && ./container-metrics query $mongodb $collection svg "sections[?mime_type=='audio/mpeg'].segments.mpeg_frames[].[header.private,header.copyright,header.original,side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length]" $log \
-    && ./container-metrics query $mongodb $collection yara io/test.yara $log \
+    && ./container-metrics query $mongodb $collection csv "sections[?mime_type=='audio/mpeg'].segments.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length]" "sections[?mime_type=='audio/mpeg'].segments.mpeg_frames[].[header.private,header.copyright,header.original]" $log \
+    && ./container-metrics query $mongodb $collection svg "sections[?mime_type=='audio/mpeg'].segments.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length]" "sections[?mime_type=='audio/mpeg'].segments.mpeg_frames[].[header.private,header.copyright,header.original]" $log \
+    && ./container-metrics query $mongodb $collection yara io/test.yara io/test2.yara $log \
     && ./container-metrics query $mongodb $collection json $log
