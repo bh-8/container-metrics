@@ -361,18 +361,13 @@ class Main:
             # check parameterization
             pipeline_parameters: list[str] = []
             match str(args.pipeline_specification[0]).lower():
-                case "csv":
+                case "csv" | "svg" | "yara":
                     if len(args.pipeline_specification) <= 1:
                         parser.print_help()
                         sys.exit(1)
                     pipeline_parameters = args.pipeline_specification[1:]
                 case "json":
                     pass
-                case "yara":
-                    if len(args.pipeline_specification) <= 1:
-                        parser.print_help()
-                        sys.exit(1)
-                    pipeline_parameters = args.pipeline_specification[1:]
                 case _:
                     parser.print_help()
                     sys.exit(1)

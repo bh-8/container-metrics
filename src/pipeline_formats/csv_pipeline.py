@@ -21,9 +21,9 @@ CSV_SEPARATORS = ["\n", ",", ";", ":"]
 # MODULE ENTRYPOINT
 
 class CsvPipeline(AbstractPipeline):
-    def __init__(self, document: dict, raw: bytes, selections: list[str]) -> None:
+    def __init__(self, document: dict, raw: bytes, jmes_query_strings: list[str]) -> None:
         super().__init__("csv", document, raw)
-        self.selections: list[str] = selections
+        self.jmes_query_strings: list[str] = jmes_query_strings
 
     """
     def __json_select(self, sel_path: list[str], i: int, sel_current: dict) -> dict:
@@ -58,7 +58,7 @@ class CsvPipeline(AbstractPipeline):
     """
 
     def process(self) -> None:
-        for selection in self.selections:
+        for selection in self.jmes_query_strings:
             query_result: list = self.jmesq(selection)
             if type(query_result) is list and len(query_result) == 0:
                 return
@@ -71,6 +71,7 @@ class CsvPipeline(AbstractPipeline):
                 log.info(f"writing output to '{csv_file}'...")
                 handle.write(csv_str)
                 handle.close()
+
             """
             s: list[str] = selection.split(":")
             mime_type: str = s[0]
