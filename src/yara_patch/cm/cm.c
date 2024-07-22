@@ -5,7 +5,22 @@
 #include <bson/bson.h>
 
 #define MODULE_NAME cm
-#define BUFFER_SIZE 4096
+#define BUFFER_SIZE 16384
+
+// https://stackoverflow.com/questions/656542/trim-a-string-in-c
+char* ltrim(char *s) {
+    while(isspace(*s)) s++;
+    return s;
+}
+char* rtrim(char *s) {
+    char* back = s + strlen(s);
+    while(isspace(*--back));
+    *(back+1) = '\0';
+    return s;
+}
+char* trim(char *s) {
+    return rtrim(ltrim(s)); 
+}
 
 char* get_document_as_json(const char* connection_str, const char* db_name, const char* collection_name, const char* mongodb_identifier) {
     const bson_t* bson_doc;
@@ -34,7 +49,7 @@ char* get_document_as_json(const char* connection_str, const char* db_name, cons
 
     char* json_str;
     while(mongoc_cursor_next(cursor, &bson_doc)) {
-        json_str = bson_as_canonical_extended_json(bson_doc, NULL);
+        json_str = bson_as_json(bson_doc, NULL);
         break;
     }
 
@@ -58,7 +73,7 @@ char* execute_jp(const char* json, const char* jmes_query) {
     pid_t pid;
 
     // Construct the command string with the argument
-    snprintf(command, sizeof(command), "/home/container-metrics/jp %s", jmes_query);
+    snprintf(command, sizeof(command), "/home/container-metrics/jp --compact --unquoted \"%s\"", jmes_query);
 
     // Create pipes for stdin and stdout
     pipe(pipe_stdin);
@@ -120,26 +135,63 @@ char* execute_jp(const char* json, const char* jmes_query) {
     return output;
 }
 
-define_function(jmesq) {
+char* jmesq(char* mdb_uri, char* mdb_db, char* mdb_c, char* mdb_oid, char* jmes_query) {
+    char* json = get_document_as_json(mdb_uri, mdb_db, mdb_c, mdb_oid);
+    if(!json)
+        return "<cm.c:jmesq:JSON_NULL>";
+
+    char *jp = execute_jp(json, jmes_query);
+    if(!jp)
+        return "<cm.c:jmesq:JP_NULL>";
+
+    return rtrim(jp);
+}
+
+define_function(jmesq_s) {
     char* mdb_uri = string_argument(1);
     char* mdb_db = string_argument(2);
     char* mdb_c = string_argument(3);
     char* mdb_oid = string_argument(4);
     char* jmes_query = string_argument(5);
 
-    char* json = get_document_as_json(mdb_uri, mdb_db, mdb_c, mdb_oid);
-    if(!json)
-        return_string("<E:JSON_NULL>");
+    char* query_result = jmesq(mdb_uri, mdb_db, mdb_c, mdb_oid, jmes_query);
+    return_string(query_result);
+}
 
-    char *jp = execute_jp(json, jmes_query);
-    if(!jp)
-        return_string("<E:JP_NULL>");
+define_function(jmesq_i) {
+    char* mdb_uri = string_argument(1);
+    char* mdb_db = string_argument(2);
+    char* mdb_c = string_argument(3);
+    char* mdb_oid = string_argument(4);
+    char* jmes_query = string_argument(5);
 
-    return_string(jp);
+    char* query_result = jmesq(mdb_uri, mdb_db, mdb_c, mdb_oid, jmes_query);
+    if(strcmp(query_result, "null") == 0)
+        return_integer(0);
+    int v;
+    sscanf(query_result, "%d", &v);
+    return_integer(v);
+}
+
+define_function(jmesq_f) {
+    char* mdb_uri = string_argument(1);
+    char* mdb_db = string_argument(2);
+    char* mdb_c = string_argument(3);
+    char* mdb_oid = string_argument(4);
+    char* jmes_query = string_argument(5);
+
+    char* query_result = jmesq(mdb_uri, mdb_db, mdb_c, mdb_oid, jmes_query);
+    if(strcmp(query_result, "null") == 0)
+        return_float(0);
+    float v;
+    sscanf(query_result, "%f", &v);
+    return_float(v);
 }
 
 begin_declarations;
-    declare_function("jmesq", "sssss", "s", jmesq);
+    declare_function("jmesq_s", "sssss", "s", jmesq_s);
+    declare_function("jmesq_i", "sssss", "i", jmesq_i);
+    declare_function("jmesq_f", "sssss", "f", jmesq_f);
 end_declarations;
 
 int module_initialize(YR_MODULE* module) {

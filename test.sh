@@ -1,6 +1,11 @@
 #!/bin/bash
 
-ENV_CLEANUP="io/_csv/ io/_json/ io/_yara/ io/_svg/"
+ENV_CSV="io/_csv/"
+ENV_JSON="io/_json/"
+ENV_SVG="io/_svg/"
+ENV_YARA="io/_yara/"
+
+ENV_CLEANUP="${ENV_CSV} ${ENV_JSON} ${ENV_SVG} ${ENV_YARA}"
 ENV_CLEANUP_ALL="${ENV_CLEANUP} io/db/"
 
 ENV_INPUT_DATA="io/pdfs/ io/jpegs/ io/mp3s/"
@@ -30,8 +35,6 @@ tests_yara()
 
 tests_pls()
 {
-    sudo rm -drf $ENV_CLEANUP
-    docker compose build
     tests_csv
     tests_json
     tests_svg
@@ -40,8 +43,6 @@ tests_pls()
 
 tests_all()
 {
-    sudo rm -drf $ENV_CLEANUP_ALL
-    docker compose build
     ./container-metrics acquire $ENV_MONGODB_CONNECTION $ENV_MONGODB_COLLECTION $ENV_INPUT_DATA $ENV_LOGGING
     tests_csv
     tests_json
@@ -63,21 +64,33 @@ test_help() {
 if [[ $# > 0 ]]; then
     case $1 in
         all)
+            sudo rm -drf $ENV_CLEANUP_ALL
+            docker compose build
             tests_all
             ;;
         pls)
+            sudo rm -drf $ENV_CLEANUP
+            docker compose build
             tests_pls
             ;;
         csv)
+            sudo rm -drf $ENV_CSV
+            docker compose build
             tests_csv
             ;;
         json)
+            sudo rm -drf $ENV_JSON
+            docker compose build
             tests_json
             ;;
         svg)
+            sudo rm -drf $ENV_SVG
+            docker compose build
             tests_svg
             ;;
         yara)
+            sudo rm -drf $ENV_YARA
+            docker compose build
             tests_yara
             ;;
         *)
