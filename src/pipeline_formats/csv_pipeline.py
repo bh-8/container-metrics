@@ -21,9 +21,8 @@ CSV_SEPARATORS = ["\n", ",", ";", ":"]
 # MODULE ENTRYPOINT
 
 class CsvPipeline(AbstractPipeline):
-    def __init__(self, document: dict, raw: bytes, jmes_query_strings: list[str]) -> None:
-        super().__init__("csv", document, raw)
-        self.jmes_query_strings: list[str] = jmes_query_strings
+    def __init__(self, document: dict, raw: bytes, pipeline_parameters: dict) -> None:
+        super().__init__("csv", document, raw, pipeline_parameters)
 
     """
     def __json_select(self, sel_path: list[str], i: int, sel_current: dict) -> dict:
@@ -58,36 +57,35 @@ class CsvPipeline(AbstractPipeline):
     """
 
     def process(self) -> None:
-        for h in range(len(self.jmes_query_strings)):
-            query_result: list = self.jmesq(self.jmes_query_strings[h])
-            if type(query_result) is list and len(query_result) == 0:
+        query_result: list = self.jmesq(self.pipeline_parameters["jmesq"])
+        if type(query_result) is list and len(query_result) == 0:
+            return
+
+        csv_str: str = self.pipeline_parameters["header"]  + "\n" + self.stringify(CSV_SEPARATORS, 0, query_result)
+
+        # write output
+        csv_file: Path = self.output_path / f"{self.output_id}.csv"
+        with open(csv_file, "w") as handle:
+            log.info(f"writing output to '{csv_file}'...")
+            handle.write(csv_str)
+            handle.close()
+
+        """
+        s: list[str] = selection.split(":")
+        mime_type: str = s[0]
+        segment: str = s[1]
+        queries: list[str] = s[2].split(",")
+
+        # loop sections which correspond to given mimetype
+        for section in [section for section in raw_document["sections"] if section["mime_type"] == mime_type]:
+            if segment in section["segments"]:
+                csv_str: str = NEWLINE.join([s[2]] + [SEPARATOR0.join([self.__csv_format(SEPARATOR1, self.__json_select(query.split("."), 0, fragment)) for query in queries]) for fragment in section["segments"][segment]])
+                # write output
+                with open(self.output_path / f"{self.output_id}_{section['position']}-{segment}.csv", "w") as handle:
+                    log.info(f"writing output to './io/{self.output_path.name}/{self.output_id}_{section['position']}-{segment}.csv'...")
+                    handle.write(csv_str)
+                    handle.close()
+            else:
+                self.logger.critical(f"could not access segment '{segment}' in mimetype section '{mime_type}'")
                 continue
-
-            csv_str: str = self.stringify(CSV_SEPARATORS, 0, query_result)
-            csv_file: Path = self.output_path / f"{self.output_id}-{h}.csv"
-
-            # write output
-            with open(csv_file, "w") as handle:
-                log.info(f"writing output to '{csv_file}'...")
-                handle.write(csv_str)
-                handle.close()
-
-            """
-            s: list[str] = selection.split(":")
-            mime_type: str = s[0]
-            segment: str = s[1]
-            queries: list[str] = s[2].split(",")
-
-            # loop sections which correspond to given mimetype
-            for section in [section for section in raw_document["sections"] if section["mime_type"] == mime_type]:
-                if segment in section["segments"]:
-                    csv_str: str = NEWLINE.join([s[2]] + [SEPARATOR0.join([self.__csv_format(SEPARATOR1, self.__json_select(query.split("."), 0, fragment)) for query in queries]) for fragment in section["segments"][segment]])
-                    # write output
-                    with open(self.output_path / f"{self.output_id}_{section['position']}-{segment}.csv", "w") as handle:
-                        log.info(f"writing output to './io/{self.output_path.name}/{self.output_id}_{section['position']}-{segment}.csv'...")
-                        handle.write(csv_str)
-                        handle.close()
-                else:
-                    self.logger.critical(f"could not access segment '{segment}' in mimetype section '{mime_type}'")
-                    continue
-            """
+        """

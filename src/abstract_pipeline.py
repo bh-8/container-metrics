@@ -15,10 +15,11 @@ log = logging.getLogger(__name__)
 # ABSTRACT PIPELINE FORMAT
 
 class AbstractPipeline(abc.ABC):
-    def __init__(self, pipeline: str, document: dict, raw: bytes) -> None:
+    def __init__(self, pipeline: str, document: dict, raw: bytes, pipeline_parameters: dict) -> None:
         self.__pipeline: str = pipeline
         self.__document: dict = document
         self.__raw: bytes = raw
+        self.__pipeline_parameters: dict = pipeline_parameters
 
     def process(self) -> None:
         raise NotImplementedError("processing not implemented")
@@ -53,6 +54,9 @@ class AbstractPipeline(abc.ABC):
     @property
     def raw(self) -> dict:
         return self.__raw
+    @property
+    def pipeline_parameters(self) -> dict:
+        return self.__pipeline_parameters
     @property
     def output_id(self) -> str:
         return f"{self.__document['_id']}_{Path(self.__document['meta']['file']['name'])}"

@@ -11,7 +11,7 @@ ENV_CLEANUP_ALL="${ENV_CLEANUP} io/db/"
 ENV_INPUT_DATA="io/pdfs/ io/jpegs/ io/mp3s/"
 ENV_MONGODB_CONNECTION="mongodb://admin:admin@mongo-db:27017"
 ENV_MONGODB_COLLECTION="test"
-ENV_LOGGING="" #"--log=debug"
+ENV_LOGGING="" # ="--log=info"
 
 tests_csv()
 {

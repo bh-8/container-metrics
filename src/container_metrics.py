@@ -28,6 +28,7 @@ from static_utils import MIMEDetector, MongoInterface, flatten_paths, to_camel_c
 
 PROG_NAME = "container-metrics"
 MIME_INFO = "./container_formats/mime_mapping.json"
+PIPELINES = ["scan", "csv", "json", "svg", "yara"]
 
 # STRUCTURE MAP ACQUISITION
 
@@ -166,38 +167,62 @@ class StructureMapping():
 class Main:
     # entry point
     def __init__(self) -> None:
+        self.parameterization: dict = {}
+
         parser = argparse.ArgumentParser(
             prog=f"{PROG_NAME}",
-            usage=f"{PROG_NAME} <command> [<args>]",
-            description="""possible commands are:
-  acquire\textract and import metrics from container files into database
-  query  \tquery database to export selected metrics in different formats""",
             epilog=None, # [TODO]: credits o.a.
             formatter_class=argparse.RawDescriptionHelpFormatter
         )
 
-        # display help when no argument given
-        if len(sys.argv) <= 1:
-            parser.print_help()
-            sys.exit(0)
-
-        # subcommand option
-        parser.add_argument("command", help="subcommand to run")
-        args = parser.parse_args(sys.argv[1:2])
+        # required parameters
+        parser.add_argument("mongodb",
+            type=str,
+            metavar="<mongodb>",
+            help="mongodb connection string"
+        )
+        parser.add_argument("project",
+            type=str,
+            metavar="<project>",
+            help="mongodb database identifier"
+        )
+        parser.add_argument("set",
+            type=str,
+            metavar="<set>",
+            help="mongodb collection identifier"
+        )
+        parser.add_argument("pipeline",
+            type=str,
+            metavar="<pipeline>",
+            choices=PIPELINES,
+            help="can either be " + ', '.join(f"'{p}'" for p in PIPELINES)
+        )
+        args = parser.parse_args(sys.argv[1:5])
 
         # check whether this class contains a method for the requested subcommand
-        if not hasattr(self, f"subcmd_{args.command}"):
+        if not hasattr(self, f"subcmd_{args.pipeline}"):
             parser.print_help()
             sys.exit(1)
 
-        # call subcommand method
-        getattr(self, f"subcmd_{args.command}")()
+        self.parameterization["mongodb"] = args.mongodb
+        self.parameterization["project"] = args.project
+        self.parameterization["set"] = args.set
+        self.parameterization["pipeline"] = args.pipeline
 
-    @staticmethod
-    def __verify_db_connection(connection: str):
+        # call subcommand method
+        try:
+            getattr(self, f"subcmd_{args.pipeline}")()
+        except Exception as e:
+            print(f"##################################################")
+            print(f" > ERROR: pipeline execution failed due to an unexpected exception!")
+            raise e
+
+    def __verify_db_connection(self, connection: str):
+        log.debug(f"setting up connection to '{self.parameterization['mongodb']}'...")
         MongoInterface.set_connection(connection)
         if len(MongoInterface.get_connection()["admin"].list_collection_names()) != 2:
             raise ConnectionError("could not verify mongo db connection")
+        log.info(f"connected to database via '{self.parameterization['mongodb']}'")
 
     @staticmethod
     def __init_logger(log_level: str) -> None:
@@ -206,22 +231,11 @@ class Main:
         global log
         log = logging.getLogger(__name__)
 
-    # subcommand 'acquire'
-    def subcmd_acquire(self):
+    def subcmd_scan(self):
         parser = argparse.ArgumentParser(
-            prog=f"{PROG_NAME} acquire",
+            prog=f"{PROG_NAME} {self.parameterization['pipeline']} >",
             description="scan container files, extract and import metrics into database",
             epilog=None
-        )
-        parser.add_argument("mongodb",
-            type=str,
-            metavar="<mongodb>",
-            help="mongodb connection string"
-        )
-        parser.add_argument("collection",
-            type=str,
-            metavar="<collection>",
-            help="mongodb collection identifier"
         )
 
         parser.add_argument("paths",
@@ -247,98 +261,72 @@ class Main:
             help="logging level"
         )
 
-        # display help when no argument given
-        if len(sys.argv) <= 2:
-            parser.print_help()
-            sys.exit(1)
+        args = parser.parse_args(sys.argv[5:])
+        self.__init_logger(args.log)
+        self.__verify_db_connection(self.parameterization["mongodb"])
 
-        db_name: str = f"{datetime.datetime.now().year}-{datetime.datetime.now().month:02d}-{datetime.datetime.now().day:02d}"
+        self.parameterization["paths"] = args.paths
+        self.parameterization["max_depth"] = args.max_depth
+        self.parameterization["recursive"] = args.recursive
+        self.parameterization["log"] = args.log
 
-        try:
-            # subcommand arguments
-            args = parser.parse_args(sys.argv[2:])
+        ##################################################
 
-            # init logger
-            self.__init_logger(args.log)
+        if self.parameterization["max_depth"] < 0:
+            raise ValueError("maximum analysis depth can not be negative")
 
-            # test connection to mongo db instance
-            log.debug(f"setting up connection to '{args.mongodb}'...")
-            self.__verify_db_connection(args.mongodb)
-            log.info(f"connected to database via '{args.mongodb}'")
+        # gather input files
+        log.debug("resolving input paths...")
+        path_list = flatten_paths([Path(x).resolve() for x in self.parameterization["paths"]], self.parameterization["recursive"])
+        log.info(f"found {len(path_list)} file(s) in total")
 
-            c_name: str = args.collection
+        # load 'mapping.json'
+        supported_mime_types: dict = {}
+        with open(MIME_INFO) as json_handle:
+            supported_mime_types = json.loads(json_handle.read())
+        log.info(f"supported mime-types are {', '.join(list(supported_mime_types.keys()))}")
 
-            ####################################################################################################
+        # loop supported files
+        with alive_bar(len(path_list), title=f"{self.parameterization['project']}/{self.parameterization['set']}: {self.parameterization['pipeline']}") as pbar:
+            for file_path in path_list:
+                log.info(f"processing file '{file_path.name}'...")
 
-            if args.max_depth < 0:
-                raise ValueError("maximum analysis depth can not be negative")
+                # analysis
+                structure_mapping: StructureMapping = StructureMapping(file_path, supported_mime_types, self.parameterization["max_depth"])
+                structure_mapping_dict: dict = structure_mapping.as_dictionary
 
-            # gather input files
-            log.debug("resolving input paths...")
-            path_list = flatten_paths([Path(x).resolve() for x in args.paths], args.recursive)
-            log.info(f"found {len(path_list)} file(s) in total")
+                # insert json structure into database
+                target_db = MongoInterface.get_connection()[self.parameterization["project"]]
+                grid_fs = gridfs.GridFS(target_db, "gridfs")
+                log.info(f"transferring raw data to gridfs: '{self.parameterization['project']}/gridfs'...")
+                grid_fs_id = grid_fs.put(structure_mapping.file_data, filename=file_path.name)
 
-            # load 'mapping.json'
-            supported_mime_types: dict = {}
-            with open(MIME_INFO) as json_handle:
-                supported_mime_types = json.loads(json_handle.read())
-            log.info(f"supported mime-types are {', '.join(list(supported_mime_types.keys()))}")
+                log.info(f"transferring bson to mongodb: '{self.parameterization['project']}/{self.parameterization['set']}-gridfs:{grid_fs_id}'...")
+                structure_mapping_dict["_gridfs"] = grid_fs_id
+                target_collection = MongoInterface.get_connection()[self.parameterization["project"]][self.parameterization["set"]]
 
-            # loop supported files
-            with alive_bar(len(path_list), title="acquisition progress") as pbar:
-                for file_path in path_list:
-                    log.info(f"processing file '{file_path.name}'...")
-
-                    # analysis
-                    structure_mapping: StructureMapping = StructureMapping(file_path, supported_mime_types, args.max_depth)
-
-                    structure_mapping_dict: dict = structure_mapping.as_dictionary
-
-                    # insert json structure into database
-
-                    target_db = MongoInterface.get_connection()[db_name]
-                    grid_fs = gridfs.GridFS(target_db, "gridfs")
-                    log.info(f"transferring raw data to gridfs: '{db_name}/gridfs'...")
-                    grid_fs_id = grid_fs.put(structure_mapping.file_data, filename=file_path.name)
-
-                    log.info(f"transferring bson to mongodb: '{db_name}/{c_name}-gridfs:{grid_fs_id}'...")
-                    structure_mapping_dict["_gridfs"] = grid_fs_id
-                    target_collection = MongoInterface.get_connection()[db_name][c_name]
-
-                    try:
-                        target_collection.insert_one(structure_mapping_dict)
-                    except DocumentTooLarge:
-                        log.critical(f"could not insert document into database for file '{file_path.name}' as it's too large")
-                    pbar(1)
-            log.info("done")
-        except Exception as e:
-            print(f"##################################################")
-            print(f" > ERROR: acquisition failed due to an unexpected exception!")
-            raise e
-
-    # subcommand 'query'
-    def subcmd_query(self):
+                try:
+                    target_collection.insert_one(structure_mapping_dict)
+                except DocumentTooLarge:
+                    log.critical(f"could not insert document into database for file '{file_path.name}' as it's too large")
+                pbar(1)
+        log.info("done")
+    def subcmd_csv(self):
         parser = argparse.ArgumentParser(
-            prog=f"{PROG_NAME} query",
-            description="query database to export selected metrics in different formats",
+            prog=f"{PROG_NAME} {self.parameterization['pipeline']} >",
+            description="query structure mapping and store results as csv",
             epilog=None
         )
-        parser.add_argument("mongodb",
-            type=str,
-            metavar="<mongodb>",
-            help="mongodb connection string"
-        )
-        parser.add_argument("collection",
-            type=str,
-            metavar="<collection>",
-            help="mongodb collection identifier"
-        )
 
-        parser.add_argument("pipeline_specification",
+        parser.add_argument("header",
             type=str,
-            metavar="<parameter>",
-            nargs="+",
-            help="pipeline parameterization"
+            metavar="<header>",
+            help="specify csv header row"
+        )
+        parser.add_argument("jmesq",
+            type=str,
+            metavar="<jmesq>",
+            help="specify JMESPath query"
         )
         parser.add_argument("--log",
             type=str,
@@ -347,77 +335,122 @@ class Main:
             help="logging level"
         )
 
-        # display help when no argument given
-        if len(sys.argv) <= 2:
-            parser.print_help()
-            sys.exit(1)
+        args = parser.parse_args(sys.argv[5:])
+        self.parameterization["header"] = args.header
+        self.parameterization["jmesq"] = args.jmesq
+        self.parameterization["log"] = args.log
+        self.general_pp_pipeline()
+    def subcmd_json(self):
+        parser = argparse.ArgumentParser(
+            prog=f"{PROG_NAME} {self.parameterization['pipeline']} >",
+            description="store structure mapping as json",
+            epilog=None
+        )
 
-        db_name: str = f"{datetime.datetime.now().year}-{datetime.datetime.now().month:02d}-{datetime.datetime.now().day:02d}"
+        parser.add_argument("--log",
+            type=str,
+            choices=["debug", "info", "warning", "error"],
+            default="warning",
+            help="logging level"
+        )
 
-        try:
-            # subcommand arguments
-            args = parser.parse_args(sys.argv[2:])
+        args = parser.parse_args(sys.argv[5:])
+        self.parameterization["log"] = args.log
+        self.general_pp_pipeline()
+    def subcmd_svg(self):
+        parser = argparse.ArgumentParser(
+            prog=f"{PROG_NAME} {self.parameterization['pipeline']} >",
+            description="query structure mapping and visualize results as vector graphic",
+            epilog=None
+        )
 
-            # check parameterization
-            pipeline_parameters: list[str] = []
-            match str(args.pipeline_specification[0]).lower():
-                case "csv" | "svg" | "yara":
-                    if len(args.pipeline_specification) <= 1:
-                        parser.print_help()
-                        sys.exit(1)
-                    pipeline_parameters = args.pipeline_specification[1:]
-                case "json":
-                    pass
-                case _:
-                    parser.print_help()
-                    sys.exit(1)
+        parser.add_argument("x_axis",
+            type=str,
+            metavar="<x_axis>",
+            help="specify axis label"
+        )
+        parser.add_argument("y_axis",
+            type=str,
+            metavar="<y_axis>",
+            help="specify axis label"
+        )
+        parser.add_argument("jmesq",
+            type=str,
+            metavar="<jmesq>",
+            help="specify JMESPath query"
+        )
+        parser.add_argument("--log",
+            type=str,
+            choices=["debug", "info", "warning", "error"],
+            default="warning",
+            help="logging level"
+        )
 
-            # init logger
-            self.__init_logger(args.log)
+        args = parser.parse_args(sys.argv[5:])
+        self.parameterization["x_axis"] = args.x_axis
+        self.parameterization["y_axis"] = args.y_axis
+        self.parameterization["jmesq"] = args.jmesq
+        self.parameterization["log"] = args.log
+        self.general_pp_pipeline()
+    def subcmd_yara(self):
+        parser = argparse.ArgumentParser(
+            prog=f"{PROG_NAME} {self.parameterization['pipeline']} >",
+            description="evaluate yara rules using structure mapping queries",
+            epilog=None
+        )
 
-            # test connection to mongo db instance
-            log.debug(f"setting up connection to '{args.mongodb}'...")
-            self.__verify_db_connection(args.mongodb)
-            log.info(f"connected to database via '{args.mongodb}'")
+        parser.add_argument("rule_file",
+            type=str,
+            metavar="<rule_file>",
+            help="specify yara rule file to evaluate"
+        )
+        parser.add_argument("--log",
+            type=str,
+            choices=["debug", "info", "warning", "error"],
+            default="warning",
+            help="logging level"
+        )
 
-            c_name: str = args.collection
+        args = parser.parse_args(sys.argv[5:])
+        self.parameterization["rule_file"] = args.rule_file
+        self.parameterization["log"] = args.log
+        self.general_pp_pipeline()
 
-            ####################################################################################################
+    def general_pp_pipeline(self):
+        self.__init_logger(self.parameterization["log"])
+        self.__verify_db_connection(self.parameterization["mongodb"])
 
-            if not db_name in MongoInterface.get_connection().list_database_names():
-                raise ValueError(f"database '{db_name}' does not exist")
-            if not c_name in MongoInterface.get_connection()[db_name].list_collection_names():
-                raise ValueError(f"database '{db_name}' has no collection named '{c_name}'")
+        if not self.parameterization["project"] in MongoInterface.get_connection().list_database_names():
+            raise ValueError(f"database '{self.parameterization['project']}' does not exist")
+        if not self.parameterization["set"] in MongoInterface.get_connection()[self.parameterization["project"]].list_collection_names():
+            raise ValueError(f"database '{self.parameterization['project']}' has no collection named '{self.parameterization['set']}'")
 
-            target_db = MongoInterface.get_connection()[db_name]
-            grid_fs = gridfs.GridFS(target_db, "gridfs")
+        # gather gridfs data
+        target_db = MongoInterface.get_connection()[self.parameterization["project"]]
+        grid_fs = gridfs.GridFS(target_db, "gridfs")
 
-            target_collection = MongoInterface.get_connection()[db_name][c_name]
+        target_collection = MongoInterface.get_connection()[self.parameterization["project"]][self.parameterization["set"]]
 
-            # check existence of required implementation
-            pipeline_id: str = f"{args.pipeline_specification[0]}_pipeline"
-            class_label: str = f"{to_camel_case(pipeline_id)}"
-            if not class_label in globals():
-                raise NotImplementedError(f"could not find class '{class_label}', expected definition in '{pipeline_id}.py'")
+        # check existence of required implementation
+        pipeline_id: str = f"{self.parameterization['pipeline']}_pipeline"
+        class_label: str = f"{to_camel_case(pipeline_id)}"
+        if not class_label in globals():
+            raise NotImplementedError(f"could not find class '{class_label}', expected definition in '{pipeline_id}.py'")
 
-            # loop entries
-            with alive_bar(target_collection.count_documents({}), title="querying progress") as pbar:
-                for document in target_collection.find():
-                    # read bson
-                    log.info(f"retrieving data from database: '{db_name}/{c_name}-id:{document['_id']}-gridfs:{document['_gridfs']}'...")
-                    bson_document = grid_fs.get(document["_gridfs"]).read()
+        # loop documents
+        with alive_bar(target_collection.count_documents({}), title=f"{self.parameterization['project']}/{self.parameterization['set']}: {self.parameterization['pipeline']}") as pbar:
+            for document in target_collection.find():
+                # read bson
+                log.info(f"retrieving data from database: '{self.parameterization['project']}/{self.parameterization['set']}-id:{document['_id']}-gridfs:{document['_gridfs']}'...")
+                bson_document = grid_fs.get(document["_gridfs"]).read()
 
-                    # initiate format specific analysis
-                    log.info(f"processing file '{document['meta']['file']['name']}'...")
-                    pipeline: AbstractPipeline = globals()[class_label](document, bson_document, pipeline_parameters)
-                    pipeline.process()
+                # initiate format specific analysis
+                log.info(f"processing file '{document['meta']['file']['name']}'...")
+                pipeline: AbstractPipeline = globals()[class_label](document, bson_document, self.parameterization)
+                pipeline.process()
 
-                    pbar(1)
-            log.info("done")
-        except Exception as e:
-            print(f"##################################################")
-            print(f" > ERROR: querying failed due to an unexpected exception!")
-            raise e
+                pbar(1)
+        log.info("done")
 
 # entry point
 if __name__ == "__main__":
