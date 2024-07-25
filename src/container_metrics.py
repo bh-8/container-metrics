@@ -233,7 +233,7 @@ class Main:
 
     def subcmd_scan(self):
         parser = argparse.ArgumentParser(
-            prog=f"{PROG_NAME} {self.parameterization['pipeline']} >",
+            prog=f"{PROG_NAME} {self.parameterization['pipeline']}",
             description="scan container files, extract and import metrics into database",
             epilog=None
         )
@@ -313,7 +313,7 @@ class Main:
         log.info("done")
     def subcmd_csv(self):
         parser = argparse.ArgumentParser(
-            prog=f"{PROG_NAME} {self.parameterization['pipeline']} >",
+            prog=f"{PROG_NAME} {self.parameterization['pipeline']}",
             description="query structure mapping and store results as csv",
             epilog=None
         )
@@ -342,7 +342,7 @@ class Main:
         self.general_pp_pipeline()
     def subcmd_json(self):
         parser = argparse.ArgumentParser(
-            prog=f"{PROG_NAME} {self.parameterization['pipeline']} >",
+            prog=f"{PROG_NAME} {self.parameterization['pipeline']}",
             description="store structure mapping as json",
             epilog=None
         )
@@ -359,7 +359,7 @@ class Main:
         self.general_pp_pipeline()
     def subcmd_svg(self):
         parser = argparse.ArgumentParser(
-            prog=f"{PROG_NAME} {self.parameterization['pipeline']} >",
+            prog=f"{PROG_NAME} {self.parameterization['pipeline']}",
             description="query structure mapping and visualize results as vector graphic",
             epilog=None
         )
@@ -394,7 +394,7 @@ class Main:
         self.general_pp_pipeline()
     def subcmd_yara(self):
         parser = argparse.ArgumentParser(
-            prog=f"{PROG_NAME} {self.parameterization['pipeline']} >",
+            prog=f"{PROG_NAME} {self.parameterization['pipeline']}",
             description="evaluate yara rules using structure mapping queries",
             epilog=None
         )
