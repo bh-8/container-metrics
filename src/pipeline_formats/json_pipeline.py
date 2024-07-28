@@ -29,7 +29,7 @@ class JsonPipeline(AbstractPipeline):
         del out_dict["_gridfs"]
 
         # write output
-        json_file: Path = self.output_path / f"{self.output_id}.json"
+        json_file: Path = self.get_outfile_path(self.pipeline_parameters['outid'])
         with open(json_file, "w") as handle:
             log.info(f"writing output to '{json_file}'...")
             json.dump(out_dict, handle)

@@ -10,40 +10,37 @@ ENV_CLEANUP_ALL="${ENV_CLEANUP} io/db/"
 
 ENV_INPUT_DATA="io/pdfs/ io/jpegs/ io/mp3s/"
 ENV_MONGODB_CONNECTION="mongodb://admin:admin@mongo-db:27017"
-ENV_MONGODB_COLLECTION="test"
-ENV_LOGGING="" # ="--log=info"
+ENV_PROJECT="test"
+ENV_SET="test"
+ENV_LOGGING="--log info"
 
-tests_csv()
-{
-    ./container-metrics query $ENV_MONGODB_CONNECTION $ENV_MONGODB_COLLECTION csv "sections[?mime_type=='audio/mpeg'].segments.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length]" "sections[?mime_type=='audio/mpeg'].segments.mpeg_frames[].[header.private,header.copyright,header.original]" $ENV_LOGGING
+tests_csv() {
+    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET csv "header.private,header.copyright,header.original" "sections[?mime_type=='audio/mpeg'].segments.mpeg_frames[].[header.private,header.copyright,header.original]" $ENV_LOGGING -outid=hdrflds
+    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET csv "part2_3_length granule 0,part2_3_length granule 1" "sections[?mime_type=='audio/mpeg'].segments.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length]" $ENV_LOGGING --output-identifier=p23l
 }
 
-tests_json()
-{
-    ./container-metrics query $ENV_MONGODB_CONNECTION $ENV_MONGODB_COLLECTION json $ENV_LOGGING
+tests_json() {
+    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET json $ENV_LOGGING
 }
 
-tests_svg()
-{
-    ./container-metrics query $ENV_MONGODB_CONNECTION $ENV_MONGODB_COLLECTION svg "sections[?mime_type=='audio/mpeg'].segments.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length]" "sections[?mime_type=='audio/mpeg'].segments.mpeg_frames[].[header.private,header.copyright,header.original]" $ENV_LOGGING
+tests_svg() {
+    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET svg "mpeg frames" "part2_3_length" "sections[?mime_type=='audio/mpeg'].segments.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length]" $ENV_LOGGING
 }
 
-tests_yara()
-{
-    ./container-metrics query $ENV_MONGODB_CONNECTION $ENV_MONGODB_COLLECTION yara io/test.yara io/test2.yara $ENV_LOGGING
+tests_yara() {
+    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET yara io/test.yara $ENV_LOGGING -outid=test
+    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET yara io/test2.yara $ENV_LOGGING -outid=test2
 }
 
-tests_pls()
-{
+tests_pls() {
     tests_csv
     tests_json
     tests_svg
     tests_yara
 }
 
-tests_all()
-{
-    ./container-metrics acquire $ENV_MONGODB_CONNECTION $ENV_MONGODB_COLLECTION $ENV_INPUT_DATA $ENV_LOGGING
+tests_all() {
+    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET scan $ENV_INPUT_DATA $ENV_LOGGING
     tests_csv
     tests_json
     tests_svg

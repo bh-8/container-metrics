@@ -223,6 +223,20 @@ class Main:
         if len(MongoInterface.get_connection()["admin"].list_collection_names()) != 2:
             raise ConnectionError("could not verify mongo db connection")
         log.info(f"connected to database via '{self.parameterization['mongodb']}'")
+    def __extend_pipeline_parser(self, parser: argparse.ArgumentParser) -> None:
+        parser.add_argument("--output-identifier", "-outid",
+            type=str,
+            default="out",
+            help="output file identifier")
+        parser.add_argument("--log",
+            type=str,
+            choices=["debug", "info", "warning", "error"],
+            default="warning",
+            help="logging level"
+        )
+    def __extend_pipeline_parameterization(self, args) -> None:
+        self.parameterization["outid"] = args.output_identifier
+        self.parameterization["log"] = args.log
 
     @staticmethod
     def __init_logger(log_level: str) -> None:
@@ -328,17 +342,14 @@ class Main:
             metavar="<jmesq>",
             help="specify JMESPath query"
         )
-        parser.add_argument("--log",
-            type=str,
-            choices=["debug", "info", "warning", "error"],
-            default="warning",
-            help="logging level"
-        )
 
+        self.__extend_pipeline_parser(parser)
         args = parser.parse_args(sys.argv[5:])
+
         self.parameterization["header"] = args.header
         self.parameterization["jmesq"] = args.jmesq
-        self.parameterization["log"] = args.log
+
+        self.__extend_pipeline_parameterization(args)
         self.general_pp_pipeline()
     def subcmd_json(self):
         parser = argparse.ArgumentParser(
@@ -347,15 +358,10 @@ class Main:
             epilog=None
         )
 
-        parser.add_argument("--log",
-            type=str,
-            choices=["debug", "info", "warning", "error"],
-            default="warning",
-            help="logging level"
-        )
-
+        self.__extend_pipeline_parser(parser)
         args = parser.parse_args(sys.argv[5:])
-        self.parameterization["log"] = args.log
+
+        self.__extend_pipeline_parameterization(args)
         self.general_pp_pipeline()
     def subcmd_svg(self):
         parser = argparse.ArgumentParser(
@@ -379,18 +385,15 @@ class Main:
             metavar="<jmesq>",
             help="specify JMESPath query"
         )
-        parser.add_argument("--log",
-            type=str,
-            choices=["debug", "info", "warning", "error"],
-            default="warning",
-            help="logging level"
-        )
 
+        self.__extend_pipeline_parser(parser)
         args = parser.parse_args(sys.argv[5:])
+
         self.parameterization["x_axis"] = args.x_axis
         self.parameterization["y_axis"] = args.y_axis
         self.parameterization["jmesq"] = args.jmesq
-        self.parameterization["log"] = args.log
+
+        self.__extend_pipeline_parameterization(args)
         self.general_pp_pipeline()
     def subcmd_yara(self):
         parser = argparse.ArgumentParser(
@@ -404,16 +407,15 @@ class Main:
             metavar="<rule_file>",
             help="specify yara rule file to evaluate"
         )
-        parser.add_argument("--log",
-            type=str,
-            choices=["debug", "info", "warning", "error"],
-            default="warning",
-            help="logging level"
-        )
 
+        self.__extend_pipeline_parser(parser)
         args = parser.parse_args(sys.argv[5:])
+
         self.parameterization["rule_file"] = args.rule_file
+        self.parameterization["outid"] = args.output_identifier
         self.parameterization["log"] = args.log
+
+        self.__extend_pipeline_parameterization(args)
         self.general_pp_pipeline()
 
     def general_pp_pipeline(self):

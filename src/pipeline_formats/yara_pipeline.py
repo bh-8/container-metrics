@@ -42,7 +42,7 @@ class YaraPipeline(AbstractPipeline):
         for entry in match_dict:
             for key in entry:
                 if len(entry[key]) > 0:
-                    json_file: Path = self.output_path / f"{self.output_id}.json"
+                    json_file: Path = self.get_outfile_path(self.pipeline_parameters['outid'])
                     with open(json_file, "w") as handle:
                         log.info(f"writing output to '{json_file}'...")
                         json.dump(match_dict, handle)

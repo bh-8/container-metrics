@@ -37,25 +37,31 @@ class SvgPipeline(AbstractPipeline):
         fig, axs = plt.subplots(n)
         fig.set_figwidth(16)
         fig.set_figheight(2.4 * n)
-        axs.set_xlabel(self.pipeline_parameters["x_axis"])
-        axs.set_ylabel(self.pipeline_parameters["y_axis"])
         #fig.tight_layout()
 
+        ok: bool = True
         x = list(range(len(query_result)))
         for i in range(n):
             y = [s[i] for s in query_result]
             if type(y[0]) is list:
                 for j in range(len(y[0])):
                     z = [t[j] if j < len(t) else None for t in y]
-                    #axs[i].plot(x, z)
-                    #axs[i].set_xlabel(self.pipeline_parameters["x_axis"])
-                    #axs[i].set_ylabel(self.pipeline_parameters["y_axis"])
-                    axs.plot(x, z)
+                    try:
+                        #axs[i].plot(x, z)
+                        #axs[i].set_xlabel(self.pipeline_parameters["x_axis"])
+                        #axs[i].set_ylabel(self.pipeline_parameters["y_axis"])
+                        axs.plot(x, z)
+                        axs.set_xlabel(self.pipeline_parameters["x_axis"])
+                        axs.set_ylabel(self.pipeline_parameters["y_axis"])
+                    except ValueError:
+                        ok = False
+                        break
                 continue
             #axs[i].plot(x, y)
             axs.plot(x, y)
 
-        svg_file: Path = self.output_path / f"{self.output_id}.svg"
+        svg_file: Path = self.get_outfile_path(self.pipeline_parameters['outid'])
 
-        plt.savefig(svg_file)
+        if ok:
+            plt.savefig(svg_file)
         plt.close()

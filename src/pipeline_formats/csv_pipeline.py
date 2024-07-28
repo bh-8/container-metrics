@@ -64,7 +64,7 @@ class CsvPipeline(AbstractPipeline):
         csv_str: str = self.pipeline_parameters["header"]  + "\n" + self.stringify(CSV_SEPARATORS, 0, query_result)
 
         # write output
-        csv_file: Path = self.output_path / f"{self.output_id}.csv"
+        csv_file: Path = self.get_outfile_path(self.pipeline_parameters['outid'])
         with open(csv_file, "w") as handle:
             log.info(f"writing output to '{csv_file}'...")
             handle.write(csv_str)
