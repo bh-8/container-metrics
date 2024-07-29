@@ -57,8 +57,9 @@ class ArffPipeline(AbstractPipeline):
             g = groupby(attr_types)
             if next(g, True) and not next(g, False):
                 # type is determined
-                log.warning(f"could not determine data type of column '{attribute_names[i]}', assume NUMERIC")
                 arff_str = f"{arff_str}\n@ATTRIBUTE {attr} {attr_types[0] if len(attr_types) > 0 else 'NUMERIC'}"
+                if not len(attr_types) > 0:
+                    log.warning(f"could not determine data type of column '{attribute_names[i]}', assuming 'NUMERIC'")
             else:
                 # type is not unique
                 log.warning(f"values in column '{attribute_names[i]}' have distinct types")
