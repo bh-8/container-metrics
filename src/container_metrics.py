@@ -28,7 +28,7 @@ from static_utils import MIMEDetector, MongoInterface, flatten_paths, to_camel_c
 
 PROG_NAME = "container-metrics"
 MIME_INFO = "./container_formats/mime_mapping.json"
-PIPELINES = ["scan", "csv", "json", "svg", "yara"]
+PIPELINES = ["scan", "arff", "csv", "json", "svg", "yara"]
 
 # STRUCTURE MAP ACQUISITION
 
@@ -325,6 +325,32 @@ class Main:
                     log.critical(f"could not insert document into database for file '{file_path.name}' as it's too large")
                 pbar(1)
         log.info("done")
+    def subcmd_arff(self):
+        parser = argparse.ArgumentParser(
+            prog=f"{PROG_NAME} {self.parameterization['pipeline']}",
+            description="query structure mapping and store results as weka arff",
+            epilog=None
+        )
+
+        parser.add_argument("header",
+            type=str,
+            metavar="<header>",
+            help="specify weka attribute row (csv-string)"
+        )
+        parser.add_argument("jmesq",
+            type=str,
+            metavar="<jmesq>",
+            help="specify JMESPath query"
+        )
+
+        self.__extend_pipeline_parser(parser)
+        args = parser.parse_args(sys.argv[5:])
+
+        self.parameterization["header"] = args.header
+        self.parameterization["jmesq"] = args.jmesq
+
+        self.__extend_pipeline_parameterization(args)
+        self.general_pp_pipeline()
     def subcmd_csv(self):
         parser = argparse.ArgumentParser(
             prog=f"{PROG_NAME} {self.parameterization['pipeline']}",

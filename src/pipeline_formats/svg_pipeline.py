@@ -36,7 +36,7 @@ class SvgPipeline(AbstractPipeline):
         n = len(query_result[0])
         fig, axs = plt.subplots(n)
         fig.set_figwidth(16)
-        fig.set_figheight(2.4 * n)
+        fig.set_figheight(3.2 * n)
         #fig.tight_layout()
 
         ok: bool = True
