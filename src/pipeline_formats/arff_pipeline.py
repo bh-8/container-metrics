@@ -31,12 +31,12 @@ class ArffPipeline(AbstractPipeline):
             case "str":
                 return "STRING"
             case _:
-                log.warning(f"encountered unsupported type '{type}', can not convert")
-                return f"<TYPE_NOT_SUPPORTED ({type})>"
+                log.warning(f"encountered unsupported type '{type}', assuming 'STRING'")
+                return "STRING"
 
-    def __extend_vector(self, size: int, vector: list):
+    def __extend_vector(self, vector: list, size: int, filler: str):
         if len(vector) < size:
-            return self.__extend_vector(size, vector + ["?"])
+            return self.__extend_vector(vector + [filler], size, filler)
         return vector
 
     def process(self) -> None:
@@ -47,7 +47,8 @@ class ArffPipeline(AbstractPipeline):
         arff_str: str = "@RELATION iris"
         attribute_names: list[str] = str(self.pipeline_parameters["header"]).replace(" ", "").split(ARFF_SEPARATORS[1])
 
-        query_result_extended: list = [self.__extend_vector(len(attribute_names), r) for r in query_result]
+        query_result_extended: list = [self.__extend_vector(r, len(attribute_names), "?") for r in query_result]
+        categorical_attribute_indexes: list[int] = [] if self.pipeline_parameters["categorical"] == "" else [int(i) - 1 if int(i) - 1 < len(attribute_names) else -1 for i in str(self.pipeline_parameters["categorical"]).split(",")]
 
         for i, attr in enumerate(attribute_names):
             attr_values: list = [q[i] for q in query_result_extended]
@@ -58,21 +59,13 @@ class ArffPipeline(AbstractPipeline):
                 log.warning(f"could not determine data type of column '{attribute_names[i]}', assuming 'NUMERIC'")
                 arff_str = f"{arff_str}\n@ATTRIBUTE {attr} NUMERIC"
             elif len(attr_types) == 1:
-                match attr_types[0]:
-                    case "NUMERIC":
-                        arff_str = f"{arff_str}\n@ATTRIBUTE {attr} NUMERIC"
-                        # arff_str = f"{arff_str}\n@ATTRIBUTE {attr} {{{','.join(list(dict.fromkeys([str(v) for v in attr_values if v != '?'])))}}}"
-                    case "STRING":
-                        # TODO. implement switch..
-                        #arff_str = f"{arff_str}\n@ATTRIBUTE {attr} STRING"
-                        arff_str = f"{arff_str}\n@ATTRIBUTE {attr} {{{','.join(list(dict.fromkeys([str(v) for v in attr_values if v != '?'])))}}}"
-                    case _:
-                        arff_str = f"{arff_str}\n@ATTRIBUTE {attr} {attr_types[0]}"
-                # TODO: create class with set of string values
+                if i in categorical_attribute_indexes:
+                    arff_str = f"{arff_str}\n@ATTRIBUTE {attr} {{{','.join(list(dict.fromkeys([str(v) for v in attr_values if v != '?'])))}}}"
+                else:
+                    arff_str = f"{arff_str}\n@ATTRIBUTE {attr} {attr_types[0]}"
             else: # type is not unique
-                print(f"{attr_types} has len {len(attr_types)}")
-                log.warning(f"values in column '{attribute_names[i]}' have distinct types ({', '.join(attr_types)})")
-                arff_str = f"{arff_str}\n@ATTRIBUTE {attr} <TYPE_NOT_UNIQUE>"
+                log.warning(f"values in column '{attribute_names[i]}' have distinct types ({', '.join(attr_types)}), assuming 'STRING'")
+                arff_str = f"{arff_str}\n@ATTRIBUTE {attr} STRING"
 
         arff_str = f"{arff_str}\n@DATA\n{self.stringify(ARFF_SEPARATORS, 0, query_result_extended)}"
 

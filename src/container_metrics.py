@@ -342,12 +342,19 @@ class Main:
             metavar="<jmesq>",
             help="specify JMESPath query"
         )
+        parser.add_argument("--categorical",
+            type=str,
+            required=False,
+            default="",
+            help="mark column(s) as categorical attributes"
+        )
 
         self.__extend_pipeline_parser(parser)
         args = parser.parse_args(sys.argv[5:])
 
         self.parameterization["header"] = args.header
         self.parameterization["jmesq"] = args.jmesq
+        self.parameterization["categorical"] = args.categorical
 
         self.__extend_pipeline_parameterization(args)
         self.general_pp_pipeline()

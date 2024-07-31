@@ -17,6 +17,8 @@ ENV_LOGGING="--log warning"
 
 tests_arff() {
     ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET arff "part2_3_length granule 0,part2_3_length granule 1" "sections[?mime_type=='audio/mpeg'].segments.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length] | []" $ENV_LOGGING -outid=hdrflds
+    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET arff "part2_3_length granule 0,part2_3_length granule 1" "sections[?mime_type=='audio/mpeg'].segments.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length] | []" $ENV_LOGGING -outid=hdrflds2 --categorical=1
+    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET arff "part2_3_length granule 0,part2_3_length granule 1" "sections[?mime_type=='audio/mpeg'].segments.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length] | []" $ENV_LOGGING -outid=hdrflds3 --categorical=1,2
 }
 
 tests_csv() {
