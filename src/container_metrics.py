@@ -411,6 +411,18 @@ class Main:
             metavar="<jmesq>",
             help="specify JMESPath query"
         )
+        parser.add_argument("--width",
+            type=float,
+            required=False,
+            default=16 / 2,
+            help="overwrite default x axis scale (8)"
+        )
+        parser.add_argument("--height",
+            type=float,
+            required=False,
+            default=9 / 2,
+            help="overwrite default y axis scale (4.5)"
+        )
 
         self.__extend_pipeline_parser(parser)
         args = parser.parse_args(sys.argv[5:])
@@ -418,6 +430,8 @@ class Main:
         self.parameterization["x_axis"] = args.x_axis
         self.parameterization["y_axis"] = args.y_axis
         self.parameterization["jmesq"] = args.jmesq
+        self.parameterization["width"] = args.width
+        self.parameterization["height"] = args.height
 
         self.__extend_pipeline_parameterization(args)
         self.general_pp_pipeline()

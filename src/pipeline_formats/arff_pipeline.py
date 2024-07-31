@@ -8,8 +8,6 @@ references:
 
 # IMPORTS
 
-from functools import reduce
-from itertools import groupby
 import logging
 from pathlib import Path
 log = logging.getLogger(__name__)
@@ -53,16 +51,27 @@ class ArffPipeline(AbstractPipeline):
 
         for i, attr in enumerate(attribute_names):
             attr_values: list = [q[i] for q in query_result_extended]
-            attr_types: list = [self.__match_arff_type(type(v).__name__) for v in attr_values if v != "?"]
-            g = groupby(attr_types)
-            if next(g, True) and not next(g, False):
-                # type is determined
-                arff_str = f"{arff_str}\n@ATTRIBUTE {attr} {attr_types[0] if len(attr_types) > 0 else 'NUMERIC'}"
-                if not len(attr_types) > 0:
-                    log.warning(f"could not determine data type of column '{attribute_names[i]}', assuming 'NUMERIC'")
-            else:
-                # type is not unique
-                log.warning(f"values in column '{attribute_names[i]}' have distinct types")
+            #attr_types: list = [self.__match_arff_type(type(v).__name__) for v in attr_values if v != "?"]
+            attr_types: list = list(dict.fromkeys([self.__match_arff_type(type(v).__name__) for v in attr_values if v != "?"]))
+            
+            if len(attr_types) == 0:
+                log.warning(f"could not determine data type of column '{attribute_names[i]}', assuming 'NUMERIC'")
+                arff_str = f"{arff_str}\n@ATTRIBUTE {attr} NUMERIC"
+            elif len(attr_types) == 1:
+                match attr_types[0]:
+                    case "NUMERIC":
+                        arff_str = f"{arff_str}\n@ATTRIBUTE {attr} NUMERIC"
+                        # arff_str = f"{arff_str}\n@ATTRIBUTE {attr} {{{','.join(list(dict.fromkeys([str(v) for v in attr_values if v != '?'])))}}}"
+                    case "STRING":
+                        # TODO. implement switch..
+                        #arff_str = f"{arff_str}\n@ATTRIBUTE {attr} STRING"
+                        arff_str = f"{arff_str}\n@ATTRIBUTE {attr} {{{','.join(list(dict.fromkeys([str(v) for v in attr_values if v != '?'])))}}}"
+                    case _:
+                        arff_str = f"{arff_str}\n@ATTRIBUTE {attr} {attr_types[0]}"
+                # TODO: create class with set of string values
+            else: # type is not unique
+                print(f"{attr_types} has len {len(attr_types)}")
+                log.warning(f"values in column '{attribute_names[i]}' have distinct types ({', '.join(attr_types)})")
                 arff_str = f"{arff_str}\n@ATTRIBUTE {attr} <TYPE_NOT_UNIQUE>"
 
         arff_str = f"{arff_str}\n@DATA\n{self.stringify(ARFF_SEPARATORS, 0, query_result_extended)}"
