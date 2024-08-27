@@ -27,7 +27,7 @@ tests_csv() {
 }
 
 tests_json() {
-    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET json $ENV_LOGGING
+    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET json "meta.file" $ENV_LOGGING
 }
 
 tests_svg() {

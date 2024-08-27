@@ -391,8 +391,16 @@ class Main:
             epilog=None
         )
 
+        parser.add_argument("jmesq",
+            type=str,
+            metavar="<jmesq>",
+            help="specify JMESPath query (use '*' for raw document)"
+        )
+
         self.__extend_pipeline_parser(parser)
         args = parser.parse_args(sys.argv[5:])
+
+        self.parameterization["jmesq"] = None if args.jmesq == "*" else args.jmesq
 
         self.__extend_pipeline_parameterization(args)
         self.general_pp_pipeline()

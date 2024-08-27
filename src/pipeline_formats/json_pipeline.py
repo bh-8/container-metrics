@@ -22,11 +22,18 @@ class JsonPipeline(AbstractPipeline):
         super().__init__("json", document, raw, pipeline_parameters)
 
     def process(self) -> None:
-        out_dict: dict = self.get_raw_document()
+        out_dict: dict
 
-        # convert BSON to JSON
-        out_dict["_id"] = str(out_dict["_id"])
-        del out_dict["_gridfs"]
+        if self.pipeline_parameters["jmesq"] is None:
+            out_dict = self.get_raw_document()
+
+            # convert BSON to JSON
+            out_dict["_id"] = str(out_dict["_id"])
+            del out_dict["_gridfs"]
+        else:
+            out_dict = self.jmesq(self.pipeline_parameters["jmesq"])
+            if type(out_dict) is list and len(out_dict) == 0:
+                return
 
         # write output
         json_file: Path = self.get_outfile_path(self.pipeline_parameters['outid'])
