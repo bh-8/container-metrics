@@ -26,10 +26,19 @@ class SvgPipeline(AbstractPipeline):
 
     def process(self) -> None:
         query_result: list = self.jmesq(self.pipeline_parameters["jmesq"])
+
+        if type(query_result) is not list:
+            return
         if type(query_result) is list and len(query_result) == 0:
             return
+
         if type(query_result[0] is not list):
             query_result = [[i] for i in query_result]
+
+        if str(self.pipeline_parameters["diagram"]).lower() == "plot":
+            pass
+        elif str(self.pipeline_parameters["diagram"]).lower() == "hist":
+            pass
 
         # TODO: prepare plot with pandas
 

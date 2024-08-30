@@ -59,19 +59,19 @@ class ContainerSection():
         }
 
     def __build_coverage_list(self) -> list:
-        if not "segments" in self.__attribs:
+        if not "content" in self.__attribs:
             return []
         coverage_list: list[dict] = []
-        [[coverage_list.append({"o": f["offset"], "l": f["length"]}) for f in self.__attribs["segments"][k]] for k in self.__attribs["segments"].keys()]
+        [[coverage_list.append({"o": f["offset"], "l": f["length"]}) for f in self.__attribs["content"][k]] for k in self.__attribs["content"].keys()]
         return coverage_list
     def new_analysis(self, offset: int, length: int | None = None) -> None:
         self.__recursive.queue_analysis(self.__attribs["position"] + offset, self.__attribs["analysis_depth"] + 1, length)
     def add_segment(self, segment: ContainerSegment) -> None:
-        if not "segments" in self.__attribs:
-            self.__attribs["segments"] = {}
-        if not segment.key in self.__attribs["segments"]:
-            self.__attribs["segments"][segment.key] = []
-        self.__attribs["segments"][segment.key] = self.__attribs["segments"][segment.key] + segment.to_list
+        if not "content" in self.__attribs:
+            self.__attribs["content"] = {}
+        if not segment.key in self.__attribs["content"]:
+            self.__attribs["content"][segment.key] = []
+        self.__attribs["content"][segment.key] = self.__attribs["content"][segment.key] + segment.to_list
     def calculate_length(self) -> None:
         _max: int = 0
         for c in self.__build_coverage_list():
@@ -138,9 +138,9 @@ class Coverage():
     @classmethod
     def from_section(cls, section: ContainerSection):
         coverage_data: list[dict] = []
-        if "segments" in section.as_dictionary:
-            for k in section.as_dictionary["segments"].keys():
-                for f in section.as_dictionary["segments"][k]:
+        if "content" in section.as_dictionary:
+            for k in section.as_dictionary["content"].keys():
+                for f in section.as_dictionary["content"][k]:
                     coverage_data.append({"o": f["offset"], "l": f["length"]})
         log.info(f"determining coverage for section of {section.length} bytes...")
         return cls("uncovered", coverage_data, section.length)

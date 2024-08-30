@@ -26,15 +26,15 @@ class AbstractPipeline(abc.ABC):
     def get_raw_document(self, hex: bool = False) -> dict:
         raw_document: dict = self.__document
         # insert fragment data
-        for i in range(len(raw_document["sections"])):
-            s: dict = raw_document["sections"][i]["segments"]
+        for i in range(len(raw_document["data"])):
+            s: dict = raw_document["data"][i]["content"]
             for k in s.keys():
                 for j in range(len(s[k])):
-                    f: dict = raw_document["sections"][i]["segments"][k][j]
-                    position: int = raw_document["sections"][i]["position"] + f["offset"]
+                    f: dict = raw_document["data"][i]["content"][k][j]
+                    position: int = raw_document["data"][i]["position"] + f["offset"]
                     end: int = position + f["length"]
                     data: bytes = self.__raw[position:end]
-                    raw_document["sections"][i]["segments"][k][j]["raw"] = data.hex() if hex else f"{data}"
+                    raw_document["data"][i]["content"][k][j]["raw"] = data.hex() if hex else f"{data}"
 
         log.debug("inserted raw data to document for further pipelining")
         return raw_document

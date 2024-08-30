@@ -13,7 +13,7 @@ FROM debian AS container-metrics
         alive-progress \
         bitarray \
         bson \
-        jmespath \
+        jmespath-community \
         matplotlib \
         pymongo \
         python-magic \
@@ -21,7 +21,7 @@ FROM debian AS container-metrics
 
     # jq
     RUN curl -Lo /home/container-metrics/jp \
-        https://github.com/jmespath/jp/releases/latest/download/jp-linux-amd64 \
+    https://github.com/jmespath-community/jp/releases/latest/download/jp-linux-amd64 \
         && chmod +x /home/container-metrics/jp
 
     # yara

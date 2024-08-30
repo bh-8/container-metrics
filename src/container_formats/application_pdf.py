@@ -300,7 +300,7 @@ class ArbitraryObject(AbstractObject):
         super().__init__(pt, n)
         self._fragment.set_attribute("offset", None)
         self._fragment.set_attribute("length", None)
-        self._fragment.set_attribute("data", self._pdf_tokens[self._index].data)
+        self._fragment.set_attribute("value", self._pdf_tokens[self._index].data)
 
 class NumericObject(AbstractObject): # <<<>>>
     def __init__(self, pt: list[PdfToken], n: int) -> None:
@@ -356,7 +356,7 @@ class NumericObject(AbstractObject): # <<<>>>
         # case 3: actual numerical value
         self._fragment.set_attribute("offset", None)
         self._fragment.set_attribute("length", None)
-        self._fragment.set_attribute("data", self._pdf_tokens[self._index].data)
+        self._fragment.set_attribute("value", self._pdf_tokens[self._index].data)
 
 class DictionaryObject(AbstractObject): # <<<>>>
     def __init__(self, pt: list[PdfToken], n: int) -> None:
@@ -419,7 +419,7 @@ class DictionaryObject(AbstractObject): # <<<>>>
 
         self._fragment.set_attribute("offset", None)
         self._fragment.set_attribute("length", None)
-        self._fragment.set_attribute("data", nested_dict)
+        self._fragment.set_attribute("dict", nested_dict)
 
 class ArrayObject(AbstractObject): # <<<>>>
     def __init__(self, pt: list[PdfToken], n: int) -> None:
@@ -454,7 +454,7 @@ class ArrayObject(AbstractObject): # <<<>>>
 
         self._fragment.set_attribute("offset", None)
         self._fragment.set_attribute("length", None)
-        self._fragment.set_attribute("data", nested_list)
+        self._fragment.set_attribute("array", nested_list)
 
 # MODULE ENTRYPOINT
 

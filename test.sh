@@ -13,30 +13,35 @@ ENV_INPUT_DATA="io/pdfs/ io/jpegs/ io/mp3s/"
 ENV_MONGODB_CONNECTION="mongodb://admin:admin@mongo-db:27017"
 ENV_PROJECT="test"
 ENV_SET="test"
-ENV_LOGGING="--log warning"
+ENV_LOGGING="--log warning" # warning"
 
 tests_arff() {
-    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET arff "part2_3_length granule 0,part2_3_length granule 1" "sections[?mime_type=='audio/mpeg'].segments.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length] | []" $ENV_LOGGING -outid=hdrflds
-    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET arff "part2_3_length granule 0,part2_3_length granule 1" "sections[?mime_type=='audio/mpeg'].segments.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length] | []" $ENV_LOGGING -outid=hdrflds2 --categorical=1
-    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET arff "part2_3_length granule 0,part2_3_length granule 1" "sections[?mime_type=='audio/mpeg'].segments.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length] | []" $ENV_LOGGING -outid=hdrflds3 --categorical=1,2
+    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET arff "part2_3_length granule 0,part2_3_length granule 1" "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length] | []" $ENV_LOGGING -outid=hdrflds
+    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET arff "part2_3_length granule 0,part2_3_length granule 1" "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length] | []" $ENV_LOGGING -outid=hdrflds2 --categorical=1
+    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET arff "part2_3_length granule 0,part2_3_length granule 1" "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length] | []" $ENV_LOGGING -outid=hdrflds3 --categorical=1,2
 }
 
 tests_csv() {
-    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET csv "header.private,header.copyright,header.original" "sections[?mime_type=='audio/mpeg'].segments.mpeg_frames[].[header.private,header.copyright,header.original]" $ENV_LOGGING -outid=hdrflds
-    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET csv "part2_3_length granule 0,part2_3_length granule 1" "sections[?mime_type=='audio/mpeg'].segments.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length]" $ENV_LOGGING --output-identifier=p23l
+    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET csv "header.private,header.copyright,header.original" "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[header.private,header.copyright,header.original]" $ENV_LOGGING -outid=hdrflds
+    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET csv "part2_3_length granule 0,part2_3_length granule 1" "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length]" $ENV_LOGGING --output-identifier=p23l
 }
 
 tests_json() {
-    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET json "meta.file" $ENV_LOGGING
+    #./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET json "*" $ENV_LOGGING
+    #./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET json "data[?mime_type=='image/jpeg'].content.jpeg_segments[].name" $ENV_LOGGING -outid=test_hist
+    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET json "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length]" $ENV_LOGGING -outid=test_plot1
+    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET json "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length] | []" $ENV_LOGGING -outid=test_plot2
+    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET json "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length] | map(&[], @)" $ENV_LOGGING -outid=test_plot3
 }
 
 tests_svg() {
-    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET svg "mpeg frames" "part2_3_length" "sections[?mime_type=='audio/mpeg'].segments.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length]" $ENV_LOGGING
+    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET svg plot "mpeg frames" "part2_3_length" "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length] | map(&[], @)" $ENV_LOGGING -outid=p23l --width=16
+    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET svg plot "mpeg frames" "part2_3_length 1st derivative" "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length] | map(&[], @) | zip(@[0:-1], @[1:]) | map(&zip(@[0], @[1]), @) | map(&map(&(@[1] - @[0]), @), @)" $ENV_LOGGING -outid=p23l1stderiv --width=16
+    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET svg plot "mpeg frames" "part2_3_length 2nd derivative" "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length] | map(&[], @) | zip(@[0:-1], @[1:]) | map(&zip(@[0], @[1]), @) | map(&map(&(@[1] - @[0]), @), @) | zip(@[0:-1], @[1:]) | map(&zip(@[0], @[1]), @) | map(&map(&(@[1] - @[0]), @), @)" $ENV_LOGGING -outid=p23l2ndderiv --width=16
 }
 
 tests_yara() {
-    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET yara io/test.yara $ENV_LOGGING -outid=test
-    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET yara io/test2.yara $ENV_LOGGING -outid=test2
+    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET yara io/signatures.yara $ENV_LOGGING
 }
 
 tests_pls() {

@@ -57,7 +57,7 @@ class StructureMapping():
                     "finished": None
                 }
             },
-            "sections": []
+            "data": []
         }
 
         self.__file_data: bytes = None
@@ -152,7 +152,7 @@ class StructureMapping():
                 log.critical("could not perform coverage analysis as section has no length")
                 _section.add_segment(ContainerSegment("uncovered"))
 
-            self.__structure_mapping["sections"].append(_section.as_dictionary)
+            self.__structure_mapping["data"].append(_section.as_dictionary)
 
     @property
     def as_dictionary(self) -> dict:
@@ -237,6 +237,41 @@ class Main:
     def __extend_pipeline_parameterization(self, args) -> None:
         self.parameterization["outid"] = args.output_identifier
         self.parameterization["log"] = args.log
+    def __general_pp_pipeline(self):
+        self.__init_logger(self.parameterization["log"])
+        self.__verify_db_connection(self.parameterization["mongodb"])
+
+        if not self.parameterization["project"] in MongoInterface.get_connection().list_database_names():
+            raise ValueError(f"database '{self.parameterization['project']}' does not exist")
+        if not self.parameterization["set"] in MongoInterface.get_connection()[self.parameterization["project"]].list_collection_names():
+            raise ValueError(f"database '{self.parameterization['project']}' has no collection named '{self.parameterization['set']}'")
+
+        # gather gridfs data
+        target_db = MongoInterface.get_connection()[self.parameterization["project"]]
+        grid_fs = gridfs.GridFS(target_db, "gridfs")
+
+        target_collection = MongoInterface.get_connection()[self.parameterization["project"]][self.parameterization["set"]]
+
+        # check existence of required implementation
+        pipeline_id: str = f"{self.parameterization['pipeline']}_pipeline"
+        class_label: str = f"{to_camel_case(pipeline_id)}"
+        if not class_label in globals():
+            raise NotImplementedError(f"could not find class '{class_label}', expected definition in '{pipeline_id}.py'")
+
+        # loop documents
+        with alive_bar(target_collection.count_documents({}), title=f"{self.parameterization['project']}/{self.parameterization['set']}: {self.parameterization['pipeline']}") as pbar:
+            for document in target_collection.find():
+                # read bson
+                log.info(f"retrieving data from database: '{self.parameterization['project']}/{self.parameterization['set']}-id:{document['_id']}-gridfs:{document['_gridfs']}'...")
+                bson_document = grid_fs.get(document["_gridfs"]).read()
+
+                # initiate format specific analysis
+                log.info(f"processing file '{document['meta']['file']['name']}'...")
+                pipeline: AbstractPipeline = globals()[class_label](document, bson_document, self.parameterization)
+                pipeline.process()
+
+                pbar(1)
+        log.info("done")
 
     @staticmethod
     def __init_logger(log_level: str) -> None:
@@ -357,7 +392,7 @@ class Main:
         self.parameterization["categorical"] = args.categorical
 
         self.__extend_pipeline_parameterization(args)
-        self.general_pp_pipeline()
+        self.__general_pp_pipeline()
     def subcmd_csv(self):
         parser = argparse.ArgumentParser(
             prog=f"{PROG_NAME} {self.parameterization['pipeline']}",
@@ -383,7 +418,7 @@ class Main:
         self.parameterization["jmesq"] = args.jmesq
 
         self.__extend_pipeline_parameterization(args)
-        self.general_pp_pipeline()
+        self.__general_pp_pipeline()
     def subcmd_json(self):
         parser = argparse.ArgumentParser(
             prog=f"{PROG_NAME} {self.parameterization['pipeline']}",
@@ -403,7 +438,7 @@ class Main:
         self.parameterization["jmesq"] = None if args.jmesq == "*" else args.jmesq
 
         self.__extend_pipeline_parameterization(args)
-        self.general_pp_pipeline()
+        self.__general_pp_pipeline()
     def subcmd_svg(self):
         parser = argparse.ArgumentParser(
             prog=f"{PROG_NAME} {self.parameterization['pipeline']}",
@@ -411,6 +446,13 @@ class Main:
             epilog=None
         )
 
+        DIAGRAM_TYPES = ["plot", "hist"]
+        parser.add_argument("diagram",
+            type=str,
+            metavar="<diagram>",
+            choices=DIAGRAM_TYPES,
+            help="can either be " + ', '.join(f"'{p}'" for p in DIAGRAM_TYPES)
+        )
         parser.add_argument("x_axis",
             type=str,
             metavar="<x_axis>",
@@ -442,6 +484,7 @@ class Main:
         self.__extend_pipeline_parser(parser)
         args = parser.parse_args(sys.argv[5:])
 
+        self.parameterization["diagram"] = args.diagram
         self.parameterization["x_axis"] = args.x_axis
         self.parameterization["y_axis"] = args.y_axis
         self.parameterization["jmesq"] = args.jmesq
@@ -449,7 +492,7 @@ class Main:
         self.parameterization["height"] = args.height
 
         self.__extend_pipeline_parameterization(args)
-        self.general_pp_pipeline()
+        self.__general_pp_pipeline()
     def subcmd_yara(self):
         parser = argparse.ArgumentParser(
             prog=f"{PROG_NAME} {self.parameterization['pipeline']}",
@@ -471,43 +514,7 @@ class Main:
         self.parameterization["log"] = args.log
 
         self.__extend_pipeline_parameterization(args)
-        self.general_pp_pipeline()
-
-    def general_pp_pipeline(self):
-        self.__init_logger(self.parameterization["log"])
-        self.__verify_db_connection(self.parameterization["mongodb"])
-
-        if not self.parameterization["project"] in MongoInterface.get_connection().list_database_names():
-            raise ValueError(f"database '{self.parameterization['project']}' does not exist")
-        if not self.parameterization["set"] in MongoInterface.get_connection()[self.parameterization["project"]].list_collection_names():
-            raise ValueError(f"database '{self.parameterization['project']}' has no collection named '{self.parameterization['set']}'")
-
-        # gather gridfs data
-        target_db = MongoInterface.get_connection()[self.parameterization["project"]]
-        grid_fs = gridfs.GridFS(target_db, "gridfs")
-
-        target_collection = MongoInterface.get_connection()[self.parameterization["project"]][self.parameterization["set"]]
-
-        # check existence of required implementation
-        pipeline_id: str = f"{self.parameterization['pipeline']}_pipeline"
-        class_label: str = f"{to_camel_case(pipeline_id)}"
-        if not class_label in globals():
-            raise NotImplementedError(f"could not find class '{class_label}', expected definition in '{pipeline_id}.py'")
-
-        # loop documents
-        with alive_bar(target_collection.count_documents({}), title=f"{self.parameterization['project']}/{self.parameterization['set']}: {self.parameterization['pipeline']}") as pbar:
-            for document in target_collection.find():
-                # read bson
-                log.info(f"retrieving data from database: '{self.parameterization['project']}/{self.parameterization['set']}-id:{document['_id']}-gridfs:{document['_gridfs']}'...")
-                bson_document = grid_fs.get(document["_gridfs"]).read()
-
-                # initiate format specific analysis
-                log.info(f"processing file '{document['meta']['file']['name']}'...")
-                pipeline: AbstractPipeline = globals()[class_label](document, bson_document, self.parameterization)
-                pipeline.process()
-
-                pbar(1)
-        log.info("done")
+        self.__general_pp_pipeline()
 
 # entry point
 if __name__ == "__main__":

@@ -156,7 +156,7 @@ SLEN = [
 
 class FrameHeader():
     def __init__(self, header: bytes) -> None:
-        self.__raw = header
+        self.__raw:           bytes = header
         self.__version:       float =      VERSION.get((self.__raw[1] & 0b00011000) >> 3, None)
         self.__layer:           int =        LAYER.get((self.__raw[1] & 0b00000110) >> 1, None)
         self.__crc:            bool =          CRC.get((self.__raw[1] & 0b00000001) >> 0, None)
