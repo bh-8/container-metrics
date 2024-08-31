@@ -3,6 +3,8 @@ image_jpeg.py
 
 references:
     - https://dev.exiv2.org/projects/exiv2/wiki/The_Metadata_in_JPEG_files
+    - https://www.waimea.de/downloads/exif/EXIF-Datenformat.pdf
+    - https://web.archive.org/web/20190624045241if_/http://www.cipa.jp:80/std/documents/e/DC-008-Translation-2019-E.pdf
 
 """
 
@@ -335,21 +337,138 @@ SEGMENT_TYPES = {
 
 # SPECIFIC MEDIA FORMAT PARTS
 
+class ExifData():
+    def __init__(self, section: ContainerSection, data: bytes, offset: int) -> None:
+        self.__data = data
+        self.__offset = offset
+        self.__segment = ContainerSegment("exif")
+
+        #exif_header: ContainerFragment = ContainerFragment(self.__offset, 6)
+        #self.__segment.add_fragment(exif_header)
+
+        tiff_header: ContainerFragment = ContainerFragment(self.__offset, 6+8)
+        self.__offset += 6
+
+        self.__thumbnail: dict = {
+            "offset": None,
+            "length": None
+        }
+
+        self.__tiff_header_start: int = self.__offset
+        self.__intel_format: bool = False
+        match self.__data[self.__offset:self.__offset+8]:
+            case b"\x49\x49\x2a\x00\x08\x00\x00\x00":
+                tiff_header.set_attribute("format", "intel")
+                self.__intel_format = True
+            case b"\x4d\x4d\x00\x2a\x00\x00\x00\x08":
+                tiff_header.set_attribute("format", "motorola")
+            case _:
+                log.warning("encountered unknown exif data format")
+                tiff_header.set_attribute("format", None)
+        self.__segment.add_fragment(tiff_header)
+        self.__offset += 8
+
+        for i in range(2):
+            ifd_entry_count: int = int.from_bytes(self.__data[self.__offset:self.__offset+2], "little" if self.__intel_format else "big")
+            ifd_entries: list[dict] = [{
+                "offset": o,
+                "length": 12,
+                "tag": str((bytes(reversed(self.__data[o+0:o+2])) if self.__intel_format else self.__data[o+0:o+2]).hex()),
+                "payload": self.__match_ifd_datatype(str((bytes(reversed(self.__data[o+0:o+2])) if self.__intel_format else self.__data[o+0:o+2]).hex()), o)
+            } for i in range(ifd_entry_count) if (o := self.__offset + 2 + 12 * i)]
+            ifd_length: int = 2 + 12 * ifd_entry_count
+            ifd_next: int = int.from_bytes(self.__data[self.__offset+ifd_length:self.__offset+ifd_length+4], "little" if self.__intel_format else "big")
+            ifd: ContainerFragment = ContainerFragment(self.__offset, ifd_length + 4)
+            ifd.set_attribute("ifd_entries", ifd_entries)
+            ifd.set_attribute("reference", ifd_next)
+            self.__segment.add_fragment(ifd)
+            self.__offset += ifd_length + 4
+
+            if i == 0:
+                self.__offset = self.__tiff_header_start + ifd_next
+
+        if not (self.__thumbnail["offset"] is None or self.__thumbnail["length"] is None):
+            tn: ContainerFragment = ContainerFragment(self.__thumbnail["offset"], self.__thumbnail["length"])
+            self.__segment.add_fragment(tn)
+            section.new_analysis(self.__thumbnail["offset"], self.__thumbnail["length"])
+
+    def __match_ifd_datatype(self, tag: str, ifd_offset: int) -> dict:
+        datatype: int = int.from_bytes(self.__data[ifd_offset+2:ifd_offset+4], "little" if self.__intel_format else "big")
+        length: int = int.from_bytes(self.__data[ifd_offset+4:ifd_offset+8], "little" if self.__intel_format else "big")
+        data: bytes = self.__data[ifd_offset+8:ifd_offset+12]
+        referenced: int | None = int.from_bytes(data, "little" if self.__intel_format else "big") if length > 4 else None
+
+        datatype_str: str = None
+        match datatype:
+            case 1:
+                datatype_str = "unsigned_byte"
+            case 2:
+                datatype_str = "ascii_string"
+            case 3:
+                datatype_str = "unsigned_short"
+            case 4:
+                datatype_str = "unsigned_long"
+            case 5:
+                datatype_str = "unsigned_rational"
+            case 6:
+                datatype_str = "signed_byte"
+            case 7:
+                datatype_str = "binary"
+            case 8:
+                datatype_str = "signed_short"
+            case 9:
+                datatype_str = "signed_long"
+            case 10:
+                datatype_str = "signed_rational"
+            case 11:
+                datatype_str = "single_float"
+            case 12:
+                datatype_str = "double_float"
+
+        if referenced is not None:
+            data: bytes = self.__data[self.__tiff_header_start+referenced:self.__tiff_header_start+referenced+length]
+
+        match datatype_str:
+            case "ascii_string":
+                data = str(data.decode("ascii", errors="ignore"))[:-1]
+            case "unsigned_byte" | "unsigned_short" | "unsigned_long":
+                data = int.from_bytes(data, "little" if self.__intel_format else "big")
+            #case "unsigned_rational":
+            #    data = int.from_bytes(data[0:2], "little" if self.__intel_format else "big") / int.from_bytes(data[2:4], "little" if self.__intel_format else "big")
+            case _:
+                data = str(data)
+
+        match tag:
+            case "0201": # thumbnail offset
+                self.__thumbnail["offset"] = self.__tiff_header_start + int(data)
+            case "0202": # thumbnail length
+                self.__thumbnail["length"] = int(data)
+
+        return {
+            "type": datatype_str,
+            "length": length,
+            "referenced": referenced,
+            "data": data
+        }
+    @property
+    def as_segment(self) -> ContainerSegment:
+        return self.__segment
+
 class JpegSegment():
-    def __init__(self, data: bytes, offset: int, id: int) -> None:
+    def __init__(self, data: bytes, offset: int, sid: int) -> None:
         self.__data: bytes = data
         self.__offset: int = offset
         self.__length: int = 2
-        self.__id: int = id
-        self.__info: dict = SEGMENT_TYPES.get(id, {
+        self.__sid: int = sid
+        self.__info: dict = SEGMENT_TYPES.get(sid, {
             "abbr": "unknown",
             "name": "(unknown segment)",
             "info": "unknown segment"
         })
         self.__payload = None
-        if self.__id < 216 or self.__id > 218:
+        if self.__sid < 216 or self.__sid > 218:
             # TODO: match segments and add detailed attributes to fragment..
-            match self.__id:
+            match self.__sid:
                 case 192 | 193 | 194 | 195: # SOF 0-3
                     pass
                 case 196: # DHT
@@ -403,7 +522,7 @@ class JpegSegment():
     @property
     def as_fragment(self) -> ContainerFragment:
         fragment: ContainerFragment = ContainerFragment(self.__offset, self.__length)
-        fragment.set_attribute("id", self.__id)
+        fragment.set_attribute("sid", self.__sid)
         fragment.set_attribute("name", self.__info["abbr"])
         fragment.set_attribute("long_name", self.__info["name"])
         if not self.__payload is None:
@@ -428,24 +547,24 @@ class ImageJpegAnalysis(AbstractStructureAnalysis):
             if (ff < 0) or (not ff + 1 < len(data)) or (data[ff + 1] < 192 or data[ff + 1] > 254):
                 break
 
-            id: int = data[ff + 1]
-            js: JpegSegment = JpegSegment(data, ff, id)
+            sid: int = data[ff + 1]
+            js: JpegSegment = JpegSegment(data, ff, sid)
 
             # segments without payload
-            if id == 216: # \xff\xd8 - Magic Number
+            if sid == 216: # \xff\xd8 - Magic Number
                 jpeg_segs.add_fragment(js.as_fragment)
                 offset = ff + 2
                 continue
-            if id == 217: # \xff\xd9 - End of Image
+            if sid == 217: # \xff\xd9 - End of Image
                 jpeg_segs.add_fragment(js.as_fragment)
                 offset = ff + 2
                 if offset < len(data):
                     section.new_analysis(offset)
                     section.set_length(offset)
                 break
-            
+
             # segments with special payload
-            if id == 218: # \xff\xda - Start of Scan
+            if sid == 218: # \xff\xda - Start of Scan
                 eoi: int = data.find(b"\xff\xd9", offset)
                 if eoi < 0:
                     js.set_length(len(data) - offset)
@@ -459,6 +578,14 @@ class ImageJpegAnalysis(AbstractStructureAnalysis):
             # default segments
             js.calculate_length()
             js.set_payload(True)
+
+            if sid == 225: # \xff\xe1 - Application 1 (Exif/XMP)
+                match data[offset+4:offset+10]:
+                    case b"Exif\x00\x00":
+                        section.add_segment(ExifData(section, data, offset+4).as_segment)
+                    case _:
+                        log.warning(f"missing implementation to handle jpeg segment APP1: '{str(data[offset+4:offset+10], errors='ignore')}'")
+
             offset = ff + js.length
             jpeg_segs.add_fragment(js.as_fragment)
 

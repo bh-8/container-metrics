@@ -9,7 +9,7 @@ ENV_YARA="io/_yara/"
 ENV_CLEANUP="${ENV_ARFF} ${ENV_CSV} ${ENV_JSON} ${ENV_SVG} ${ENV_YARA}"
 ENV_CLEANUP_ALL="${ENV_CLEANUP} io/db/"
 
-ENV_INPUT_DATA="io/pdfs/ io/jpegs/ io/mp3s/"
+ENV_INPUT_DATA="io/jpegs/" # "io/pdfs/ io/jpegs/ io/mp3s/"
 ENV_MONGODB_CONNECTION="mongodb://admin:admin@mongo-db:27017"
 ENV_PROJECT="test"
 ENV_SET="test"
@@ -27,8 +27,7 @@ tests_csv() {
 }
 
 tests_json() {
-    #./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET json "*" $ENV_LOGGING
-    #./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET json "data[?mime_type=='image/jpeg'].content.jpeg_segments[].name" $ENV_LOGGING -outid=test_hist
+    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET json "*" $ENV_LOGGING
     ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET json "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length]" $ENV_LOGGING -outid=test_plot1
     ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET json "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length] | []" $ENV_LOGGING -outid=test_plot2
     ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET json "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length] | map(&[], @)" $ENV_LOGGING -outid=test_plot3
@@ -36,10 +35,10 @@ tests_json() {
 
 tests_svg() {
     ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET svg hist "jpeg segments" "amount" "data[?mime_type=='image/jpeg'].content.jpeg_segments[].name" $ENV_LOGGING -outid=hist
-    #./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET svg plot "mpeg frames" "part2_3_length" "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length]" $ENV_LOGGING -outid=p23l1 --width=16 --height=9
-    #./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET svg plot "mpeg frames" "part2_3_length" "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length] | map(&[], @)" $ENV_LOGGING -outid=p23l2 --width=16
-    #./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET svg plot "mpeg frames" "part2_3_length 1st derivative" "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length] | map(&[], @) | zip(@[0:-1], @[1:]) | map(&zip(@[0], @[1]), @) | map(&map(&(@[1] - @[0]), @), @)" $ENV_LOGGING -outid=p23l1stderiv --width=16
-    #./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET svg plot "mpeg frames" "part2_3_length 2nd derivative" "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length] | map(&[], @) | zip(@[0:-1], @[1:]) | map(&zip(@[0], @[1]), @) | map(&map(&(@[1] - @[0]), @), @) | zip(@[0:-1], @[1:]) | map(&zip(@[0], @[1]), @) | map(&map(&(@[1] - @[0]), @), @)" $ENV_LOGGING -outid=p23l2ndderiv --width=16
+    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET svg plot "mpeg frames" "part2_3_length" "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length]" $ENV_LOGGING -outid=p23l1 --width=16 --height=9
+    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET svg plot "mpeg frames" "part2_3_length" "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length] | map(&[], @)" $ENV_LOGGING -outid=p23l2 --width=16
+    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET svg plot "mpeg frames" "part2_3_length 1st derivative" "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length] | map(&[], @) | zip(@[0:-1], @[1:]) | map(&zip(@[0], @[1]), @) | map(&map(&(@[1] - @[0]), @), @)" $ENV_LOGGING -outid=p23l1stderiv --width=16
+    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET svg plot "mpeg frames" "part2_3_length 2nd derivative" "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length] | map(&[], @) | zip(@[0:-1], @[1:]) | map(&zip(@[0], @[1]), @) | map(&map(&(@[1] - @[0]), @), @) | zip(@[0:-1], @[1:]) | map(&zip(@[0], @[1]), @) | map(&map(&(@[1] - @[0]), @), @)" $ENV_LOGGING -outid=p23l2ndderiv --width=16
 }
 
 tests_yara() {
@@ -47,11 +46,11 @@ tests_yara() {
 }
 
 tests_pls() {
-    tests_arff
-    tests_csv
+    #tests_arff
+    #tests_csv
     tests_json
-    tests_svg
-    tests_yara
+    #tests_svg
+    #tests_yara
 }
 
 tests_all() {
