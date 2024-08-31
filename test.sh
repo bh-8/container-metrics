@@ -9,7 +9,7 @@ ENV_YARA="io/_yara/"
 ENV_CLEANUP="${ENV_ARFF} ${ENV_CSV} ${ENV_JSON} ${ENV_SVG} ${ENV_YARA}"
 ENV_CLEANUP_ALL="${ENV_CLEANUP} io/db/"
 
-ENV_INPUT_DATA="io/jpegs/" # "io/pdfs/ io/jpegs/ io/mp3s/"
+ENV_INPUT_DATA="io/pdfs/ io/jpegs/ io/mp3s/"
 ENV_MONGODB_CONNECTION="mongodb://admin:admin@mongo-db:27017"
 ENV_PROJECT="test"
 ENV_SET="test"
@@ -46,11 +46,11 @@ tests_yara() {
 }
 
 tests_pls() {
-    #tests_arff
-    #tests_csv
+    tests_arff
+    tests_csv
     tests_json
-    #tests_svg
-    #tests_yara
+    tests_svg
+    tests_yara
 }
 
 tests_all() {

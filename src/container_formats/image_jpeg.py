@@ -4,6 +4,7 @@ image_jpeg.py
 references:
     - https://dev.exiv2.org/projects/exiv2/wiki/The_Metadata_in_JPEG_files
     - https://www.waimea.de/downloads/exif/EXIF-Datenformat.pdf
+    - https://exiftool.org/TagNames/EXIF.html
     - https://web.archive.org/web/20190624045241if_/http://www.cipa.jp:80/std/documents/e/DC-008-Translation-2019-E.pdf
 
 """
