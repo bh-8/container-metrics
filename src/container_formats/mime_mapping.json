@@ -1,5 +1,6 @@
 {
-    "application/pdf": [ "application_pdf",     "Portable Document Format", ["255044462d"] ],
-    "image/jpeg":      [      "image_jpeg", "JPEG File Interchange Format", [      "ffd8"] ],
-    "audio/mpeg":      [      "audio_mpeg",         "MPEG Audio Layer III", [    "494433", "fffb"] ]
+    "application/pdf":  [ "application_pdf" ,     "Portable Document Format", ["255044462d"] ],
+    "application/zlib": [ "application_zlib",     "zlib compressed data"    , ["7801","785E","789C","78DA"] ],
+    "image/jpeg":       [      "image_jpeg" , "JPEG File Interchange Format", [      "ffd8"] ],
+    "audio/mpeg":       [      "audio_mpeg" ,         "MPEG Audio Layer III", [    "494433", "fffb"] ]
 }

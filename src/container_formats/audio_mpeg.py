@@ -680,6 +680,10 @@ class AudioMpegAnalysis(AbstractStructureAnalysis):
                 offset = ff + mpeg_frame.length
                 continue
             break
+
+        # only continue when there are 3 or more mpeg frames
+        if len(mpeg_frames.to_list) < 3:
+            return None
         section.add_segment(mpeg_frames)
 
         # id3v1

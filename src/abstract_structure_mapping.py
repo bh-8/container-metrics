@@ -66,6 +66,8 @@ class ContainerSection():
         return coverage_list
     def new_analysis(self, offset: int, length: int | None = None) -> None:
         self.__recursive.queue_analysis(self.__attribs["position"] + offset, self.__attribs["analysis_depth"] + 1, length)
+    def new_volatile_analysis(self, volatile_data: bytes) -> None:
+        self.__recursive.queue_volatile_analysis(volatile_data, self.__attribs["analysis_depth"] + 1)
     def add_segment(self, segment: ContainerSegment) -> None:
         if not "content" in self.__attribs:
             self.__attribs["content"] = {}

@@ -263,7 +263,8 @@ class PdfTokenizer():
         return self.__token_list
 
 class AbstractObject(abc.ABC):
-    def __init__(self, pdf_tokens: list[PdfToken], index: int) -> None:
+    def __init__(self, section: ContainerSection, pdf_tokens: list[PdfToken], index: int) -> None:
+        self._section = section
         self._pdf_tokens: list[PdfToken] = pdf_tokens
         self._index: int = index
 
@@ -277,13 +278,13 @@ class AbstractObject(abc.ABC):
     def _determine_object(self, token: PdfToken, i: int):
         match token.type:
             case "numeric":
-                return NumericObject(self._pdf_tokens, i)
+                return NumericObject(self._section, self._pdf_tokens, i)
             case "dictionary":
-                return DictionaryObject(self._pdf_tokens, i)
+                return DictionaryObject(self._section, self._pdf_tokens, i)
             case "array":
-                return ArrayObject(self._pdf_tokens, i)
+                return ArrayObject(self._section, self._pdf_tokens, i)
             case "name" | "null" | "hex_str" | "literal_str" | "boolean":
-                return ArbitraryObject(self._pdf_tokens, i)
+                return ArbitraryObject(self._section, self._pdf_tokens, i)
             case _:
                 return None
 
@@ -296,15 +297,15 @@ class AbstractObject(abc.ABC):
         return self._fragment
 
 class ArbitraryObject(AbstractObject):
-    def __init__(self, pt: list[PdfToken], n: int) -> None:
-        super().__init__(pt, n)
+    def __init__(self, s: ContainerSection, pt: list[PdfToken], n: int) -> None:
+        super().__init__(s, pt, n)
         self._fragment.set_attribute("offset", None)
         self._fragment.set_attribute("length", None)
         self._fragment.set_attribute("value", self._pdf_tokens[self._index].data)
 
 class NumericObject(AbstractObject): # <<<>>>
-    def __init__(self, pt: list[PdfToken], n: int) -> None:
-        super().__init__(pt, n)
+    def __init__(self, s: ContainerSection, pt: list[PdfToken], n: int) -> None:
+        super().__init__(s, pt, n)
 
         # check whether enough tokens are available
         if self._index + 4 < len(self._pdf_tokens):
@@ -359,8 +360,8 @@ class NumericObject(AbstractObject): # <<<>>>
         self._fragment.set_attribute("value", self._pdf_tokens[self._index].data)
 
 class DictionaryObject(AbstractObject): # <<<>>>
-    def __init__(self, pt: list[PdfToken], n: int) -> None:
-        super().__init__(pt, n)
+    def __init__(self, s: ContainerSection, pt: list[PdfToken], n: int) -> None:
+        super().__init__(s, pt, n)
 
         # dictionaries are always encapsulated in two tokens
         self._token_length = 2
@@ -417,13 +418,22 @@ class DictionaryObject(AbstractObject): # <<<>>>
 
                 nested_dict["stream"] = _stream_fragment.as_dictionary
 
+                # recursive analysis: check for image in stream
+                if ("/Subtype" in nested_dict) and ("value" in nested_dict["/Subtype"]) and (nested_dict["/Subtype"]["value"] == "/Image"):
+                    if ("/Filter" in nested_dict) and ("value" in nested_dict["/Filter"]):
+                        match nested_dict["/Filter"]["value"]:
+                            case "/FlateDecode":
+                                self._section.new_analysis(token_stream.offset, token_stream.length)
+                            case _:
+                                log.warning(f"pdf stream on position {token_stream.offset} is encoded by an unsupported filter: '{nested_dict['/Filter']['value']}'")
+
         self._fragment.set_attribute("offset", None)
         self._fragment.set_attribute("length", None)
         self._fragment.set_attribute("dict", nested_dict)
 
 class ArrayObject(AbstractObject): # <<<>>>
-    def __init__(self, pt: list[PdfToken], n: int) -> None:
-        super().__init__(pt, n)
+    def __init__(self, s: ContainerSection, pt: list[PdfToken], n: int) -> None:
+        super().__init__(s, pt, n)
 
         # arrays are always encapsulated in two tokens
         self._token_length = 2
@@ -499,7 +509,7 @@ class ApplicationPdfAnalysis(AbstractStructureAnalysis):
                 token: PdfToken = tokens_func[i]
                 match token.type:
                     case "numeric":
-                        obj = NumericObject(tokens_func, i)
+                        obj = NumericObject(section, tokens_func, i)
 
                         fragment: ContainerFragment = obj.as_fragment
                         fragment.set_attribute("length", self.__find_next_token_position(tokens_all, tokens_func[i + obj.token_length - 1].offset) - token.offset)
@@ -571,7 +581,7 @@ class ApplicationPdfAnalysis(AbstractStructureAnalysis):
 
                     match token.type:
                         case "dictionary":
-                            obj = DictionaryObject(tokens_func, i)
+                            obj = DictionaryObject(section, tokens_func, i)
 
                             fragment: ContainerFragment = obj.as_fragment
                             fragment.set_attribute("offset", token.offset)

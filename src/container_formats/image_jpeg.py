@@ -581,11 +581,11 @@ class ImageJpegAnalysis(AbstractStructureAnalysis):
             js.set_payload(True)
 
             if sid == 225: # \xff\xe1 - Application 1 (Exif/XMP)
-                match data[offset+4:offset+10]:
-                    case b"Exif\x00\x00":
+                match data[offset+4:offset+8]:
+                    case b"Exif":
                         section.add_segment(ExifData(section, data, offset+4).as_segment)
                     case _:
-                        log.warning(f"missing implementation to handle jpeg segment APP1: '{str(data[offset+4:offset+10], errors='ignore')}'")
+                        log.warning(f"missing implementation to handle jpeg segment APP1: '{str(data[offset+4:offset+8], errors='ignore')}'")
 
             offset = ff + js.length
             jpeg_segs.add_fragment(js.as_fragment)

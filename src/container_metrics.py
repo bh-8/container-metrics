@@ -18,7 +18,7 @@ from pathlib import Path
 import sys
 log = None
 
-from abstract_structure_mapping import ContainerSection, ContainerSegment, Coverage
+from abstract_structure_mapping import ContainerSection, ContainerSegment, ContainerFragment, Coverage
 from abstract_pipeline import AbstractPipeline
 from container_formats import *
 from pipeline_formats import *
@@ -80,6 +80,12 @@ class StructureMapping():
             "depth": depth
         })
         log.info(f"analysis queue extended by section from position {position}")
+    def queue_volatile_analysis(self, volatile_data: bytes, depth: int) -> None:
+        self.__analysis_queue.append({
+            "volatile_data": volatile_data,
+            "depth": depth
+        })
+        log.info(f"analysis queue extended by volatile section of length {len(volatile_data)}")
 
     def __init_meta(self) -> None:
         self.__structure_mapping["meta"]["investigation"]["started"] = datetime.datetime.now().isoformat()
@@ -94,6 +100,43 @@ class StructureMapping():
 
     def __file_structure_analysis(self) -> None:
         while len(self.__analysis_queue) > 0:
+            if "volatile_data" in self.__analysis_queue[0]:
+                # TODO: perform simple analysis of volatile data segment
+                _analysis_data: bytes = self.__analysis_queue[0]["volatile_data"]
+                _mime_type: str = MIMEDetector.from_bytes_by_magic(_analysis_data)
+                _analysis_depth: int = self.__analysis_queue[0]["depth"]
+                self.__analysis_queue.pop(0)
+
+                _section: ContainerSection = ContainerSection(self, None, _analysis_data, _mime_type, _analysis_depth)
+                if _mime_type in self.__supported_mime_types:
+                    _mime_type_info: list[str] = self.__supported_mime_types[_mime_type]
+                    _mime_id: str = _mime_type_info[0]
+                    _section.set_mime_name(_mime_type_info[1])
+
+                    # check existence of required implementation
+                    _class_label: str = f"{to_camel_case(_mime_id)}Analysis"
+                    if not _class_label in globals():
+                        raise NotImplementedError(f"could not find class '{_class_label}', expected definition in '{_mime_id}.py'")
+
+                    # initiate format specific analysis
+                    _format_specific_analysis = globals()[_class_label]()
+                    _section = _format_specific_analysis.process(_section)
+
+                    if _section is None:
+                        _section: ContainerSection = ContainerSection(self, None, _analysis_data, "application/octet-stream", _analysis_depth)
+                    _section.add_segment(ContainerSegment("uncovered"))
+                else:
+                    log.warning(f"encountered unsupported mime type '{_mime_type}' in volatile section of length {len(_analysis_data)}")
+                    _empty_frag: ContainerFragment = ContainerFragment(0, len(_analysis_data))
+                    _empty_frag.set_attribute("volatile_data", str(_analysis_data))
+                    _empty_seg: ContainerSegment = ContainerSegment("uncovered")
+                    _empty_seg.add_fragment(_empty_frag)
+                    _section.add_segment(_empty_seg)
+
+                _section.set_length(len(_analysis_data))
+                self.__structure_mapping["data"].append(_section.as_dictionary)
+                continue
+
             # read analysis parameters
             _analysis_position: int = self.__analysis_queue[0]["position"]
             _analysis_length: int = len(self.__file_data) - _analysis_position if self.__analysis_queue[0]["length"] == None else self.__analysis_queue[0]["length"]
@@ -141,6 +184,10 @@ class StructureMapping():
                 # initiate format specific analysis
                 _format_specific_analysis = globals()[_class_label]()
                 _section = _format_specific_analysis.process(_section)
+
+                if _section is None:
+                    _section: ContainerSection = ContainerSection(self, _analysis_position, _analysis_data, "application/octet-stream", _analysis_depth)
+                    _section.set_length(_analysis_length)
             else:
                 _section.set_length(_analysis_length)
 
