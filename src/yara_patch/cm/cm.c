@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <yara/modules.h>
 #include <mongoc/mongoc.h>
 #include <bson/bson.h>
@@ -188,10 +189,23 @@ define_function(jmesq_f) {
     return_float(v);
 }
 
+define_function(str_contains) {
+    char* needle = string_argument(1);
+    char* haystack = string_argument(2);
+
+    int r = 0;
+    if(strstr(haystack, needle) != NULL) {
+        r = 1;
+    }
+
+    return_integer(r);
+}
+
 begin_declarations;
     declare_function("jmesq_s", "sssss", "s", jmesq_s);
     declare_function("jmesq_i", "sssss", "i", jmesq_i);
     declare_function("jmesq_f", "sssss", "f", jmesq_f);
+    declare_function("str_contains", "ss", "i", str_contains);
 end_declarations;
 
 int module_initialize(YR_MODULE* module) {

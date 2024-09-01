@@ -7,7 +7,8 @@ ENV_SVG="io/_svg/"
 ENV_YARA="io/_yara/"
 
 ENV_CLEANUP="${ENV_ARFF} ${ENV_CSV} ${ENV_JSON} ${ENV_SVG} ${ENV_YARA}"
-ENV_CLEANUP_ALL="${ENV_CLEANUP} io/db/"
+ENV_CLEANUP_DB="io/db/"
+ENV_CLEANUP_ALL="${ENV_CLEANUP} ${ENV_CLEANUP_DB}"
 
 ENV_INPUT_DATA="io/pdfs/ io/jpegs/ io/mp3s/"
 ENV_MONGODB_CONNECTION="mongodb://admin:admin@mongo-db:27017"
@@ -53,8 +54,12 @@ tests_pls() {
     tests_yara
 }
 
-tests_all() {
+tests_scan() {
     ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET scan $ENV_INPUT_DATA $ENV_LOGGING
+}
+
+tests_all() {
+    tests_scan
     tests_pls
 }
 
@@ -62,6 +67,7 @@ test_help() {
     echo "Syntax: ./test.sh {mode}"
     echo "  modes:"
     echo "    all   - cleanup + acquisition + all pipelines"
+    echo "    rscn  - rescan"
     echo "    pls   - all pipelines"
     echo "    arff  - arff pipeline"
     echo "    csv   - csv pipeline"
@@ -76,6 +82,11 @@ if [[ $# > 0 ]]; then
             sudo rm -drf $ENV_CLEANUP_ALL
             docker compose build
             tests_all
+            ;;
+        rscn)
+            sudo rm -drf $ENV_CLEANUP_DB
+            docker compose build
+            tests_scan
             ;;
         pls)
             sudo rm -drf $ENV_CLEANUP

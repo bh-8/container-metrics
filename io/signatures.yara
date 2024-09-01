@@ -82,3 +82,8 @@ rule stegonaut : main {
     condition:
         is_mp3 and (uint8(@mpeg_sync_word[1] + 2) & 0x0000000000000001) == 1 and (uint8(@mpeg_sync_word[1] + 3) & 0x000000000000000F) == 15
 }
+
+rule pdfstego : main {
+    condition:
+        is_pdf and cm.jmesq_i(mdb_url, mdb_pjt, mdb_set, mdb_oid, "data[?mime_type=='text/plain'].content.uncovered[0].volatile_data | length([?(contains(@, '0.000 0.000 0.000 rg\\nBT\\n') && contains(@, '0.000 Tf\\n100.000 Tz\\n0.000 Tc\\n0.000\\n0.000\\nTd <') && contains(@, '> Tj\\nET\\n'))])") == 1
+}
