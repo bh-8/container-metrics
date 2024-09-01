@@ -47,7 +47,7 @@ class ApplicationZlibAnalysis(AbstractStructureAnalysis):
             if len(data) - count <= 2:
                 return oStringIO.getvalue()
             else:
-                raise zlib.error("data too short")
+                raise zlib.error("unknown format")
 
     def process(self, section: ContainerSection) -> ContainerSection:
         data: bytes = section.data

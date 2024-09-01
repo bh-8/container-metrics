@@ -15,7 +15,7 @@ import re
 log = logging.getLogger(__name__)
 
 from abstract_structure_mapping import *
-from static_utils import try_utf8_conv
+from static_utils import try_utf8_conv, try_utf16_conv
 
 # GLOBAL STATIC MAPPINGS
 
@@ -23,14 +23,10 @@ WHITESPACE_CHARACTERS: list[bytes] = [
     b"\x00", b"\x09", b"\x0a", b"\x0c", b"\x0d", b"\x20"
 ]
 DELIMITER_CHARACTERS: list[bytes] = [
-    b"(", b")",
-    b"<", b">",
-    b"[", b"]",
-    b"{", b"}",
-    b"/", b"%"
+    b"{", b"(", b"<", b"[", b"/", b"%", b"]", b">", b")", b"}"
 ]
-WHITESPACE_PATTERN: re.Pattern[bytes] = re.compile(DELIMITER_CHARACTERS[4] + b"".join([re.escape(wc) for wc in WHITESPACE_CHARACTERS]) + DELIMITER_CHARACTERS[5])
-WHITESPACE_ANTI_PATTERN: re.Pattern[bytes] = re.compile(b"[^" + b"".join([re.escape(wc) for wc in WHITESPACE_CHARACTERS]) + DELIMITER_CHARACTERS[5])
+WHITESPACE_PATTERN: re.Pattern[bytes] = re.compile(b"[" + b"".join([re.escape(wc) for wc in WHITESPACE_CHARACTERS]) + b"]")
+WHITESPACE_ANTI_PATTERN: re.Pattern[bytes] = re.compile(b"[^" + b"".join([re.escape(wc) for wc in WHITESPACE_CHARACTERS]) + b"]")
 
 # SPECIFIC MEDIA FORMAT PARTS
 
@@ -53,7 +49,7 @@ class PdfToken():
                 self.__type = "_startxref"
             elif self.__raw == b"\x25\x25EOF":
                 self.__type = "_eof"
-            elif self.__raw.startswith(DELIMITER_CHARACTERS[9]):
+            elif self.__raw.startswith(b"\x25"):
                 self.__type = "_comment"
             elif self.__raw == b"obj":
                 self.__type = "indirect_obj"
@@ -64,11 +60,13 @@ class PdfToken():
                 self.__data = self.__raw == b"true"
             elif self.__raw == b"null":
                 self.__type = "null"
-            elif self.__raw.startswith(DELIMITER_CHARACTERS[0]) and self.__raw.endswith(DELIMITER_CHARACTERS[1]):
+            elif self.__raw.startswith(b"(") and self.__raw.endswith(b")"):
                 self.__type = "literal_str"
-            elif self.__raw.startswith(DELIMITER_CHARACTERS[2]) and self.__raw.endswith(DELIMITER_CHARACTERS[3]):
+                if isinstance(self.__data, bytes):
+                    self.__data = try_utf16_conv(self.__data[1:-1])
+            elif self.__raw.startswith(b"<") and self.__raw.endswith(b">"):
                 self.__type = "hex_str"
-            elif self.__raw.startswith(DELIMITER_CHARACTERS[8]):
+            elif self.__raw.startswith(b"/"):
                 self.__type = "name"
             elif self.__raw == b"[":
                 self.__type = "array"
@@ -139,107 +137,147 @@ class PdfTokenizer():
 
                 continue
 
-            # special treatment for '('
-            if token.startswith(DELIMITER_CHARACTERS[0]):
-                pt_position = pos + 1
-                _parenthesis_open = 1
-                while _parenthesis_open > 0:
-                    pt_open_next = self.__pdf_data.find(DELIMITER_CHARACTERS[0], pt_position)
-                    pt_close_next = self.__pdf_data.find(DELIMITER_CHARACTERS[1], pt_position)
+            if token.startswith(b"obj"):
+                self.__token_list.append(PdfToken(pos, token[:3]))
+                pos = pos + 3
+                continue
 
-                    if pt_close_next != -1 and pt_open_next != -1:
-                        if pt_close_next < pt_open_next:
-                            _parenthesis_open = _parenthesis_open - 1
-                            pt_position = pt_close_next + 1
-                            continue
-                        if pt_open_next < pt_close_next:
-                            _parenthesis_open = _parenthesis_open + 1
-                            pt_position = pt_open_next + 1
-                            continue
-                    if pt_close_next != -1:
-                        _parenthesis_open = _parenthesis_open - 1
-                        pt_position = pt_close_next + 1
+            if token.startswith(b"endobj"):
+                self.__token_list.append(PdfToken(pos, token[:6]))
+                pos = pos + 6
+                continue
+
+            # list of special token characters
+            matrix_distances = [(t, token.find(t)) for t in DELIMITER_CHARACTERS[0:8]]
+            matrix_distances = [i for i in sorted(matrix_distances, key=lambda t: t[1]) if i[1] != -1]
+
+            if len(matrix_distances) == 0:
+                # default handling, if no special token character is found
+                self.__token_list.append(PdfToken(pos, token))
+                pos = pos + len(token)
+                continue
+
+            tuple_nearest: tuple[bytes, int] = matrix_distances[0]
+            token_special: bytes = tuple_nearest[0]
+            token_special_pos: int = tuple_nearest[1]
+            
+            match token_special:
+                case b"[" | b"]":
+                    if token_special_pos > 0: # case 'contains'
+                        self.__token_list.append(PdfToken(pos, token[:token_special_pos]))
+
+                    # case 'startswith'
+                    self.__token_list.append(PdfToken(pos+token_special_pos, token[token_special_pos:token_special_pos+1]))
+                    pos = pos + token_special_pos + 1
+
+                    continue
+                case b"(": # '(' and ')'
+                    if token_special_pos == 0: # case 'startswith'
+                        pt_position = pos + 1
+                        _parenthesis_open = 1
+                        while _parenthesis_open > 0:
+                            pt_open_next = self.__pdf_data.find(b"(", pt_position)
+                            pt_close_next = self.__pdf_data.find(b")", pt_position)
+
+                            if pt_close_next != -1 and pt_open_next != -1:
+                                if pt_close_next < pt_open_next:
+                                    _parenthesis_open = _parenthesis_open - 1
+                                    pt_position = pt_close_next + 1
+                                    continue
+                                if pt_open_next < pt_close_next:
+                                    _parenthesis_open = _parenthesis_open + 1
+                                    pt_position = pt_open_next + 1
+                                    continue
+                            if pt_close_next != -1:
+                                _parenthesis_open = _parenthesis_open - 1
+                                pt_position = pt_close_next + 1
+                                continue
+                            break
+                        token = self.__pdf_data[pos:pt_position]
+                        self.__token_list.append(PdfToken(pos, token))
+                        pos = pt_position
                         continue
-                    break
-                token = self.__pdf_data[pos:pt_position]
-                self.__token_list.append(PdfToken(pos, token))
-                pos = pt_position
-                continue
+                    else: # case 'contains'
+                        log.critical(f"'PdfTokenizer' is missing implementation to handle '{str(token_special, encoding='ascii', errors='ignore')}'")
+                        pos = pos + 1
+                case b"<": # '<' and '>' and '<<'
+                    if token_special_pos > 0: # case 'contains'
+                        self.__token_list.append(PdfToken(pos, token[:token_special_pos]))
+                        pos = pos + token_special_pos
+                        continue
 
-            # special treatment for '<'
-            if token.startswith(DELIMITER_CHARACTERS[2]):
-                if token.startswith(b"<<"):
-                    token = self.__pdf_data[pos:pos + 2]
-                    self.__token_list.append(PdfToken(pos, token))
+                    # case 'startswith
+                    check_pos = token.find(b"<<")
+                    if check_pos == -1: # case hex string
+                        _hex_string_end = self.__pdf_data.find(b">", pos) + 1
+                        if _hex_string_end == -1:
+                            log.warning(f"hex string in pdf file has no closing bracket")
+                            pos = pos + len(token)
+                            continue
+                        self.__token_list.append(PdfToken(pos, self.__pdf_data[pos:_hex_string_end]))
+                        pos = _hex_string_end
+                        continue
+
+                    # case dictionary
+                    self.__token_list.append(PdfToken(pos, token[:2]))
                     pos = pos + 2
-                else:
-                    _hex_string_end = self.__pdf_data.find(DELIMITER_CHARACTERS[3], pos) + 1
-                    token = self.__pdf_data[pos:_hex_string_end]
-                    self.__token_list.append(PdfToken(pos, token))
-                    pos = _hex_string_end
-                continue
 
-            # special treatment for '['
-            if token.startswith(DELIMITER_CHARACTERS[4]):
-                token = self.__pdf_data[pos:pos + 1]
-                self.__token_list.append(PdfToken(pos, token))
-                pos = pos + 1
-                continue
+                    continue
+                case b"/":
+                    if token_special_pos > 0: # case 'contains'
+                        self.__token_list.append(PdfToken(pos, token[:token_special_pos]))
+                        pos = pos + token_special_pos
+                        continue
 
-            # special treatment for '{'
-            if token.startswith(DELIMITER_CHARACTERS[6]):
-                log.critical(f"'PdfTokenizer' is missing implementation to handle '{{'")
-                pos = pos + 1
-                continue
+                    # case 'startswith'
+                    check_pos = [(t, token.find(t, 1)) for t in DELIMITER_CHARACTERS[0:8]]
+                    check_pos = [i for i in sorted(check_pos, key=lambda t: t[1]) if i[1] != -1]
 
-            # special treatment for ']'
-            check_pos = token.find(b"]")
-            if check_pos != -1:
-                if check_pos > 0:
-                    self.__token_list.append(PdfToken(pos, token[:check_pos]))
-                self.__token_list.append(PdfToken(pos + check_pos, token[check_pos:check_pos + 1]))
-                pos = pos + check_pos + 1
-                continue
+                    if len(check_pos) == 0:
+                        self.__token_list.append(PdfToken(pos, token))
+                        pos = pos + len(token)
+                    else:
+                        self.__token_list.append(PdfToken(pos, token[:check_pos[0][1]]))
+                        pos = pos + check_pos[0][1]
+                    continue
+                case b"%":
+                    if token_special_pos > 0: # case 'contains'
+                        self.__token_list.append(PdfToken(pos, token[:token_special_pos]))
 
-            # special treatment for '/'
-            if token.startswith(DELIMITER_CHARACTERS[8]):
-                check_pos = token.find(b"/", 1)
-                if check_pos == -1:
-                    self.__token_list.append(PdfToken(pos, token))
-                    pos = pos + len(token)
-                else:
-                    self.__token_list.append(PdfToken(pos, token[:check_pos]))
-                    pos = pos + check_pos
-                continue
+                    # case 'startswith'
+                    _line_end = self.__pdf_data.find(b"\x0a", pos+token_special_pos)
+                    if _line_end == -1:
+                        log.warning(f"comment in pdf file has no end of line-marker")
+                        pos = pos + len(token)
+                        continue
 
-            # special treatment for '>>'
-            check_pos = token.find(b">>")
-            if check_pos != -1:
-                if check_pos > 0:
-                    self.__token_list.append(PdfToken(pos, token[:check_pos]))
-                self.__token_list.append(PdfToken(pos + check_pos, token[check_pos:check_pos + 2]))
-                pos = pos + check_pos + 2
-                continue
+                    # add comment token
+                    token = self.__pdf_data[pos+token_special_pos:_line_end].rstrip()
+                    
+                    self.__token_list.append(PdfToken(pos + token_special_pos, token))
+                    pos = _line_end
+                case b">":
+                    if token_special_pos > 0: # case 'contains'
+                        self.__token_list.append(PdfToken(pos, token[:token_special_pos]))
+                        pos = pos + token_special_pos
+                        continue
 
-            # special treatment for '%'
-            check_pos = token.find(b"%")
-            if check_pos != -1:
-                if check_pos > 0:
-                    self.__token_list.append(PdfToken(pos, token[:check_pos]))
+                    # case 'startswith'
+                    check_pos = token.find(b">>")
+                    if check_pos == -1: # case hex string
+                        self.__token_list.append(PdfToken(pos, token[:1]))
+                        pos = pos + 1
+                        continue
 
-                _line_end = self.__pdf_data.find(b"\x0a", pos + check_pos)
-                if _line_end == -1:
-                    break # stop tokenizer when hitting an incomplete line
+                    # case dictionary
+                    self.__token_list.append(PdfToken(pos, token[:2]))
+                    pos = pos + 2
 
-                token = self.__pdf_data[pos + check_pos:_line_end].rstrip()
-
-                self.__token_list.append(PdfToken(pos + check_pos, token))
-                pos = _line_end
-                continue
-
-            # default token processing
-            self.__token_list.append(PdfToken(pos, token))
-            pos = pos + len(token)
+                    continue
+                case _:
+                    log.critical(f"'PdfTokenizer' is missing implementation to handle '{str(token_special, encoding='ascii', errors='ignore')}'")
+                    pos = pos + 1
+            continue
 
     # searches for the next whitespace occurance
     def __read_token(self, offset: int) -> int:
@@ -301,7 +339,7 @@ class ArbitraryObject(AbstractObject):
         super().__init__(s, pt, n)
         self._fragment.set_attribute("offset", None)
         self._fragment.set_attribute("length", None)
-        self._fragment.set_attribute("value", self._pdf_tokens[self._index].data)
+        self._fragment.set_attribute("value", str(self._pdf_tokens[self._index].data) if isinstance(self._pdf_tokens[self._index].data, bytes) else self._pdf_tokens[self._index].data) 
 
 class NumericObject(AbstractObject): # <<<>>>
     def __init__(self, s: ContainerSection, pt: list[PdfToken], n: int) -> None:
@@ -419,13 +457,12 @@ class DictionaryObject(AbstractObject): # <<<>>>
                 nested_dict["stream"] = _stream_fragment.as_dictionary
 
                 # recursive analysis: check for image in stream
-                if ("/Subtype" in nested_dict) and ("value" in nested_dict["/Subtype"]) and (nested_dict["/Subtype"]["value"] == "/Image"):
-                    if ("/Filter" in nested_dict) and ("value" in nested_dict["/Filter"]):
-                        match nested_dict["/Filter"]["value"]:
-                            case "/FlateDecode":
-                                self._section.new_analysis(token_stream.offset, token_stream.length)
-                            case _:
-                                log.warning(f"pdf stream on position {token_stream.offset} is encoded by an unsupported filter: '{nested_dict['/Filter']['value']}'")
+                if ("/Filter" in nested_dict) and ("value" in nested_dict["/Filter"]):
+                    match nested_dict["/Filter"]["value"]:
+                        case "/FlateDecode":
+                            self._section.new_analysis(token_stream.offset, token_stream.length)
+                        case _:
+                            log.warning(f"pdf stream on position {token_stream.offset} is encoded by an unsupported filter: '{nested_dict['/Filter']['value']}'")
 
         self._fragment.set_attribute("offset", None)
         self._fragment.set_attribute("length", None)
@@ -442,7 +479,7 @@ class ArrayObject(AbstractObject): # <<<>>>
         nested_list: list = []
 
         i: int = self._index + 1
-        while i < len(self._pdf_tokens) and self._pdf_tokens[i].raw != DELIMITER_CHARACTERS[5]:
+        while i < len(self._pdf_tokens) and self._pdf_tokens[i].raw != b"]":
             # access next array element
             token: PdfToken = self._pdf_tokens[i]
 

@@ -97,5 +97,12 @@ def try_utf8_conv(raw: bytes) -> str | bytes:
         return raw
 
 @staticmethod
+def try_utf16_conv(raw: bytes) -> str | bytes:
+    try:
+        return str(raw, "utf-16")
+    except:
+        return raw
+
+@staticmethod
 def convert_unicode_str(byteString: bytes) -> str: #convert unicode string
     return byteString.split(b"\xff\xfe")[-1].replace(b"\x00", b"").decode(errors = "ignore")

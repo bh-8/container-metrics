@@ -101,7 +101,6 @@ class StructureMapping():
     def __file_structure_analysis(self) -> None:
         while len(self.__analysis_queue) > 0:
             if "volatile_data" in self.__analysis_queue[0]:
-                # TODO: perform simple analysis of volatile data segment
                 _analysis_data: bytes = self.__analysis_queue[0]["volatile_data"]
                 _mime_type: str = MIMEDetector.from_bytes_by_magic(_analysis_data)
                 _analysis_depth: int = self.__analysis_queue[0]["depth"]
