@@ -10,7 +10,7 @@ ENV_CLEANUP="${ENV_ARFF} ${ENV_CSV} ${ENV_JSON} ${ENV_SVG} ${ENV_YARA}"
 ENV_CLEANUP_DB="io/db/"
 ENV_CLEANUP_ALL="${ENV_CLEANUP} ${ENV_CLEANUP_DB}"
 
-ENV_INPUT_DATA="io/pdfs/ io/jpegs/ io/mp3s/"
+ENV_INPUT_DATA="io/mixed.blob io/mixed2.blob io/mixed3.blob io/pdfs/ io/jpegs/ io/mp3s/"
 ENV_MONGODB_CONNECTION="mongodb://admin:admin@mongo-db:27017"
 ENV_PROJECT="test"
 ENV_SET="test"
