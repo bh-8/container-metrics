@@ -47,8 +47,8 @@ class ContainerSegment():
         return [f.as_dictionary for f in self.__list]
 
 class ContainerSection():
-    def __init__(self, recursive: any, position: int, data: bytes, mime_type: str, analysis_depth: int) -> None:
-        self.__recursive: any = recursive # container_metrics.py: StructureMapping instance
+    def __init__(self, recursive_link: any, position: int, data: bytes, mime_type: str, analysis_depth: int) -> None:
+        self.__recursive_link: any = recursive_link # container_metrics.py: StructureMapping instance
         self.__data = data
         self.__attribs: dict = {
             "position": position,
@@ -65,9 +65,9 @@ class ContainerSection():
         [[coverage_list.append({"o": f["offset"], "l": f["length"]}) for f in self.__attribs["content"][k]] for k in self.__attribs["content"].keys()]
         return coverage_list
     def new_analysis(self, offset: int, length: int | None = None) -> None:
-        self.__recursive.queue_analysis(self.__attribs["position"] + offset, self.__attribs["analysis_depth"] + 1, length)
+        self.__recursive_link.queue_analysis(self.__attribs["position"] + offset, self.__attribs["analysis_depth"] + 1, length)
     def new_volatile_analysis(self, volatile_data: bytes) -> None:
-        self.__recursive.queue_volatile_analysis(volatile_data, self.__attribs["analysis_depth"] + 1)
+        self.__recursive_link.queue_volatile_analysis(volatile_data, self.__attribs["analysis_depth"] + 1)
     def add_segment(self, segment: ContainerSegment) -> None:
         if not "content" in self.__attribs:
             self.__attribs["content"] = {}

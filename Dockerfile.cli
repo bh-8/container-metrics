@@ -19,12 +19,12 @@ FROM debian AS container-metrics
         python-magic \
         && deactivate
 
-    # jq
+    # jp executable
     RUN curl -Lo /home/container-metrics/jp \
     https://github.com/jmespath-community/jp/releases/latest/download/jp-linux-amd64 \
         && chmod +x /home/container-metrics/jp
 
-    # yara
+    # yara (custom build using './src/yara_patch/*')
     RUN git clone --recursive https://github.com/VirusTotal/yara-python
     COPY ./src/yara_patch/cm /yara-python/yara/libyara/modules/cm
     COPY ./src/yara_patch/setup.py /yara-python/setup.py

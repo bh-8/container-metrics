@@ -21,7 +21,7 @@ import zlib
 class ApplicationZlibAnalysis(AbstractStructureAnalysis):
     def __init__(self) -> None:
         super().__init__()
-    def __c2bip3(self, string):
+    def __c2bip3(self, string: bytes) -> bytes:
         if sys.version_info[0] > 2:
             if type(string) == bytes:
                 return string
@@ -29,7 +29,7 @@ class ApplicationZlibAnalysis(AbstractStructureAnalysis):
                 return bytes([ord(x) for x in string])
         else:
             return string
-    def __flateDecode(self, data):
+    def __flateDecode(self, data: bytes) -> bytes:
         try:
             return zlib.decompress(self.__c2bip3(data))
         except:

@@ -260,7 +260,7 @@ class Main:
             getattr(self, f"subcmd_{args.pipeline}")()
         except Exception as e:
             print(f"##################################################")
-            print(f" > ERROR: pipeline execution failed due to an unexpected exception!")
+            print(f" > ERROR: execution failed due to an unexpected exception!")
             raise e
 
     def __verify_db_connection(self, connection: str):

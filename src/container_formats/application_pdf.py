@@ -160,7 +160,7 @@ class PdfTokenizer():
             tuple_nearest: tuple[bytes, int] = matrix_distances[0]
             token_special: bytes = tuple_nearest[0]
             token_special_pos: int = tuple_nearest[1]
-            
+
             match token_special:
                 case b"[" | b"]" | b"{" | b"}" | b")":
                     if token_special_pos > 0: # case 'contains'
@@ -279,6 +279,7 @@ class PdfTokenizer():
                 case _:
                     log.critical(f"'PdfTokenizer' is missing implementation to handle '{str(token_special, encoding='ascii', errors='ignore')}'")
                     pos = pos + 1
+
             continue
 
     # searches for the next whitespace occurance

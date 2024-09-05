@@ -344,9 +344,6 @@ class ExifData():
         self.__offset = offset
         self.__segment = ContainerSegment("exif")
 
-        #exif_header: ContainerFragment = ContainerFragment(self.__offset, 6)
-        #self.__segment.add_fragment(exif_header)
-
         tiff_header: ContainerFragment = ContainerFragment(self.__offset, 6+8)
         self.__offset += 6
 
