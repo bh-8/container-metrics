@@ -28,7 +28,7 @@ from static_utils import MIMEDetector, MongoInterface, flatten_paths, to_camel_c
 
 PROG_NAME = "container-metrics"
 MIME_INFO = "./container_formats/mime_mapping.json"
-PIPELINES = ["scan", "arff", "csv", "json", "svg", "yara"]
+PIPELINES = ["scan", "arff", "csv", "json", "svg", "xml", "yara"]
 
 # STRUCTURE MAP ACQUISITION
 
@@ -539,6 +539,26 @@ class Main:
 
         self.__extend_pipeline_parameterization(args)
         self.__general_pp_pipeline()
+    def subcmd_xml(self):
+        parser = argparse.ArgumentParser(
+            prog=f"{PROG_NAME} {self.parameterization['pipeline']}",
+            description="store structure mapping as xml",
+            epilog=None
+        )
+
+        parser.add_argument("jmesq",
+            type=str,
+            metavar="<jmesq>",
+            help="specify JMESPath query (use '*' for raw document)"
+        )
+
+        self.__extend_pipeline_parser(parser)
+        args = parser.parse_args(sys.argv[5:])
+
+        self.parameterization["jmesq"] = None if args.jmesq == "*" else args.jmesq
+
+        self.__extend_pipeline_parameterization(args)
+        self.__general_pp_pipeline()
     def subcmd_yara(self):
         parser = argparse.ArgumentParser(
             prog=f"{PROG_NAME} {self.parameterization['pipeline']}",
@@ -556,8 +576,6 @@ class Main:
         args = parser.parse_args(sys.argv[5:])
 
         self.parameterization["rule_file"] = args.rule_file
-        self.parameterization["outid"] = args.output_identifier
-        self.parameterization["log"] = args.log
 
         self.__extend_pipeline_parameterization(args)
         self.__general_pp_pipeline()

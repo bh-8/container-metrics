@@ -517,6 +517,7 @@ class Id3v2Frame():
                     case "TLEN":
                         return int(data.strip(b"\x00").decode(errors = "ignore") if data.find(b"\xff\xfe") == -1 else convert_unicode_str(data))
                     case _:
+                        log.warning(f"id3v2 frame id '{self.__frame_id}' on position {self.__offset} is currently unsupported")
                         return None
             except TypeError:
                 return None

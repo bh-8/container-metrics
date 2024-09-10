@@ -4,9 +4,10 @@ ENV_ARFF="io/_arff/"
 ENV_CSV="io/_csv/"
 ENV_JSON="io/_json/"
 ENV_SVG="io/_svg/"
+ENV_XML="io/_xml/"
 ENV_YARA="io/_yara/"
 
-ENV_CLEANUP="${ENV_ARFF} ${ENV_CSV} ${ENV_JSON} ${ENV_SVG} ${ENV_YARA}"
+ENV_CLEANUP="${ENV_ARFF} ${ENV_CSV} ${ENV_JSON} ${ENV_SVG} ${ENV_XML} ${ENV_YARA}"
 ENV_CLEANUP_DB="io/db/"
 ENV_CLEANUP_ALL="${ENV_CLEANUP} ${ENV_CLEANUP_DB}"
 
@@ -46,11 +47,17 @@ tests_yara() {
     ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET yara io/signatures.yara $ENV_LOGGING
 }
 
+tests_xml() {
+    #./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET xml "*" $ENV_LOGGING
+    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET xml "data[?mime_type=='application/pdf'].content.body" $ENV_LOGGING -outid=js
+}
+
 tests_pls() {
     tests_arff
     tests_csv
     tests_json
     tests_svg
+    tests_xml
     tests_yara
 }
 
@@ -73,6 +80,7 @@ test_help() {
     echo "    csv   - csv pipeline"
     echo "    json  - json pipeline"
     echo "    svg   - svg pipeline"
+    echo "    xml   - xml pipeline"
     echo "    yara  - yara pipeline"
 }
 
@@ -112,6 +120,11 @@ if [[ $# > 0 ]]; then
             sudo rm -drf $ENV_SVG
             docker compose build
             tests_svg
+            ;;
+        xml)
+            sudo rm -drf $ENV_XML
+            docker compose build
+            tests_xml
             ;;
         yara)
             sudo rm -drf $ENV_YARA
