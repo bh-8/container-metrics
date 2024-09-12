@@ -1,74 +1,84 @@
 #!/bin/bash
 
-ENV_ARFF="io/_arff/"
-ENV_CSV="io/_csv/"
-ENV_JSON="io/_json/"
-ENV_SVG="io/_svg/"
-ENV_XML="io/_xml/"
-ENV_YARA="io/_yara/"
+final_test() {
+    # cleanup & fresh build
+    docker compose down
+    sudo rm -drf io/db io/_* io/test/_*
+    docker compose build
+    docker compose up --detach
 
-ENV_CLEANUP="${ENV_ARFF} ${ENV_CSV} ${ENV_JSON} ${ENV_SVG} ${ENV_XML} ${ENV_YARA}"
-ENV_CLEANUP_DB="io/db/"
-ENV_CLEANUP_ALL="${ENV_CLEANUP} ${ENV_CLEANUP_DB}"
+    # generate stego files
+    ./stego-gen jsteg io/test/cover/jfif io/test/_jsteg io/test/message.txt key
+    # TODO: weitere stego-tools
 
-ENV_INPUT_DATA="io/mixed.blob io/mixed2.blob io/mixed3.blob io/pdfs/ io/jpegs/ io/mp3s/"
-ENV_MONGODB_CONNECTION="mongodb://admin:admin@mongo-db:27017"
-ENV_PROJECT="test"
-ENV_SET="test"
-ENV_LOGGING="--log warning" # warning"
+    # definitions
+    MONGODB_CONNECTION="mongodb://admin:admin@mongo-db:27017"
+    DB_ID="test"
+    LOGGING="--log warning"
 
-tests_arff() {
-    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET arff "part2_3_length granule 0,part2_3_length granule 1" "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length] | []" $ENV_LOGGING -outid=hdrflds
-    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET arff "part2_3_length granule 0,part2_3_length granule 1" "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length] | []" $ENV_LOGGING -outid=hdrflds2 --categorical=1
-    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET arff "part2_3_length granule 0,part2_3_length granule 1" "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length] | []" $ENV_LOGGING -outid=hdrflds3 --categorical=1,2
+    # scan cover files
+    ./container-metrics $MONGODB_CONNECTION $DB_ID "jfif-cover-files" \
+        scan io/test/cover/jfif/ --recursive $LOGGING
+    ./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-cover-files" \
+        scan io/test/cover/mp3/ --recursive $LOGGING
+    #./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover-files" scan io/test/cover/pdf/1000gov --recursive $LOGGING
+    ./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover-files" \
+        scan io/test/cover/pdf/pdf20examples --recursive $LOGGING
+    #./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover-files" scan io/test/cover/pdf/pdfcorpus --recursive $LOGGING
+
+    # scan stego files
+    ./container-metrics $MONGODB_CONNECTION $DB_ID "default-stego-files" \
+        scan io/test/default-stego/ --recursive $LOGGING
+
+    # arff pipeline
+    # TODO
+
+    # csv pipeline
+    ./container-metrics $MONGODB_CONNECTION $DB_ID "default-stego-files" \
+        csv "header.private,header.copyright,header.original" \
+        "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[header.private,header.copyright,header.original]" \
+        -outid=headerbits $LOGGING
+    ./container-metrics $MONGODB_CONNECTION $DB_ID "default-stego-files" \
+        csv "part2_3_length granule 0,part2_3_length granule 1" \
+        "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length]" \
+        -outid=part23length $LOGGING
+
+    # json pipeline
+    ./container-metrics $MONGODB_CONNECTION $DB_ID "default-stego-files" \
+        json "*" $LOGGING
+
+    # svg pipeline
+    ./container-metrics $MONGODB_CONNECTION $DB_ID "jfif-cover-files" \
+        svg hist "jpeg segments" "amount" \
+        "data[?mime_type=='image/jpeg'].content.jpeg_segments[].name" \
+        -outid=histogram $LOGGING
+    ./container-metrics $MONGODB_CONNECTION $DB_ID "default-stego-files" \
+        svg plot "mpeg frames" "part2_3_length" \
+        "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length] | map(&[], @)" \
+        --width=16 -outid=p23l $LOGGING
+    ./container-metrics $MONGODB_CONNECTION $DB_ID "default-stego-files" \
+        svg plot "mpeg frames" "part2_3_length 1st derivative" \
+        "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length] | map(&[], @) | zip(@[0:-1], @[1:]) | map(&zip(@[0], @[1]), @) | map(&map(&(@[1] - @[0]), @), @)" \
+        --width=16 -outid=p23lderiv1 $LOGGING
+    ./container-metrics $MONGODB_CONNECTION $DB_ID "default-stego-files" \
+        svg plot "mpeg frames" "part2_3_length 2nd derivative" \
+        "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length] | map(&[], @) | zip(@[0:-1], @[1:]) | map(&zip(@[0], @[1]), @) | map(&map(&(@[1] - @[0]), @), @) | zip(@[0:-1], @[1:]) | map(&zip(@[0], @[1]), @) | map(&map(&(@[1] - @[0]), @), @)" \
+        --width=16 -outid=p23lderiv2 $LOGGING
+
+    # xml pipeline
+    ./container-metrics $MONGODB_CONNECTION $DB_ID "default-stego-files" \
+        xml "data[?mime_type=='application/pdf'].content.body" $LOGGING -outid=js
+    ./container-metrics $MONGODB_CONNECTION $DB_ID "default-stego-files" \
+        xml "*" $LOGGING
+
+    # apply yara rules
+    ./container-metrics $MONGODB_CONNECTION $DB_ID "default-stego-files" \
+        yara io/signatures.yara -outid=default $LOGGING
 }
 
-tests_csv() {
-    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET csv "header.private,header.copyright,header.original" "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[header.private,header.copyright,header.original]" $ENV_LOGGING -outid=hdrflds
-    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET csv "part2_3_length granule 0,part2_3_length granule 1" "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length]" $ENV_LOGGING --output-identifier=p23l
-}
+final_test
 
-tests_json() {
-    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET json "*" $ENV_LOGGING
-    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET json "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length]" $ENV_LOGGING -outid=test_plot1
-    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET json "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length] | []" $ENV_LOGGING -outid=test_plot2
-    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET json "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length] | map(&[], @)" $ENV_LOGGING -outid=test_plot3
-}
-
-tests_svg() {
-    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET svg hist "jpeg segments" "amount" "data[?mime_type=='image/jpeg'].content.jpeg_segments[].name" $ENV_LOGGING -outid=hist
-    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET svg plot "mpeg frames" "part2_3_length" "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length]" $ENV_LOGGING -outid=p23l1 --width=16 --height=9
-    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET svg plot "mpeg frames" "part2_3_length" "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length] | map(&[], @)" $ENV_LOGGING -outid=p23l2 --width=16
-    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET svg plot "mpeg frames" "part2_3_length 1st derivative" "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length] | map(&[], @) | zip(@[0:-1], @[1:]) | map(&zip(@[0], @[1]), @) | map(&map(&(@[1] - @[0]), @), @)" $ENV_LOGGING -outid=p23l1stderiv --width=16
-    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET svg plot "mpeg frames" "part2_3_length 2nd derivative" "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length] | map(&[], @) | zip(@[0:-1], @[1:]) | map(&zip(@[0], @[1]), @) | map(&map(&(@[1] - @[0]), @), @) | zip(@[0:-1], @[1:]) | map(&zip(@[0], @[1]), @) | map(&map(&(@[1] - @[0]), @), @)" $ENV_LOGGING -outid=p23l2ndderiv --width=16
-}
-
-tests_yara() {
-    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET yara io/signatures.yara $ENV_LOGGING
-}
-
-tests_xml() {
-    #./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET xml "*" $ENV_LOGGING
-    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET xml "data[?mime_type=='application/pdf'].content.body" $ENV_LOGGING -outid=js
-}
-
-tests_pls() {
-    tests_arff
-    tests_csv
-    tests_json
-    tests_svg
-    tests_xml
-    tests_yara
-}
-
-tests_scan() {
-    ./container-metrics $ENV_MONGODB_CONNECTION $ENV_PROJECT $ENV_SET scan $ENV_INPUT_DATA $ENV_LOGGING
-}
-
-tests_all() {
-    tests_scan
-    tests_pls
-}
+exit 0
 
 test_help() {
     echo "Syntax: ./test.sh {mode}"

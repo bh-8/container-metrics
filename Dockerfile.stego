@@ -1,0 +1,43 @@
+FROM debian AS container-metrics
+    WORKDIR /home/stego-gen
+
+    # dependencies
+    RUN apt-get update && apt-get install -y \
+        curl \
+        git \
+        default-jre \
+        python3 \
+        python3-pip \
+        python3-venv
+
+    # jsteg
+    RUN curl -Lo /opt/jsteg-linux-amd64 \
+        https://github.com/lukechampine/jsteg/releases/download/v0.3.0/jsteg-linux-amd64 \
+        && chmod +x /opt/jsteg-linux-amd64
+
+    # f5
+    RUN git clone https://github.com/matthewgao/F5-steganography /opt/F5-steganography
+
+    RUN python3 -m venv /home/stego-gen/venv
+    RUN . /home/stego-gen/venv/bin/activate && pip3 install \
+        alive-progress \
+        && deactivate
+    #    bitarray \
+    #    bson \
+    #    dict2xml \
+    #    jmespath-community \
+    #    matplotlib \
+    #    pymongo \
+    #    python-magic \
+
+    # create entrypoint
+    RUN echo "#!/bin/bash">/home/entrypoint.sh
+    RUN echo ". /home/stego-gen/venv/bin/activate">>/home/entrypoint.sh
+    RUN echo "python3 -u /home/stego-gen/stego_gen.py \"\$@\"">>/home/entrypoint.sh
+    RUN echo "err_level=\$?">>/home/entrypoint.sh
+    RUN echo "deactivate">>/home/entrypoint.sh
+    RUN echo "exit \$err_level">>/home/entrypoint.sh
+    RUN chmod +x /home/entrypoint.sh
+
+    COPY ./src/stego_gen.py /home/stego-gen/stego_gen.py
+    ENTRYPOINT [ "/home/entrypoint.sh" ]

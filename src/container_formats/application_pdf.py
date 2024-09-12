@@ -640,31 +640,43 @@ class ApplicationPdfAnalysis(AbstractStructureAnalysis):
             pdf_startxref: ContainerSegment = ContainerSegment("startxref")
             if tokens_func[i].type == "_startxref":
                 token: PdfToken = tokens_func[i]
-                token_numeric: PdfToken = tokens_func[i + 1]
 
-                fragment: ContainerFragment = ContainerFragment(token.offset, token_numeric.offset - token.offset)
-                fragment_numeric: ContainerFragment = ContainerFragment(token_numeric.offset, tokens_func[i + 2].offset - token_numeric.offset)
-                fragment_numeric.set_attribute("reference", token_numeric.data)
+                if i + 1 < len(tokens_func):
+                    token_numeric: PdfToken = tokens_func[i + 1]
 
-                pdf_startxref.add_fragment(fragment)
-                pdf_startxref.add_fragment(fragment_numeric)
+                    fragment: ContainerFragment = ContainerFragment(token.offset, token_numeric.offset - token.offset)
+                    
+                    if i + 2 < len(tokens_func):
+                        fragment_numeric: ContainerFragment = ContainerFragment(token_numeric.offset, tokens_func[i + 2].offset - token_numeric.offset)
+                    else:
+                        fragment_numeric: ContainerFragment = ContainerFragment(token_numeric.offset, tokens_func[i + 1].offset + tokens_func[i + 1].length - token_numeric.offset)
 
-                i = i + 2
+                    fragment_numeric.set_attribute("reference", token_numeric.data)
+
+                    pdf_startxref.add_fragment(fragment)
+                    pdf_startxref.add_fragment(fragment_numeric)
+
+                    i = i + 2
+                else:
+                    log.critical(f"'StartX' is missing startx location after '{token.type}' (token #{i})")
+                    i = i + 1
             section.add_segment(pdf_startxref)
 
+            # case when no eof marker
+            if i < len(tokens_func):
             # eof segment
-            pdf_eof: ContainerSegment = ContainerSegment("eof")
-            if tokens_func[i].type == "_eof":
-                token: PdfToken = tokens_func[i]
+                pdf_eof: ContainerSegment = ContainerSegment("eof")
+                if tokens_func[i].type == "_eof":
+                    token: PdfToken = tokens_func[i]
 
-                token_length: int = (self.__find_next_token_position(tokens_all, token.offset) if i + 1 < len(tokens_func) else len(section.data)) - token.offset
+                    token_length: int = (self.__find_next_token_position(tokens_all, token.offset) if i + 1 < len(tokens_func) else len(section.data)) - token.offset
 
-                fragment = ContainerFragment(token.offset, token_length)
-                pdf_eof.add_fragment(fragment)
+                    fragment = ContainerFragment(token.offset, token_length)
+                    pdf_eof.add_fragment(fragment)
 
-                i = i + 1
+                    i = i + 1
 
-            section.add_segment(pdf_eof)
+                section.add_segment(pdf_eof)
             section.calculate_length()
 
             pdf_comments: ContainerSegment = ContainerSegment("comments")

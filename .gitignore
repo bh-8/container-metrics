@@ -1,3 +1,4 @@
 .vscode
 io/db/
 io/_*
+io/test/_*

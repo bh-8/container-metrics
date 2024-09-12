@@ -361,7 +361,7 @@ class ExifData():
             case b"\x4d\x4d\x00\x2a\x00\x00\x00\x08":
                 tiff_header.set_attribute("format", "motorola")
             case _:
-                log.warning("encountered unknown exif data format")
+                log.warning(f"ExifData@image_jpeg.py: unknown exif data format {self.__data[self.__offset:self.__offset+8]}")
                 tiff_header.set_attribute("format", None)
         self.__segment.add_fragment(tiff_header)
         self.__offset += 8
@@ -422,6 +422,9 @@ class ExifData():
                 datatype_str = "single_float"
             case 12:
                 datatype_str = "double_float"
+            case _:
+                log.warning(f"ExifData@image_jpeg.py: unsupported datatype {datatype}")
+                return None
 
         if referenced is not None:
             data: bytes = self.__data[self.__tiff_header_start+referenced:self.__tiff_header_start+referenced+length]
@@ -582,7 +585,7 @@ class ImageJpegAnalysis(AbstractStructureAnalysis):
                     case b"Exif":
                         section.add_segment(ExifData(section, data, offset+4).as_segment)
                     case _:
-                        log.warning(f"missing implementation to handle jpeg segment APP1: '{str(data[offset+4:offset+8], errors='ignore')}'")
+                        log.warning(f"ImageJpegAnalysis@image_jpeg.py: missing implementation to handle jpeg segment APP1 {str(data[offset+4:offset+8], errors='ignore')}")
 
             offset = ff + js.length
             jpeg_segs.add_fragment(js.as_fragment)

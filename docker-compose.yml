@@ -27,3 +27,9 @@ services:
       dockerfile: ./Dockerfile.cli
     depends_on:
       - mongo-db
+  stego-gen:
+    build:
+      context: .
+      dockerfile: ./Dockerfile.stego
+    depends_on:
+      - cli
