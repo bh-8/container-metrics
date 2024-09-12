@@ -8,7 +8,7 @@ final_test() {
     docker compose up --detach
 
     # generate stego files
-    ./stego-gen jsteg io/test/cover/jfif io/test/_jsteg io/test/message.txt key
+    ./stego-gen jsteg io/test/cover/jfif io/test/_jsteg io/test/message.txt
     # TODO: weitere stego-tools
 
     # definitions

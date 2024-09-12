@@ -16,7 +16,7 @@ class StegoTool():
     def __init__(self, stego_tool: str, executable_path: str, parameters: list[str]) -> None:
         self.__stego_tool: str = stego_tool
         self.__executable_path: Path = Path(executable_path).resolve()
-        self.__parameters: list[str] = [f"'{p}'" for p in parameters]
+        self.__parameters: list[str] = parameters
 
         if not self.__executable_path.exists():
             raise FileNotFoundError()
@@ -29,12 +29,13 @@ class StegoTool():
         return self.__executable_path
     @property
     def exec_str(self) -> str:
-        return " ".join([str(self.__executable_path)] + self.__parameters)
+        return " ".join([str(self.__executable_path)] + [f"'{p}'" for p in self.__parameters])
+    @property
+    def key_required(self) -> bool:
+        return "<KEY>" in self.__parameters
 STEGO_TOOLS=[
     StegoTool("jsteg", "/opt/jsteg-linux-amd64", ["hide", "<INPUT>", "<MESSAGE>", "<OUTPUT>"])
 ]
-
-
 
 parser = argparse.ArgumentParser(
     prog=f"stego-gen",
@@ -65,7 +66,8 @@ parser.add_argument("message",
 parser.add_argument("key",
     type=str,
     metavar="<key>",
-    help="key string"
+    nargs='?',
+    help="key string; optional for some tools"
 )
 args = parser.parse_args(sys.argv[1:])
 
@@ -111,18 +113,20 @@ if not Path(args.output).is_dir():
 message_file: Path = Path(args.message).resolve()
 if not message_file.is_file():
     raise FileNotFoundError(f"could not find message file at '{message_file}'")
-key_string: str = args.key
-
-
 
 stego_tool: StegoTool = [i for i in STEGO_TOOLS if i.stego_tool == args.stego_tool][0]
+
+if stego_tool.key_required and args.key is None:
+    raise ValueError(f"{stego_tool.stego_tool} requires a key parameter")
+
 with alive_bar(len(input_files), title=f"stego-gen/{args.stego_tool}") as pbar:
     for i, path in enumerate(input_files):
         exec_str: str = stego_tool.exec_str
         exec_str = exec_str.replace("<INPUT>", str(input_files[i]))
         exec_str = exec_str.replace("<MESSAGE>", str(message_file))
         exec_str = exec_str.replace("<OUTPUT>", str(output_files[i]))
-        exec_str = exec_str.replace("<KEY>", key_string)
+        if args.key is not None:
+            exec_str = exec_str.replace("<KEY>", args.key)
         try:
             subprocess.check_output(exec_str, stderr=subprocess.STDOUT, shell=True)
         except subprocess.CalledProcessError as e:
