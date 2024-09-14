@@ -1,19 +1,37 @@
 FROM debian AS container-metrics
+    ENV DISPLAY=:0
     WORKDIR /home/stego-gen
 
     # dependencies
+    RUN dpkg --add-architecture i386
     RUN apt-get update && apt-get install -y \
         curl \
         git \
         default-jre \
         python3 \
         python3-pip \
-        python3-venv
+        python3-venv \
+        wget \
+        xvfb
+
+    # wine keyring
+    RUN mkdir -pm755 /etc/apt/keyrings \
+        && wget -O /etc/apt/keyrings/winehq-archive.key https://dl.winehq.org/wine-builds/winehq.key \
+        && wget -NP /etc/apt/sources.list.d/ https://dl.winehq.org/wine-builds/debian/dists/bookworm/winehq-bookworm.sources
+    
+    RUN apt-get update && apt-get install -y \
+        winehq-stable \
+        wine32
+    RUN winepath -w ~ || :
 
     # jsteg
     RUN curl -Lo /opt/jsteg-linux-amd64 \
         https://github.com/lukechampine/jsteg/releases/download/v0.3.0/jsteg-linux-amd64 \
         && chmod +x /opt/jsteg-linux-amd64
+
+    # mp3stego
+    RUN curl -Lo /opt/Encode.exe \
+        https://github.com/fabienpe/MP3Stego/raw/main/MP3Stego/Encode.exe
 
     # f5
     RUN git clone https://github.com/matthewgao/F5-steganography /opt/F5-steganography
@@ -22,13 +40,6 @@ FROM debian AS container-metrics
     RUN . /home/stego-gen/venv/bin/activate && pip3 install \
         alive-progress \
         && deactivate
-    #    bitarray \
-    #    bson \
-    #    dict2xml \
-    #    jmespath-community \
-    #    matplotlib \
-    #    pymongo \
-    #    python-magic \
 
     # create entrypoint
     RUN echo "#!/bin/bash">/home/entrypoint.sh
@@ -40,4 +51,5 @@ FROM debian AS container-metrics
     RUN chmod +x /home/entrypoint.sh
 
     COPY ./src/stego_gen.py /home/stego-gen/stego_gen.py
+
     ENTRYPOINT [ "/home/entrypoint.sh" ]

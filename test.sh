@@ -8,9 +8,13 @@ final_test() {
     docker compose up --detach
 
     # generate stego files
-    ./stego-gen jsteg io/test/cover/jfif io/test/_jsteg io/test/message.txt
+    STEGO_MSG="io/test/message.txt"
+    STEGO_KEY="abc123key"
+    ./stego-gen jsteg io/test/cover/jfif io/test/_jsteg $STEGO_MSG -deo
+    ./stego-gen f5 io/test/cover/jfif io/test/_f5 $STEGO_MSG $STEGO_KEY -deo
+    ./stego-gen mp3stego io/test/cover/wav io/test/_mp3stego $STEGO_MSG $STEGO_KEY -deo
     # TODO: weitere stego-tools
-
+    exit
     # definitions
     MONGODB_CONNECTION="mongodb://admin:admin@mongo-db:27017"
     DB_ID="test"

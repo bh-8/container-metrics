@@ -1,3 +1,4 @@
 #!/bin/bash
 docker run --rm --tty --volume=$(pwd)/io:/home/stego-gen/io container-metrics-stego-gen "$@"
+#docker run -it --rm --tty --volume=$(pwd)/io:/home/stego-gen/io container-metrics-stego-gen
 exit $?
