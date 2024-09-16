@@ -10,6 +10,7 @@ import os
 import subprocess
 import sys
 import time
+import json
 
 
 
@@ -125,10 +126,11 @@ if not Path(args.input).is_dir():
     raise NotADirectoryError(f"could not find input directory at '{Path(args.input).resolve()}'")
 input_files: list[Path] = flatten_paths([Path(args.input).resolve()], True)
 output_files: list[Path] = [Path(args.output).resolve() / f"{args.stego_tool}-{i.name}" for i in input_files]
+
 if not Path(args.output).is_dir():
     os.makedirs(args.output)
 if not Path(args.output).is_dir():
-    raise IOError(f"could not create directory '{Path(args.output).resolve()}'")
+    Path(args.output).mkdir(parents=True)
 message_file: Path = Path(args.message).resolve()
 if not message_file.is_file():
     raise FileNotFoundError(f"could not find message file at '{message_file}'")
@@ -140,10 +142,24 @@ if (stego_tool.key_required and args.key is None):
 if (args.timeout < 3):
     raise ValueError(f"timeout can not be smaller than 3")
 
-stego_tool.apply_execution_context()
+log_data: dict = {
+    "timestamp": time.time(),
+    "stego_tool": stego_tool.stego_tool,
+    "message_file": str(message_file),
+    "key": args.key if stego_tool.key_required else None,
+    "stego_gen": []
+}
+log_file: Path = Path(args.output).resolve() / f"_{stego_tool.stego_tool}-{log_data['timestamp']}.json"
 
+stego_tool.apply_execution_context()
 with alive_bar(len(input_files), title=f"stego-gen/{args.stego_tool}") as pbar:
     for i, path in enumerate(input_files):
+        log_item: dict = {
+            "cover": str(path),
+            "stego": None,
+            "error": None
+        }
+
         exec_str: str = stego_tool.exec_str
         output_file: str = str(output_files[i]) + ("" if stego_tool.outfile_extension is None else stego_tool.outfile_extension)
         exec_str = exec_str.replace("<INPUT>", str(input_files[i]))
@@ -153,16 +169,22 @@ with alive_bar(len(input_files), title=f"stego-gen/{args.stego_tool}") as pbar:
             exec_str = exec_str.replace("<KEY>", args.key)
         try:
             subprocess.check_output(exec_str, stderr=subprocess.STDOUT, timeout=args.timeout, shell=True)
+            log_item["stego"] = output_file
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
             print(f"{stego_tool.stego_tool}-Error: {e}")
+            log_item["error"] = str(e)
             if args.discard_error_outfile:
                 try:
                     os.remove(output_file)
                 except FileNotFoundError:
                     pass
             try:
-                os.remove(input_files + ".qdf")
+                os.remove(str(input_files[i]) + ".qdf")
             except FileNotFoundError:
                 pass
 
+        log_data["stego_gen"].append(log_item)
+        with open(log_file, "w") as handle:
+            json.dump(log_data, handle)
+            handle.close()
         pbar(1)

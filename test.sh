@@ -8,17 +8,19 @@ final_test() {
     docker compose up --detach
 
     # generate stego files
-    STEGO_MSG="io/test/message.txt"
-    STEGO_KEY="abc123key"
+    STEGO_MSG="io/test/messageA.txt" # 36 chars
+    STEGO_KEY="password" # 8 chars
 
-    #./stego-gen boobytrappdf io/test/cover/pdf io/test/_boobytrappdf $STEGO_MSG -deo
-    #./stego-gen f5 io/test/cover/jfif io/test/_f5 $STEGO_MSG $STEGO_KEY -deo
-    #./stego-gen hstego io/test/cover/jfif io/test/_hstego $STEGO_MSG $STEGO_KEY -deo
-    #./stego-gen jsteg io/test/cover/jfif io/test/_jsteg $STEGO_MSG -deo
-    #./stego-gen mp3stego io/test/cover/wav io/test/_mp3stego $STEGO_MSG $STEGO_KEY -deo
-    #./stego-gen pdfhide io/test/cover/pdf io/test/_pdfhide $STEGO_MSG $STEGO_KEY -deo -t 10
-    #./stego-gen pdfstego io/test/cover/pdf io/test/_pdfstego $STEGO_MSG $STEGO_KEY -deo
+    ./stego-gen boobytrappdf io/test/cover/pdf io/test/_boobytrappdf $STEGO_MSG -deo -t 16
+    ./stego-gen f5 io/test/cover/jfif io/test/_f5 $STEGO_MSG $STEGO_KEY -deo -t 16
+    ./stego-gen hstego io/test/cover/jfif io/test/_hstego $STEGO_MSG $STEGO_KEY -deo -t 16
+    ./stego-gen jsteg io/test/cover/jfif io/test/_jsteg $STEGO_MSG -deo -t 16
+    ./stego-gen mp3stego io/test/cover/wav io/test/_mp3stego $STEGO_MSG $STEGO_KEY -deo -t 16
+    ./stego-gen pdfhide io/test/cover/pdf io/test/_pdfhide $STEGO_MSG $STEGO_KEY -deo -t 16
+    ./stego-gen pdfstego io/test/cover/pdf io/test/_pdfstego $STEGO_MSG $STEGO_KEY -deo -t 16
     # TODO: weitere stego-tools: stegonaut, mp3stegz
+
+    exit
 
     # definitions
     MONGODB_CONNECTION="mongodb://admin:admin@mongo-db:27017"
@@ -36,6 +38,8 @@ final_test() {
     #./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover-files" scan io/test/cover/pdf/pdfcorpus --recursive $LOGGING
 
     # scan stego files
+    ./container-metrics $MONGODB_CONNECTION $DB_ID "default-stego-files" \
+        scan io/test/default-stego/ --recursive $LOGGING
     ./container-metrics $MONGODB_CONNECTION $DB_ID "default-stego-files" \
         scan io/test/default-stego/ --recursive $LOGGING
 
