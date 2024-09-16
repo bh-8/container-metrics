@@ -47,6 +47,7 @@ class StegoTool():
 STEGO_TOOLS=[
     StegoTool("boobytrappdf", "/home/stego-gen/venv/bin/python3", ["/opt/booby-trap-pdf/booby-trap-PDF.py", "bin", "<INPUT>", "<OUTPUT>", "<MESSAGE>"]),
     StegoTool("f5", "/usr/bin/xvfb-run", ["-a", "/usr/bin/java", "--add-exports", "java.base/sun.security.provider=ALL-UNNAMED", "-mx100M", "Embed", "-e", "<MESSAGE>", "-p", "<KEY>", "<INPUT>", "<OUTPUT>"], context_path=Path("/opt/F5-steganography")),
+    StegoTool("hstego", "/home/stego-gen/venv/bin/python3", ["/opt/hstego/hstego.py", "embed", "<MESSAGE>", "<INPUT>", "<OUTPUT>", "<KEY>"], context_path=Path("/opt/hstego")),
     StegoTool("jsteg", "/opt/jsteg-linux-amd64", ["hide", "<INPUT>", "<MESSAGE>", "<OUTPUT>"]),
     StegoTool("mp3stego", "/usr/bin/wine", ["/opt/Encode.exe", "-E", "<MESSAGE>", "-P", "<KEY>", "<INPUT>", "<OUTPUT>"], outfile_extension=".mp3"),
     StegoTool("pdfhide", "/opt/pdf_hide/pdf_hide", ["-o", "<OUTPUT>", "-k", "<KEY>", "embed", "<MESSAGE>", "<INPUT>"]),
@@ -152,7 +153,6 @@ with alive_bar(len(input_files), title=f"stego-gen/{args.stego_tool}") as pbar:
             exec_str = exec_str.replace("<KEY>", args.key)
         try:
             subprocess.check_output(exec_str, stderr=subprocess.STDOUT, timeout=args.timeout, shell=True)
-
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
             print(f"{stego_tool.stego_tool}-Error: {e}")
             if args.discard_error_outfile:

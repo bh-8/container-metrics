@@ -11,6 +11,8 @@ final_test() {
     STEGO_MSG="io/test/message.txt"
     STEGO_KEY="abc123key"
 
+    ./stego-gen hstego io/test/cover/jfif io/test/_hstego $STEGO_MSG $STEGO_KEY -deo
+    exit
     ./stego-gen boobytrappdf io/test/cover/pdf io/test/_boobytrappdf $STEGO_MSG -deo
     ./stego-gen f5 io/test/cover/jfif io/test/_f5 $STEGO_MSG $STEGO_KEY -deo
     ./stego-gen jsteg io/test/cover/jfif io/test/_jsteg $STEGO_MSG -deo
