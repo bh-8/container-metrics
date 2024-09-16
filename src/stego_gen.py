@@ -37,7 +37,7 @@ class StegoTool():
         return self.__executable
     @property
     def exec_str(self) -> str:
-        return " ".join([self.__executable] + [f"'{p}'" for p in self.__parameters])
+        return " ".join([self.__executable] + [f"\"{p}\"" for p in self.__parameters])
     @property
     def key_required(self) -> bool:
         return "<KEY>" in self.__parameters
@@ -160,9 +160,9 @@ with alive_bar(len(input_files), title=f"stego-gen/{args.stego_tool}") as pbar:
                     os.remove(output_file)
                 except FileNotFoundError:
                     pass
-                try:
-                    os.remove(output_file + ".qdf")
-                except FileNotFoundError:
-                    pass
+            try:
+                os.remove(input_files + ".qdf")
+            except FileNotFoundError:
+                pass
 
         pbar(1)
