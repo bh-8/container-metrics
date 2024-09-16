@@ -1,0 +1,23 @@
+diff --git a/Makefile.am b/Makefile.am
+index ef4fd47c..c6ef82e6 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -141,6 +141,8 @@ endif
+ # MODULES += libyara/modules/yourmodule.c
+ #
+ 
++MODULES += libyara/modules/cm/cm.c
++
+ include_HEADERS = libyara/include/yara.h
+ 
+ yaraincludedir = $(includedir)/yara
+diff --git a/libyara/modules/module_list b/libyara/modules/module_list
+index 35e848ae..af5eef15 100644
+--- a/libyara/modules/module_list
++++ b/libyara/modules/module_list
+@@ -33,3 +33,5 @@ MODULE(dex)
+ #ifdef PB_TESTS_MODULE
+ MODULE(pb_tests)
+ #endif
++
++MODULE(cm)

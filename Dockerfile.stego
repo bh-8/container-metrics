@@ -47,9 +47,9 @@ FROM debian AS container-metrics
         && deactivate
 
     # boobytrappdf
-    COPY ./src/stego_tool_patch/booby-trap-pdf.patch /opt/booby-trap-pdf.patch
+    COPY ./patches/boobytrappdf.patch /opt/boobytrappdf.patch
     RUN git clone https://github.com/e-m3din4/booby-trap-pdf /opt/booby-trap-pdf \
-        && cd /opt/booby-trap-pdf && git apply /opt/booby-trap-pdf.patch && cd /home/stego-gen
+        && cd /opt/booby-trap-pdf && git apply /opt/boobytrappdf.patch && cd /home/stego-gen
 
     # f5
     RUN git clone https://github.com/matthewgao/F5-steganography /opt/F5-steganography
@@ -71,14 +71,14 @@ FROM debian AS container-metrics
         && cd /opt/pdf_hide && make && cd /home/stego-gen
 
     # PDFStego
-    COPY ./src/stego_tool_patch/PDFStego.patch /opt/PDFStego.patch
+    COPY ./patches/pdfstego.patch /opt/pdfstego.patch
     RUN git clone https://github.com/aagallag/PDFStego /opt/PDFStego \
-        && cd /opt/PDFStego && git apply /opt/PDFStego.patch && make && cd /home/stego-gen
+        && cd /opt/PDFStego && git apply /opt/pdfstego.patch && make && cd /home/stego-gen
 
     ### WIP
 
     # hstego
-    COPY ./src/stego_tool_patch/hstego.patch /opt/hstego.patch
+    COPY ./patches/hstego.patch /opt/hstego.patch
     RUN git clone https://github.com/daniellerch/hstego /opt/hstego \
         && cd /opt/hstego && git apply /opt/hstego.patch \
         && . /home/stego-gen/venv/bin/activate && pip3 install . && deactivate && cd /home/stego-gen

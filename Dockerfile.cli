@@ -27,10 +27,11 @@ FROM debian AS container-metrics
 
     # yara (custom build using './src/yara_patch/*')
     RUN git clone --recursive https://github.com/VirusTotal/yara-python
-    COPY ./src/yara_patch/cm /yara-python/yara/libyara/modules/cm
-    COPY ./src/yara_patch/setup.py /yara-python/setup.py
-    RUN echo "MODULE(cm)" >> /yara-python/yara/libyara/modules/module_list
-    COPY ./src/yara_patch/Makefile.am /yara-python/yara/Makefile.am
+    COPY ./src/yara_module /yara-python/yara/libyara/modules/cm
+    COPY ./patches/yara.patch /yara.patch
+    RUN cd /yara-python/yara && git apply /yara.patch
+    COPY ./patches/yara-python.patch /yara-python.patch
+    RUN cd /yara-python && git apply /yara-python.patch
     RUN . /home/container-metrics/venv/bin/activate && cd /yara-python \
         && python3 setup.py build && python3 setup.py install && deactivate
 

@@ -1,0 +1,22 @@
+diff --git a/setup.py b/setup.py
+index ecced20..439abb1 100644
+--- a/setup.py
++++ b/setup.py
+@@ -332,6 +332,9 @@ class BuildExtCommand(build_ext):
+       else:
+         exclusions.append('yara/libyara/modules/macho/macho.c')
+ 
++      module.libraries.append('mongoc-1.0')
++      module.libraries.append('bson-1.0')
++
+       # exclude pb_tests module
+       exclusions.append('yara/libyara/modules/pb_tests/pb_tests.c')
+       exclusions.append('yara/libyara/modules/pb_tests/pb_tests.pb-c.c')
+@@ -414,6 +417,6 @@ setup(
+         'update': UpdateCommand},
+     ext_modules=[Extension(
+         name='yara',
+-        include_dirs=['yara/libyara/include', 'yara/libyara/', '.'],
++        include_dirs=['yara/libyara/include', 'yara/libyara/', '.', '/usr/include/libbson-1.0/', '/usr/include/libmongoc-1.0/'],
+         define_macros=[('BUCKETS_128', 1), ('CHECKSUM_1B', 1)],
+         sources=['yara-python.c'])])
