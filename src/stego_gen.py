@@ -14,14 +14,14 @@ import time
 
 
 class StegoTool():
-    def __init__(self, stego_tool: str, executable_path: str, parameters: list[str], context_path: Path = Path("/home/stego-gen"), outfile_extension: str | None = None) -> None:
+    def __init__(self, stego_tool: str, executable: str, parameters: list[str], context_path: Path = Path("/home/stego-gen"), outfile_extension: str | None = None) -> None:
         self.__stego_tool: str = stego_tool
-        self.__executable_path: Path = Path(executable_path).resolve()
+        self.__executable: str = executable
         self.__parameters: list[str] = parameters
         self.__context_path: Path = context_path
         self.__outfile_extension: str | None = outfile_extension
 
-        if not self.__executable_path.exists():
+        if not Path(self.__executable).exists():
             raise FileNotFoundError("executable path does not exist")
         if not self.__context_path.exists():
             raise FileNotFoundError("context path does not exist")
@@ -33,11 +33,11 @@ class StegoTool():
     def stego_tool(self) -> str:
         return self.__stego_tool
     @property
-    def executable_path(self) -> Path:
-        return self.__executable_path
+    def executable(self) -> str:
+        return self.__executable
     @property
     def exec_str(self) -> str:
-        return " ".join([str(self.__executable_path)] + [f"'{p}'" for p in self.__parameters])
+        return " ".join([self.__executable] + [f"'{p}'" for p in self.__parameters])
     @property
     def key_required(self) -> bool:
         return "<KEY>" in self.__parameters
@@ -45,9 +45,11 @@ class StegoTool():
     def outfile_extension(self) -> str | None:
         return self.__outfile_extension
 STEGO_TOOLS=[
+    StegoTool("boobytrappdf", "/home/stego-gen/venv/bin/python3", ["/opt/booby-trap-pdf/booby-trap-PDF.py", "bin", "<INPUT>", "<OUTPUT>", "<MESSAGE>"]),
     StegoTool("f5", "/usr/bin/xvfb-run", ["-a", "/usr/bin/java", "--add-exports", "java.base/sun.security.provider=ALL-UNNAMED", "-mx100M", "Embed", "-e", "<MESSAGE>", "-p", "<KEY>", "<INPUT>", "<OUTPUT>"], context_path=Path("/opt/F5-steganography")),
     StegoTool("jsteg", "/opt/jsteg-linux-amd64", ["hide", "<INPUT>", "<MESSAGE>", "<OUTPUT>"]),
     StegoTool("mp3stego", "/usr/bin/wine", ["/opt/Encode.exe", "-E", "<MESSAGE>", "-P", "<KEY>", "<INPUT>", "<OUTPUT>"], outfile_extension=".mp3"),
+    StegoTool("pdfhide", "/opt/pdf_hide/pdf_hide", ["-o", "<OUTPUT>", "-k", "<KEY>", "embed", "<MESSAGE>", "<INPUT>"]),
     StegoTool("pdfstego", "/opt/PDFStego/pdfstego", ["-e", "-c", "<INPUT>", "-m", "<MESSAGE>", "-p", "<KEY>", "-s", "<OUTPUT>"]),
 ]
 
@@ -84,6 +86,7 @@ parser.add_argument("key",
     help="key string; optional for some tools"
 )
 parser.add_argument("-deo", "--discard-error-outfile", action="store_true", help="remove output file when stego tool throws error")
+parser.add_argument("-t", "--timeout", type=int, required=False, default=30, help="maximum seconds per stegogram creation, default is 30")
 args = parser.parse_args(sys.argv[1:])
 
 @staticmethod
@@ -133,6 +136,8 @@ stego_tool: StegoTool = [i for i in STEGO_TOOLS if i.stego_tool == args.stego_to
 
 if (stego_tool.key_required and args.key is None):
     raise ValueError(f"{stego_tool.stego_tool} requires a key parameter")
+if (args.timeout < 3):
+    raise ValueError(f"timeout can not be smaller than 3")
 
 stego_tool.apply_execution_context()
 
@@ -146,13 +151,17 @@ with alive_bar(len(input_files), title=f"stego-gen/{args.stego_tool}") as pbar:
         if args.key is not None:
             exec_str = exec_str.replace("<KEY>", args.key)
         try:
-            subprocess.check_output(exec_str, stderr=subprocess.STDOUT, timeout=60, shell=True)
+            subprocess.check_output(exec_str, stderr=subprocess.STDOUT, timeout=args.timeout, shell=True)
 
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
             print(f"{stego_tool.stego_tool}-Error: {e}")
             if args.discard_error_outfile:
                 try:
                     os.remove(output_file)
+                except FileNotFoundError:
+                    pass
+                try:
+                    os.remove(output_file + ".qdf")
                 except FileNotFoundError:
                     pass
 

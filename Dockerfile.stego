@@ -5,6 +5,8 @@ FROM debian AS container-metrics
     # dependencies
     RUN dpkg --add-architecture i386
     RUN apt-get update && apt-get install -y \
+        build-essential \
+        cmake \
         curl \
         default-jre \
         git \
@@ -40,6 +42,18 @@ FROM debian AS container-metrics
     # f5
     RUN git clone https://github.com/matthewgao/F5-steganography /opt/F5-steganography
 
+    # pdf_hide
+    ENV LD_LIBRARY_PATH=/usr/local/lib
+    RUN git clone https://github.com/ncanceill/pdf_hide /opt/pdf_hide \
+        && git clone https://github.com/qpdf/qpdf /opt/qpdf \
+        && cd /opt/qpdf && cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo && cmake --build build && cmake --install build && cd /home/stego-gen \
+        && cd /opt/pdf_hide && make && cd /home/stego-gen
+
+    # boobytrappdf
+    COPY ./src/stego_tool_patch/booby-trap-pdf.patch /opt/booby-trap-pdf.patch
+    RUN git clone https://github.com/e-m3din4/booby-trap-pdf /opt/booby-trap-pdf \
+        && cd /opt/booby-trap-pdf && git apply /opt/booby-trap-pdf.patch && cd /home/stego-gen
+
     # PDFStego
     COPY ./src/stego_tool_patch/PDFStego.patch /opt/PDFStego.patch
     RUN git clone https://github.com/aagallag/PDFStego /opt/PDFStego \
@@ -48,6 +62,8 @@ FROM debian AS container-metrics
     RUN python3 -m venv /home/stego-gen/venv
     RUN . /home/stego-gen/venv/bin/activate && pip3 install \
         alive-progress \
+        fpdf \
+        PyPDF4 \
         && deactivate
 
     # create entrypoint
