@@ -6,19 +6,23 @@ FROM debian AS container-metrics
     RUN dpkg --add-architecture i386
     RUN apt-get update && apt-get install -y \
         curl \
-        git \
         default-jre \
+        git \
+        libfontconfig1-dev \
+        libfreetype6-dev \
+        libjpeg-dev \
+        libpodofo-dev \
+        libssl-dev \
         python3 \
         python3-pip \
         python3-venv \
         wget \
         xvfb
 
-    # wine keyring
+    # wine
     RUN mkdir -pm755 /etc/apt/keyrings \
         && wget -O /etc/apt/keyrings/winehq-archive.key https://dl.winehq.org/wine-builds/winehq.key \
         && wget -NP /etc/apt/sources.list.d/ https://dl.winehq.org/wine-builds/debian/dists/bookworm/winehq-bookworm.sources
-    
     RUN apt-get update && apt-get install -y \
         winehq-stable \
         wine32
@@ -35,6 +39,11 @@ FROM debian AS container-metrics
 
     # f5
     RUN git clone https://github.com/matthewgao/F5-steganography /opt/F5-steganography
+
+    # PDFStego
+    COPY ./src/stego_tool_patch/PDFStego.patch /opt/PDFStego.patch
+    RUN git clone https://github.com/aagallag/PDFStego /opt/PDFStego \
+        && cd /opt/PDFStego && git apply /opt/PDFStego.patch && make && cd /home/stego-gen
 
     RUN python3 -m venv /home/stego-gen/venv
     RUN . /home/stego-gen/venv/bin/activate && pip3 install \

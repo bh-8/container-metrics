@@ -1,0 +1,77 @@
+diff --git a/pdfstego.cpp b/pdfstego.cpp
+index 96dc9c3..6d141c7 100644
+--- a/pdfstego.cpp
++++ b/pdfstego.cpp
+@@ -26,7 +26,7 @@ using namespace std;
+ 
+ char COPYRIGHT[] = "PDFStego, Copyright (C) 2016  Aaron Gallagher\nThis is free software, and you are welcome to redistribute it\n";
+ 
+-char USAGE[] = "Usage:\n\n  ::Embed::\n\t./pdfstego -e -c <coverfile> -m <messagefile> -s <stegofile>\n  ::Extract::\n\t./pdfstego -x -s <stegofile> -m <messagefile>\n";
++char USAGE[] = "Usage:\n\n  ::Embed::\n\t./pdfstego -e -c <coverfile> -m <messagefile> -p <password> -s <stegofile>\n  ::Extract::\n\t./pdfstego -x -s <stegofile> -m <messagefile> -p <password>\n";
+ 
+ void printcopyright() {
+     printf("%s", COPYRIGHT);
+@@ -45,12 +45,13 @@ int main(int argc, char** argv) {
+     int opt;
+     char* coverfilename     = NULL;
+     char* filenameToHide    = NULL;
++    char* password          = NULL;
+     char* stegoFile         = NULL;
+     bool isembed = false;
+     bool isextract = false;
+-    char password [128];
++    //char password [128];
+ 
+-    const char* short_opt = "hexc:m:s:";
++    const char* short_opt = "hexc:m:p:s:";
+ 
+     printcopyright();
+ 
+@@ -71,6 +72,9 @@ int main(int argc, char** argv) {
+             case 'm':
+                 filenameToHide = optarg;
+                 break;
++            case 'p':
++                password = optarg;
++                break;
+             case 's':
+                 stegoFile = optarg;
+                 break;
+@@ -93,6 +97,7 @@ int main(int argc, char** argv) {
+         /* error check params for embed operation */
+         if (coverfilename == NULL   ||
+         filenameToHide == NULL  ||
++        password == NULL  ||
+         stegoFile == NULL)
+         {
+             usage();
+@@ -100,8 +105,8 @@ int main(int argc, char** argv) {
+         }
+ 
+         /* prompt user for password */
+-        printf("Enter password: ");
+-        scanf("%127s", password);
++        //printf("Enter password: ");
++        //scanf("%127s", password);
+ 
+         /* perform the operation */
+         encemb_pdf(coverfilename, filenameToHide, stegoFile, password);
+@@ -109,6 +114,7 @@ int main(int argc, char** argv) {
+     else if (isextract) {
+         /* error check params for extraction operation */
+         if (filenameToHide == NULL  ||
++        password == NULL  ||
+         stegoFile == NULL)
+         {
+             usage();
+@@ -116,8 +122,8 @@ int main(int argc, char** argv) {
+         }
+ 
+         /* prompt user for password */
+-        printf("Enter password: ");
+-        scanf("%127s", password);
++        //printf("Enter password: ");
++        //scanf("%127s", password);
+ 
+         /* perform the operation */
+         extdec_pdf(stegoFile, filenameToHide, password);

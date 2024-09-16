@@ -9,6 +9,7 @@ from pathlib import Path
 import os
 import subprocess
 import sys
+import time
 
 
 
@@ -47,6 +48,7 @@ STEGO_TOOLS=[
     StegoTool("f5", "/usr/bin/xvfb-run", ["-a", "/usr/bin/java", "--add-exports", "java.base/sun.security.provider=ALL-UNNAMED", "-mx100M", "Embed", "-e", "<MESSAGE>", "-p", "<KEY>", "<INPUT>", "<OUTPUT>"], context_path=Path("/opt/F5-steganography")),
     StegoTool("jsteg", "/opt/jsteg-linux-amd64", ["hide", "<INPUT>", "<MESSAGE>", "<OUTPUT>"]),
     StegoTool("mp3stego", "/usr/bin/wine", ["/opt/Encode.exe", "-E", "<MESSAGE>", "-P", "<KEY>", "<INPUT>", "<OUTPUT>"], outfile_extension=".mp3"),
+    StegoTool("pdfstego", "/opt/PDFStego/pdfstego", ["-e", "-c", "<INPUT>", "-m", "<MESSAGE>", "-p", "<KEY>", "-s", "<OUTPUT>"]),
 ]
 
 parser = argparse.ArgumentParser(
@@ -129,7 +131,7 @@ if not message_file.is_file():
 
 stego_tool: StegoTool = [i for i in STEGO_TOOLS if i.stego_tool == args.stego_tool][0]
 
-if stego_tool.key_required and args.key is None:
+if (stego_tool.key_required and args.key is None):
     raise ValueError(f"{stego_tool.stego_tool} requires a key parameter")
 
 stego_tool.apply_execution_context()
@@ -145,6 +147,7 @@ with alive_bar(len(input_files), title=f"stego-gen/{args.stego_tool}") as pbar:
             exec_str = exec_str.replace("<KEY>", args.key)
         try:
             subprocess.check_output(exec_str, stderr=subprocess.STDOUT, timeout=60, shell=True)
+
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
             print(f"{stego_tool.stego_tool}-Error: {e}")
             if args.discard_error_outfile:

@@ -11,8 +11,9 @@ final_test() {
     STEGO_MSG="io/test/message.txt"
     STEGO_KEY="abc123key"
     ./stego-gen jsteg io/test/cover/jfif io/test/_jsteg $STEGO_MSG -deo
-    ./stego-gen f5 io/test/cover/jfif io/test/_f5 $STEGO_MSG $STEGO_KEY -deo
-    ./stego-gen mp3stego io/test/cover/wav io/test/_mp3stego $STEGO_MSG $STEGO_KEY -deo
+    #./stego-gen f5 io/test/cover/jfif io/test/_f5 $STEGO_MSG $STEGO_KEY -deo
+    #./stego-gen mp3stego io/test/cover/wav io/test/_mp3stego $STEGO_MSG $STEGO_KEY -deo
+    ./stego-gen pdfstego io/test/cover/pdf io/test/_pdfstego $STEGO_MSG $STEGO_KEY -deo
     # TODO: weitere stego-tools
     exit
     # definitions
