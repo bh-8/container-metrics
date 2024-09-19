@@ -1,4 +1,5 @@
 import "console"
+import "math"
 import "cm"
 
 // rule hits whenever JPEG magic number is found at the beginning of a file
@@ -86,4 +87,12 @@ rule stegonaut : main {
 rule pdfstego : main {
     condition:
         is_pdf and cm.jmesq_i(mdb_url, mdb_pjt, mdb_set, mdb_oid, "data[?mime_type=='text/plain'].content.uncovered[0].volatile_data | length([?(contains(@, '0.000 0.000 0.000 rg\\nBT\\n') && contains(@, '0.000 Tf\\n100.000 Tz\\n0.000 Tc\\n0.000\\n0.000\\nTd <') && contains(@, '> Tj\\nET\\n'))])") == 1
+}
+
+rule openpuff_pdf : main {
+    strings:
+        $lf = { 0A }
+        $cr = { 0D }
+    condition:
+        is_pdf and #lf > 0 and #cr > 0 and console.log("openpuff_pdf (if value is greater than 10!?) = ", math.abs(#lf - #cr))
 }
