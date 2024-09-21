@@ -475,13 +475,18 @@ class Main:
         parser.add_argument("jmesq",
             type=str,
             metavar="<jmesq>",
-            help="specify JMESPath query (use '*' for raw document)"
+            help="specify JMESPath query ('*' for full document)"
+        )
+        parser.add_argument("-rrd", "--resolve-raw-data",
+            action="store_true",
+            help="resolve fragment data"
         )
 
         self.__extend_pipeline_parser(parser)
         args = parser.parse_args(sys.argv[5:])
 
         self.parameterization["jmesq"] = None if args.jmesq == "*" else args.jmesq
+        self.parameterization["rrd"] = args.resolve_raw_data
 
         self.__extend_pipeline_parameterization(args)
         self.__general_pp_pipeline()
@@ -551,11 +556,16 @@ class Main:
             metavar="<jmesq>",
             help="specify JMESPath query (use '*' for raw document)"
         )
+        parser.add_argument("-rrd", "--resolve-raw-data",
+            action="store_true",
+            help="resolve fragment data"
+        )
 
         self.__extend_pipeline_parser(parser)
         args = parser.parse_args(sys.argv[5:])
 
         self.parameterization["jmesq"] = None if args.jmesq == "*" else args.jmesq
+        self.parameterization["rrd"] = args.resolve_raw_data
 
         self.__extend_pipeline_parameterization(args)
         self.__general_pp_pipeline()

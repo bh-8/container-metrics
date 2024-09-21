@@ -8,19 +8,16 @@ final_test() {
     docker compose up --detach
 
     # generate stego files
-    STEGO_MSG="io/test/messageA.txt" # 36 chars
-    STEGO_KEY="password" # 8 chars
+    #STEGO_MSG="io/test/messageA.txt" # 36 chars
+    #STEGO_KEY="password" # 8 chars
 
-    ./stego-gen boobytrappdf io/test/cover/pdf io/test/_boobytrappdf $STEGO_MSG -deo -t 16
-    ./stego-gen f5 io/test/cover/jfif io/test/_f5 $STEGO_MSG $STEGO_KEY -deo -t 16
-    ./stego-gen hstego io/test/cover/jfif io/test/_hstego $STEGO_MSG $STEGO_KEY -deo -t 16
-    ./stego-gen jsteg io/test/cover/jfif io/test/_jsteg $STEGO_MSG -deo -t 16
-    ./stego-gen mp3stego io/test/cover/wav io/test/_mp3stego $STEGO_MSG $STEGO_KEY -deo -t 16
-    ./stego-gen pdfhide io/test/cover/pdf io/test/_pdfhide $STEGO_MSG $STEGO_KEY -deo -t 16
-    ./stego-gen pdfstego io/test/cover/pdf io/test/_pdfstego $STEGO_MSG $STEGO_KEY -deo -t 16
-    # TODO: weitere stego-tools: stegonaut, mp3stegz
-
-    exit
+    #./stego-gen boobytrappdf io/test/cover/pdf io/test/_boobytrappdf $STEGO_MSG -deo -t 16
+    #./stego-gen f5 io/test/cover/jfif io/test/_f5 $STEGO_MSG $STEGO_KEY -deo -t 16
+    #./stego-gen hstego io/test/cover/jfif io/test/_hstego $STEGO_MSG $STEGO_KEY -deo -t 16
+    #./stego-gen jsteg io/test/cover/jfif io/test/_jsteg $STEGO_MSG -deo -t 16
+    #./stego-gen mp3stego io/test/cover/wav io/test/_mp3stego $STEGO_MSG $STEGO_KEY -deo -t 16
+    #./stego-gen pdfhide io/test/cover/pdf io/test/_pdfhide $STEGO_MSG $STEGO_KEY -deo -t 16
+    #./stego-gen pdfstego io/test/cover/pdf io/test/_pdfstego $STEGO_MSG $STEGO_KEY -deo -t 16
 
     # definitions
     MONGODB_CONNECTION="mongodb://admin:admin@mongo-db:27017"
@@ -28,13 +25,13 @@ final_test() {
     LOGGING="--log warning"
 
     # scan cover files
-    ./container-metrics $MONGODB_CONNECTION $DB_ID "jfif-cover-files" \
-        scan io/test/cover/jfif/ --recursive $LOGGING
-    ./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-cover-files" \
-        scan io/test/cover/mp3/ --recursive $LOGGING
+    #./container-metrics $MONGODB_CONNECTION $DB_ID "jfif-cover-files" \
+    #    scan io/test/cover/jfif/ --recursive $LOGGING
+    #./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-cover-files" \
+    #    scan io/test/cover/mp3/ --recursive $LOGGING
     #./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover-files" scan io/test/cover/pdf/1000gov --recursive $LOGGING
-    ./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover-files" \
-        scan io/test/cover/pdf/pdf20examples --recursive $LOGGING
+    #./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover-files" \
+    #    scan io/test/cover/pdf/pdf20examples --recursive $LOGGING
     #./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover-files" scan io/test/cover/pdf/pdfcorpus --recursive $LOGGING
 
     # scan stego files
@@ -43,6 +40,12 @@ final_test() {
     ./container-metrics $MONGODB_CONNECTION $DB_ID "default-stego-files" \
         scan io/test/default-stego/ --recursive $LOGGING
 
+    # json pipeline
+    ./container-metrics $MONGODB_CONNECTION $DB_ID "default-stego-files" \
+        json "*" $LOGGING -outid=0
+    ./container-metrics $MONGODB_CONNECTION $DB_ID "default-stego-files" \
+        json "data[].content.mpeg_frames[].raw" $LOGGING -outid=1 -rrd
+    exit
     # arff pipeline
     # TODO
 
@@ -55,10 +58,6 @@ final_test() {
         csv "part2_3_length granule 0,part2_3_length granule 1" \
         "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length]" \
         -outid=part23length $LOGGING
-
-    # json pipeline
-    ./container-metrics $MONGODB_CONNECTION $DB_ID "default-stego-files" \
-        json "*" $LOGGING
 
     # svg pipeline
     ./container-metrics $MONGODB_CONNECTION $DB_ID "jfif-cover-files" \

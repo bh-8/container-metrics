@@ -22,16 +22,15 @@ class XmlPipeline(AbstractPipeline):
         super().__init__("xml", document, raw, pipeline_parameters)
 
     def process(self) -> None:
-        out_dict: dict
+        out_dict: dict = self.get_raw_document() if self.pipeline_parameters["rrd"] else self.get_document()
 
-        if self.pipeline_parameters["jmesq"] is None:
-            out_dict = self.get_raw_document()
+        # convert BSON to JSON
+        out_dict["_id"] = str(out_dict["_id"])
+        del out_dict["_gridfs"]
 
-            # convert BSON to JSON
-            out_dict["_id"] = str(out_dict["_id"])
-            del out_dict["_gridfs"]
-        else:
-            out_dict = self.jmesq(self.pipeline_parameters["jmesq"])
+        # resolve jmesq if there is any
+        if self.pipeline_parameters["jmesq"] is not None:
+            out_dict = self.jmesq(self.pipeline_parameters["jmesq"], out_dict)
             if type(out_dict) is list and len(out_dict) == 0:
                 return
 

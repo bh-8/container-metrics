@@ -39,10 +39,12 @@ class AbstractPipeline(abc.ABC):
 
         log.debug("inserted raw data to document for further pipelining")
         return raw_document
-    def get_outfile_path(self, outid: str) -> str:
+    def get_document(self) -> dict:
+        return self.__document
+    def get_outfile_path(self, outid: str) -> Path:
         return self.output_path / f"{self.output_id}-{outid}.{self.__pipeline}"
-    def jmesq(self, query_str: str) -> dict:
-        return jmespath.search(query_str, self.__document)
+    def jmesq(self, query_str: str, dictionary: dict = None) -> dict:
+        return jmespath.search(query_str, self.__document if dictionary is None else dictionary)
     def stringify(self, chars: list[str], index: int, data: any) -> str:
         # if index < len(chars):
         if type(data) is list:
