@@ -218,20 +218,20 @@ class PdfTokenizer():
 
                     # case 'startswith
                     check_pos = token.find(b"<<")
-                    if check_pos == -1: # case hex string
+                    if check_pos == 0:
+                        # case dictionary
+                        self.__token_list.append(PdfToken(pos, token[:2]))
+                        pos = pos + 2
+                    else:
+                        # case hex string
                         _hex_string_end = self.__pdf_data.find(b">", pos) + 1
                         if _hex_string_end == -1:
                             log.warning(f"hex string in pdf file has no closing bracket")
                             pos = pos + len(token)
                             continue
+
                         self.__token_list.append(PdfToken(pos, self.__pdf_data[pos:_hex_string_end]))
                         pos = _hex_string_end
-                        continue
-
-                    # case dictionary
-                    self.__token_list.append(PdfToken(pos, token[:2]))
-                    pos = pos + 2
-
                     continue
                 case b"/":
                     if token_special_pos > 0: # case 'contains'
@@ -500,7 +500,7 @@ class ArrayObject(AbstractObject): # <<<>>>
             obj = self._determine_object(token, i)
             if obj is None:
                 nested_list.append(None)
-                log.critical(f"'ArrayObject' is missing implementation to handle '{token.type}' (token #{i})")
+                log.critical(f"'ArrayObject' is missing implementation to handle '{token.type}' (token #{i} is {token.raw})")
                 i = i + 1
                 continue
 
