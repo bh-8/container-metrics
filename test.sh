@@ -2,10 +2,10 @@
 
 final_test() {
     # cleanup & fresh build
-    docker compose down
-    sudo rm -drf io/_* io/test/_* io/db 
+    #docker compose down
+    sudo rm -drf io/_* io/test/_* # io/db 
     docker compose build
-    docker compose up --detach
+    #docker compose up --detach
 
     # generate stego files
     #STEGO_MSG="io/test/messageA.txt" # 36 chars
@@ -24,27 +24,28 @@ final_test() {
     DB_ID="test"
     LOGGING="--log warning"
 
-    # scan cover files
-    ./container-metrics $MONGODB_CONNECTION $DB_ID "jfif-cover-files" scan io/test/cover/jfif/ --recursive $LOGGING
-    ./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-cover-files" scan io/test/cover/mp3/ --recursive $LOGGING
-    ./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover-files" scan io/test/cover/pdf --recursive $LOGGING
-
-    # scan stego files
-    #./container-metrics $MONGODB_CONNECTION $DB_ID "default-stego-files" \
-    #    scan io/test/cover/pdf/boyle-18.pdf io/Vitocal250-A_6216437VMA00001_1.pdf --recursive $LOGGING
-    #./container-metrics $MONGODB_CONNECTION $DB_ID "default-stego-files" \
-    #    scan io/test/default-stego/ --recursive $LOGGING
-
-    exit
+    # scan cover/stego files
+    #./container-metrics $MONGODB_CONNECTION $DB_ID "jfif-cover-files" scan io/test/cover/jfif/ --recursive $LOGGING
+    #./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-cover-files" scan io/test/cover/mp3/ --recursive $LOGGING
+    #./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover-files" scan io/test/cover/pdf/ --recursive $LOGGING
+    #./container-metrics $MONGODB_CONNECTION $DB_ID "default-stego-files" scan io/test/default-stego/ --recursive $LOGGING
 
     # json pipeline
-    ./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover-files" \
-        json "*" $LOGGING -outid=0
-    ./container-metrics $MONGODB_CONNECTION $DB_ID "default-stego-files" \
-        json "data[].content.mpeg_frames[].raw" $LOGGING -outid=1 -rrd
+    #./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover-files" \
+    #    json "data[?mime_type=='application/pdf'].content.whitespaces[].raw" $LOGGING -outid=openpuff -rrd
+    #./container-metrics $MONGODB_CONNECTION $DB_ID "default-stego-files" \
+    #    json "data[?mime_type=='application/pdf'].content.whitespaces[].raw" $LOGGING -outid=openpuff -rrd
 
     # arff pipeline
-    # TODO
+    jmesq_arff_cover="data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[header.private,header.copyright,header.original] | [map(&to_string([0]), @), map(&to_string([1]), @), map(&to_string([2]), @)] | [[length([@[0] | [?@ == 'true']] | []), length([@[0] | [?@ == 'false']] | []), length([@[1] | [?@ == 'true']] | []), length([@[1] | [?@ == 'false']] | []), length([@[2] | [?@ == 'true']] | []), length([@[2] | [?@ == 'false']] | []), 'false']]"
+    jmesq_arff_stego="data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[header.private,header.copyright,header.original] | [map(&to_string([0]), @), map(&to_string([1]), @), map(&to_string([2]), @)] | [[length([@[0] | [?@ == 'true']] | []), length([@[0] | [?@ == 'false']] | []), length([@[1] | [?@ == 'true']] | []), length([@[1] | [?@ == 'false']] | []), length([@[2] | [?@ == 'true']] | []), length([@[2] | [?@ == 'false']] | []), 'true']]"
+    ./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-cover-files" \
+        arff "private set,private unset,copyright set,copyright unset,original set,original unset,is stego" "${jmesq_arff_cover}" $LOGGING -outid=stegonaut-cover
+    ./container-metrics $MONGODB_CONNECTION $DB_ID "default-stego-files" \
+        arff "private set,private unset,copyright set,copyright unset,original set,original unset,is stego" "${jmesq_arff_stego}" $LOGGING -outid=stegonaut-stego
+    ./arff_merge.sh
+
+    exit
 
     # csv pipeline
     ./container-metrics $MONGODB_CONNECTION $DB_ID "default-stego-files" \
