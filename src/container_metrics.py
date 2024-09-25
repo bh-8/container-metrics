@@ -8,6 +8,7 @@ core
 
 from alive_progress import alive_bar
 import argparse
+import bson
 import datetime
 import gridfs
 import hashlib
@@ -311,6 +312,11 @@ class Main:
                 log.info(f"retrieving data from database: '{self.parameterization['project']}/{self.parameterization['set']}-id:{document['_id']}-gridfs:{document['_gridfs']}'...")
                 bson_document = grid_fs.get(document["_gridfs"]).read()
 
+                if "_gridfs_data" in document: # in case structure is stored in gridfs too
+                    document_data = bson.BSON.decode(grid_fs.get(document["_gridfs_data"]).read())
+                    document["data"] = document_data["data"]
+                    del document["_gridfs_data"]
+
                 # initiate format specific analysis
                 log.info(f"processing file '{document['meta']['file']['name']}'...")
                 pipeline: AbstractPipeline = globals()[class_label](document, bson_document, self.parameterization)
@@ -403,7 +409,14 @@ class Main:
                 try:
                     target_collection.insert_one(structure_mapping_dict)
                 except DocumentTooLarge:
-                    log.critical(f"could not insert document into database for file '{file_path.name}' as it's too large")
+                    log.warning(f"could not insert document into database for file '{file_path.name}' as it's too large; moving to gridfs")
+                    grid_fs_id_data = grid_fs.put(bson.BSON.encode({"data": structure_mapping_dict["data"]}))
+                    
+                    structure_mapping_dict["_gridfs_data"] = grid_fs_id_data
+                    del structure_mapping_dict["data"]
+
+                    target_collection.insert_one(structure_mapping_dict)
+
                 pbar(1)
         log.info("done")
     def subcmd_arff(self):

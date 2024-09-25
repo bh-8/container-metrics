@@ -130,6 +130,9 @@ class PdfTokenizer():
 
                 stream_begin = self.__jump_to_next_token(pos_end)
                 stream_end = self.__pdf_data.find(b"endstream", stream_begin)
+                if stream_end == -1:
+                    self.__token_list.append(PdfToken(stream_begin, self.__pdf_data[stream_begin:], True))
+                    break
 
                 self.__token_list.append(PdfToken(stream_begin, self.__pdf_data[stream_begin:stream_end].rstrip(), True))
                 self.__token_list.append(PdfToken(stream_end, self.__pdf_data[stream_end:stream_end + 9]))
@@ -182,7 +185,12 @@ class PdfTokenizer():
                     _parenthesis_open = 1
                     while _parenthesis_open > 0:
                         pt_open_next = self.__pdf_data.find(b"(", pt_position)
+                        while self.__pdf_data[pt_open_next - 1:pt_open_next] == b"\\": # if opening bracket is escaped
+                            pt_open_next = self.__pdf_data.find(b"(", pt_open_next + 1)
+
                         pt_close_next = self.__pdf_data.find(b")", pt_position)
+                        while self.__pdf_data[pt_close_next - 1:pt_close_next] == b"\\": # if closing bracket is escaped
+                            pt_close_next = self.__pdf_data.find(b")", pt_close_next + 1)
 
                         if pt_close_next != -1 and pt_open_next != -1:
                             if pt_close_next < pt_open_next:
@@ -431,7 +439,7 @@ class DictionaryObject(AbstractObject): # <<<>>>
             obj = self._determine_object(dictionary_value, i)
             if obj is None:
                 nested_dict[dictionary_key] = None
-                log.critical(f"'DictionaryObject' is missing implementation to handle '{dictionary_value.type}' (token #{i})")
+                log.critical(f"'DictionaryObject' is missing implementation to handle '{dictionary_value.type}' (token #{i}@{self._pdf_tokens[i].offset} is {self._pdf_tokens[i].raw})")
                 continue
 
             # skip processed tokens
@@ -444,14 +452,17 @@ class DictionaryObject(AbstractObject): # <<<>>>
             nested_dict[dictionary_key] = obj.as_fragment.as_dictionary
 
         # if segments available
-        if i + 3 < len(self._pdf_tokens):
+        if i + 2 < len(self._pdf_tokens):
             token_stream_start: PdfToken = self._pdf_tokens[i + 1]
             token_stream: PdfToken = self._pdf_tokens[i + 2]
 
             # check for stream element
             if token_stream_start.type == "stream":
                 # add tokens
-                self._token_length = self._token_length + 3
+                if i + 3 < len(self._pdf_tokens):
+                    self._token_length = self._token_length + 3
+                else:
+                    self._token_length = self._token_length + 2
 
                 # append stream element
                 _stream_fragment: ContainerFragment = ContainerFragment(token_stream.offset, token_stream.length)
@@ -552,7 +563,10 @@ class ApplicationPdfAnalysis(AbstractStructureAnalysis):
                         obj = NumericObject(section, tokens_func, i)
 
                         fragment: ContainerFragment = obj.as_fragment
-                        fragment.set_attribute("length", self.__find_next_token_position(tokens_all, tokens_func[i + obj.token_length - 1].offset) - token.offset)
+                        if i + obj.token_length - 1 < len(tokens_func):
+                            fragment.set_attribute("length", self.__find_next_token_position(tokens_all, tokens_func[i + obj.token_length - 1].offset) - token.offset)
+                        else:
+                            fragment.set_attribute("length", tokens_func[-1].offset + tokens_func[-1].length - token.offset)
                         pdf_body.add_fragment(fragment)
 
                         i = i + obj.token_length
@@ -564,7 +578,7 @@ class ApplicationPdfAnalysis(AbstractStructureAnalysis):
                         i = len(tokens_func) # use condition to abort loop
                         continue
             section.add_segment(pdf_body)
-            if i == len(tokens_func):
+            if not i < len(tokens_func):
                 break
 
             # xref segment

@@ -3,7 +3,7 @@
 final_test() {
     # cleanup & fresh build
     docker compose down
-    sudo rm -drf io/db io/_* io/test/_*
+    sudo rm -drf io/_* io/test/_* io/db 
     docker compose build
     docker compose up --detach
 
@@ -25,27 +25,24 @@ final_test() {
     LOGGING="--log warning"
 
     # scan cover files
-    #./container-metrics $MONGODB_CONNECTION $DB_ID "jfif-cover-files" \
-    #    scan io/test/cover/jfif/ --recursive $LOGGING
-    #./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-cover-files" \
-    #    scan io/test/cover/mp3/ --recursive $LOGGING
-    #./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover-files" scan io/test/cover/pdf/1000gov --recursive $LOGGING
-    #./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover-files" \
-    #    scan io/test/cover/pdf/pdf20examples --recursive $LOGGING
-    #./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover-files" scan io/test/cover/pdf/pdfcorpus --recursive $LOGGING
+    #./container-metrics $MONGODB_CONNECTION $DB_ID "jfif-cover-files" scan io/test/cover/jfif/ --recursive $LOGGING
+    #./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-cover-files" scan io/test/cover/mp3/ --recursive $LOGGING
+    ./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover-files" scan io/test/cover/pdf --recursive $LOGGING
 
     # scan stego files
-    ./container-metrics $MONGODB_CONNECTION $DB_ID "default-stego-files" \
-        scan io/test/default-stego/ --recursive $LOGGING
-    ./container-metrics $MONGODB_CONNECTION $DB_ID "default-stego-files" \
-        scan io/test/default-stego/ --recursive $LOGGING
+    #./container-metrics $MONGODB_CONNECTION $DB_ID "default-stego-files" \
+    #    scan io/test/cover/pdf/boyle-18.pdf io/Vitocal250-A_6216437VMA00001_1.pdf --recursive $LOGGING
+    #./container-metrics $MONGODB_CONNECTION $DB_ID "default-stego-files" \
+    #    scan io/test/default-stego/ --recursive $LOGGING
 
     # json pipeline
-    ./container-metrics $MONGODB_CONNECTION $DB_ID "default-stego-files" \
+    ./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover-files" \
         json "*" $LOGGING -outid=0
+    exit
+
     ./container-metrics $MONGODB_CONNECTION $DB_ID "default-stego-files" \
         json "data[].content.mpeg_frames[].raw" $LOGGING -outid=1 -rrd
-    exit
+
     # arff pipeline
     # TODO
 

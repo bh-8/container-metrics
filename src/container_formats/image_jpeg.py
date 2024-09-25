@@ -433,7 +433,10 @@ class ExifData():
             case "ascii_string":
                 data = str(data.decode("ascii", errors="ignore"))[:-1]
             case "unsigned_byte" | "unsigned_short" | "unsigned_long":
-                data = int.from_bytes(data, "little" if self.__intel_format else "big")
+                if len(data) > 8: # support up to 8 byte integer for mongodb
+                    data = str(int.from_bytes(data, "little" if self.__intel_format else "big"))
+                else:
+                    data = int.from_bytes(data, "little" if self.__intel_format else "big")
             #case "unsigned_rational":
             #    data = int.from_bytes(data[0:2], "little" if self.__intel_format else "big") / int.from_bytes(data[2:4], "little" if self.__intel_format else "big")
             case _:
