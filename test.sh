@@ -27,8 +27,9 @@ final_test() {
     # scan cover files
     #./container-metrics $MONGODB_CONNECTION $DB_ID "jfif-cover-files" scan io/test/cover/jfif/ --recursive $LOGGING
     #./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-cover-files" scan io/test/cover/mp3/ --recursive $LOGGING
-    ./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover-files" scan io/test/cover/pdf --recursive $LOGGING
-
+    ./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover-files" scan io/test/cover/pdf/pdfcorpus/ --recursive $LOGGING
+    #./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover-files" scan io/test/cover/pdf --recursive $LOGGING
+# 
     # scan stego files
     #./container-metrics $MONGODB_CONNECTION $DB_ID "default-stego-files" \
     #    scan io/test/cover/pdf/boyle-18.pdf io/Vitocal250-A_6216437VMA00001_1.pdf --recursive $LOGGING
