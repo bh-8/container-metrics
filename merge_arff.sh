@@ -9,8 +9,7 @@ for file in io/_arff/*.arff; do
         cat $file > $out_file
         echo "" >> $out_file
     else
-        arff_line=$(awk "/@DATA/{flag=1; next} flag" "$file")
-        echo $arff_line >> $out_file
+        awk "/@DATA/{flag=1; next} flag" "$file" >> $out_file
     fi
 done
 
