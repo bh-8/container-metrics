@@ -3,7 +3,7 @@
 final_test() {
     # cleanup & fresh build
     #docker compose down
-    sudo rm -drf io/_* io/test/_* # io/db 
+    sudo rm -drf io/_* # io/test/_* # io/db 
     docker compose build
     #docker compose up --detach
 
@@ -29,23 +29,41 @@ final_test() {
     #./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-cover-files" scan io/test/cover/mp3/ --recursive $LOGGING
     #./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover-files" scan io/test/cover/pdf/ --recursive $LOGGING
     #./container-metrics $MONGODB_CONNECTION $DB_ID "default-stego-files" scan io/test/default-stego/ --recursive $LOGGING
+    #./container-metrics $MONGODB_CONNECTION $DB_ID "boobytrappdf-stego-files" scan io/test/_boobytrappdf/ --recursive $LOGGING
+    #./container-metrics $MONGODB_CONNECTION $DB_ID "pdfhide-stego-files" scan io/test/_pdfhide/ --recursive $LOGGING
+    #./container-metrics $MONGODB_CONNECTION $DB_ID "pdfstego-stego-files" scan io/test/_pdfstego/ --recursive $LOGGING
+
+    #./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover-files" \
+    #    yara io/signatures.yara -outid=cover $LOGGING
+    #./container-metrics $MONGODB_CONNECTION $DB_ID "pdfstego-stego-files" \
+    #    yara io/signatures.yara -outid=stego $LOGGING
+
 
     # json pipeline
     #./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover-files" \
-    #    json "data[?mime_type=='application/pdf'].content.whitespaces[].raw" $LOGGING -outid=openpuff -rrd
-    #./container-metrics $MONGODB_CONNECTION $DB_ID "default-stego-files" \
-    #    json "data[?mime_type=='application/pdf'].content.whitespaces[].raw" $LOGGING -outid=openpuff -rrd
-
-    # arff pipeline
-    jmesq_arff_cover="data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[header.private,header.copyright,header.original] | [map(&to_string([0]), @), map(&to_string([1]), @), map(&to_string([2]), @)] | [[length([@[0] | [?@ == 'true']] | []), length([@[0] | [?@ == 'false']] | []), length([@[1] | [?@ == 'true']] | []), length([@[1] | [?@ == 'false']] | []), length([@[2] | [?@ == 'true']] | []), length([@[2] | [?@ == 'false']] | []), 'false']]"
-    jmesq_arff_stego="data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[header.private,header.copyright,header.original] | [map(&to_string([0]), @), map(&to_string([1]), @), map(&to_string([2]), @)] | [[length([@[0] | [?@ == 'true']] | []), length([@[0] | [?@ == 'false']] | []), length([@[1] | [?@ == 'true']] | []), length([@[1] | [?@ == 'false']] | []), length([@[2] | [?@ == 'true']] | []), length([@[2] | [?@ == 'false']] | []), 'true']]"
-    ./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-cover-files" \
-        arff "private set,private unset,copyright set,copyright unset,original set,original unset,is stego" "${jmesq_arff_cover}" $LOGGING -outid=stegonaut-cover
-    ./container-metrics $MONGODB_CONNECTION $DB_ID "default-stego-files" \
-        arff "private set,private unset,copyright set,copyright unset,original set,original unset,is stego" "${jmesq_arff_stego}" $LOGGING -outid=stegonaut-stego
-    ./arff_merge.sh
+    #    json "*" $LOGGING -rrd
+    ./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover-files" \
+        yara io/signatures.yara -outid=default $LOGGING
 
     exit
+    # arff pipeline: stegonaut training example
+    jmesq_arff_cover="data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[header.private,header.copyright,header.original] \
+    | [map(&to_string([0]), @), map(&to_string([1]), @), map(&to_string([2]), @)] \
+    | [[length([@[0] | [?@ == 'true']] | []), length([@[0] | [?@ == 'false']] | []), length([@[1] | [?@ == 'true']] | []), \
+      length([@[1] | [?@ == 'false']] | []), length([@[2] | [?@ == 'true']] | []), length([@[2] | [?@ == 'false']] | []), \
+      'false']]"
+    ./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-cover-files" \
+        arff "private set,private unset,copyright set,copyright unset,original set,original unset,is stego" "${jmesq_arff_cover}" --categorical=7 $LOGGING -outid=stegonaut-cover
+    jmesq_arff_stego="data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[header.private,header.copyright,header.original] \
+    | [map(&to_string([0]), @), map(&to_string([1]), @), map(&to_string([2]), @)] \
+    | [[length([@[0] | [?@ == 'true']] | []), length([@[0] | [?@ == 'false']] | []), length([@[1] | [?@ == 'true']] | []), \
+      length([@[1] | [?@ == 'false']] | []), length([@[2] | [?@ == 'true']] | []), length([@[2] | [?@ == 'false']] | []), \
+      'true']]"
+    ./container-metrics $MONGODB_CONNECTION $DB_ID "default-stego-files" \
+        arff "private set,private unset,copyright set,copyright unset,original set,original unset,is stego" "${jmesq_arff_stego}" --categorical=7 $LOGGING -outid=stegonaut-stego
+    ./merge_arff.sh && sudo rm -f io/_arff/*.arff io/_stegonaut.arff && mv io/_combined.arff io/_stegonaut.arff
+        # -> fix io/_stegonaut.arff before further processing in weka!
+
 
     # csv pipeline
     ./container-metrics $MONGODB_CONNECTION $DB_ID "default-stego-files" \
