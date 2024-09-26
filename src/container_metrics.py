@@ -589,8 +589,9 @@ class Main:
             epilog=None
         )
 
-        parser.add_argument("rule_file",
+        parser.add_argument("rule_files",
             type=str,
+            nargs="+",
             metavar="<rule_file>",
             help="specify yara rule file to evaluate"
         )
@@ -598,7 +599,7 @@ class Main:
         self.__extend_pipeline_parser(parser)
         args = parser.parse_args(sys.argv[5:])
 
-        self.parameterization["rule_file"] = args.rule_file
+        self.parameterization["rule_files"] = args.rule_files
 
         self.__extend_pipeline_parameterization(args)
         self.__general_pp_pipeline()

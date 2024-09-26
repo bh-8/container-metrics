@@ -29,7 +29,7 @@ class YaraPipeline(AbstractPipeline):
             "mdb_set": self.pipeline_parameters["set"],
             "mdb_oid": str(self.document["_id"])
         }
-        rule_files = [Path(self.pipeline_parameters["rule_file"])]
+        rule_files = [Path(p) for p in self.pipeline_parameters["rule_files"]]
         yara_rules = [yara.compile(str(rule_file), externals=yara_externals) for rule_file in rule_files]
         yara_matches = [yara_rule.match(data=self.raw, timeout=60) for yara_rule in yara_rules]
 
