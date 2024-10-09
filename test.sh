@@ -2,10 +2,10 @@
 
 final_test() {
     # cleanup & fresh build
-    docker compose down
-    sudo rm -drf io/_* io/test/_* io/db 
-    docker compose build
-    docker compose up --detach
+    #docker compose down
+    #sudo rm -drf io/_* io/test/_* io/db 
+    #docker compose build
+    #docker compose up --detach
 
     STEGO_MSG_A="io/test/messageA.txt" # 36 chars
     STEGO_KEY_A="password" # 8 chars
@@ -34,10 +34,24 @@ final_test() {
     DB_ID="test"
     LOGGING="--log warning"
 
-    # scan cover/stego files
-    #./container-metrics $MONGODB_CONNECTION $DB_ID "jfif-cover-files" scan io/test/cover/jfif/ --recursive $LOGGING
-    #./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-cover-files" scan io/test/cover/mp3/ --recursive $LOGGING
-    #./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover-files" scan io/test/cover/pdf/ --recursive $LOGGING
+    # process cover files (333 jfif files)
+    ./container-metrics $MONGODB_CONNECTION $DB_ID "jfif-cover" scan io/test/cover/jfif --recursive $LOGGING
+    ./container-metrics $MONGODB_CONNECTION $DB_ID "jfif-cover" yara io/jfif_signatures.yara -outid=jfif-cover $LOGGING
+
+    # load stego files from tar archives
+    for i in "f5-stego.tar.gz" "jsteg-stego.tar.gz"; do
+        tar -xzf "io/test/$i" -C "io/test/."
+        rm -f io/test/_*/*.json
+    done
+
+    for i in "f5-36-8-20" "f5-396-24-30" "jsteg-36-20" "jsteg-396-30"; do
+        echo  # "hstego-36-8-30" "hstego-396-24-30"
+        ./container-metrics $MONGODB_CONNECTION $DB_ID "jfif-stego-$i" scan io/test/_$i --recursive $LOGGING
+        ./container-metrics $MONGODB_CONNECTION $DB_ID "jfif-stego-$i" yara io/jfif_signatures.yara -outid=jfif-stego-$i $LOGGING
+    done
+
+    #./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-cover-files" scan io/test/cover/mp3 --recursive $LOGGING
+    #./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover-files" scan io/test/cover/pdf --recursive $LOGGING
     #./container-metrics $MONGODB_CONNECTION $DB_ID "default-stego-files" scan io/test/default-stego/ --recursive $LOGGING
     #./container-metrics $MONGODB_CONNECTION $DB_ID "boobytrappdf-stego-files" scan io/test/_boobytrappdf/ --recursive $LOGGING
     #./container-metrics $MONGODB_CONNECTION $DB_ID "pdfhide-stego-files" scan io/test/_pdfhide/ --recursive $LOGGING
