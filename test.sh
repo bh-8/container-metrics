@@ -2,19 +2,29 @@
 
 final_test() {
     # cleanup & fresh build
-    #docker compose down
-    sudo rm -drf io/_* # io/test/_* # io/db 
+    docker compose down
+    sudo rm -drf io/_* io/test/_* io/db 
     docker compose build
-    #docker compose up --detach
+    docker compose up --detach
 
-    # generate stego files
-    #STEGO_MSG="io/test/messageA.txt" # 36 chars
-    #STEGO_KEY="password" # 8 chars
+    STEGO_MSG_A="io/test/messageA.txt" # 36 chars
+    STEGO_KEY_A="password" # 8 chars
+    STEGO_TIMEOUT_A=20 # 20 seconds
+    STEGO_MSG_B="io/test/messageB.txt" # 396 chars
+    STEGO_KEY_B="this_password_is_ominous" # 24 chars
+    STEGO_TIMEOUT_B=30 # 30 seconds
+
+    # jfif stego generators
+    #./stego-gen f5 io/test/cover/jfif io/test/_f5-36-8-20 $STEGO_MSG_A $STEGO_KEY_A -deo -t $STEGO_TIMEOUT_A
+    #./stego-gen f5 io/test/cover/jfif io/test/_f5-396-24-30 $STEGO_MSG_B $STEGO_KEY_B -deo -t $STEGO_TIMEOUT_B
+    ./stego-gen hstego io/test/cover/jfif io/test/_hstego-36-8-30 $STEGO_MSG_A $STEGO_KEY_A -deo -t $STEGO_TIMEOUT_B
+    ./stego-gen hstego io/test/cover/jfif io/test/_hstego-396-24-30 $STEGO_MSG_B $STEGO_KEY_B -deo -t $STEGO_TIMEOUT_B
+    #./stego-gen jsteg io/test/cover/jfif io/test/_jsteg-36-20 $STEGO_MSG_A -deo -t $STEGO_TIMEOUT_A
+    #./stego-gen jsteg io/test/cover/jfif io/test/_jsteg-396-30 $STEGO_MSG_B -deo -t $STEGO_TIMEOUT_B
+
+    exit
 
     #./stego-gen boobytrappdf io/test/cover/pdf io/test/_boobytrappdf $STEGO_MSG -deo -t 16
-    #./stego-gen f5 io/test/cover/jfif io/test/_f5 $STEGO_MSG $STEGO_KEY -deo -t 16
-    #./stego-gen hstego io/test/cover/jfif io/test/_hstego $STEGO_MSG $STEGO_KEY -deo -t 16
-    #./stego-gen jsteg io/test/cover/jfif io/test/_jsteg $STEGO_MSG -deo -t 16
     #./stego-gen mp3stego io/test/cover/wav io/test/_mp3stego $STEGO_MSG $STEGO_KEY -deo -t 16
     #./stego-gen pdfhide io/test/cover/pdf io/test/_pdfhide $STEGO_MSG $STEGO_KEY -deo -t 16
     #./stego-gen pdfstego io/test/cover/pdf io/test/_pdfstego $STEGO_MSG $STEGO_KEY -deo -t 16

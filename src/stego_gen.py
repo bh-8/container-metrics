@@ -169,8 +169,12 @@ with alive_bar(len(input_files), title=f"stego-gen/{args.stego_tool}") as pbar:
             exec_str = exec_str.replace("<KEY>", args.key)
         try:
             subprocess.check_output(exec_str, stderr=subprocess.STDOUT, timeout=args.timeout, shell=True)
-            log_item["stego"] = output_file
-        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
+            if Path(output_file).is_file() and os.stat(output_file).st_size > 0:
+                log_item["stego"] = output_file
+            else:
+                raise FileNotFoundError("Output of stego tool was null.")
+
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError) as e:
             print(f"{stego_tool.stego_tool}-Error: {e}")
             log_item["error"] = str(e)
             if args.discard_error_outfile:
