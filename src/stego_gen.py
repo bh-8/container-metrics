@@ -7,6 +7,7 @@ from alive_progress import alive_bar
 import argparse
 from pathlib import Path
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -53,6 +54,7 @@ STEGO_TOOLS=[
     StegoTool("mp3stego", "/usr/bin/wine", ["/opt/Encode.exe", "-E", "<MESSAGE>", "-P", "<KEY>", "<INPUT>", "<OUTPUT>"], outfile_extension=".mp3"),
     StegoTool("pdfhide", "/opt/pdf_hide/pdf_hide", ["-o", "<OUTPUT>", "-k", "<KEY>", "embed", "<MESSAGE>", "<INPUT>"]),
     StegoTool("pdfstego", "/opt/PDFStego/pdfstego", ["-e", "-c", "<INPUT>", "-m", "<MESSAGE>", "-p", "<KEY>", "-s", "<OUTPUT>"]),
+    StegoTool("stegosuite", "/usr/bin/xvfb-run", ["-a", "/usr/bin/stegosuite", "embed", "-o", "<OUTPUT>", "-f", "<MESSAGE>", "-k", "<KEY>", "<INPUT>"])
 ]
 
 parser = argparse.ArgumentParser(
@@ -172,7 +174,12 @@ with alive_bar(len(input_files), title=f"stego-gen/{args.stego_tool}") as pbar:
             if Path(output_file).is_file() and os.stat(output_file).st_size > 0:
                 log_item["stego"] = output_file
             else:
-                raise FileNotFoundError("Output of stego tool was null.")
+                stegosuite_path: Path = Path(input_files[i]).parent / f"{Path(input_files[i]).stem}_embed.{Path(input_files[i]).name.split('.')[-1]}"
+                if stegosuite_path.is_file() and os.stat(str(stegosuite_path)).st_size > 0:
+                    shutil.move(stegosuite_path, output_file)
+                    log_item["stego"] = output_file
+                else:
+                    raise FileNotFoundError("Output of stego tool was null.")
 
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError) as e:
             print(f"{stego_tool.stego_tool}-Error: {e}")

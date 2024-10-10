@@ -18,6 +18,7 @@ FROM debian AS container-metrics
         python3-pip \
         python3-tk \
         python3-venv \
+        stegosuite \
         wget \
         xvfb
 
@@ -54,6 +55,12 @@ FROM debian AS container-metrics
     # f5
     RUN git clone https://github.com/matthewgao/F5-steganography /opt/F5-steganography
 
+    # hstego
+    COPY ./patches/hstego.patch /opt/hstego.patch
+    RUN git clone https://github.com/daniellerch/hstego /opt/hstego \
+        && cd /opt/hstego && git apply /opt/hstego.patch \
+        && . /home/stego-gen/venv/bin/activate && pip3 install . && deactivate && cd /home/stego-gen
+
     # jsteg
     RUN curl -Lo /opt/jsteg-linux-amd64 \
         https://github.com/lukechampine/jsteg/releases/download/v0.3.0/jsteg-linux-amd64 \
@@ -74,14 +81,6 @@ FROM debian AS container-metrics
     COPY ./patches/pdfstego.patch /opt/pdfstego.patch
     RUN git clone https://github.com/aagallag/PDFStego /opt/PDFStego \
         && cd /opt/PDFStego && git apply /opt/pdfstego.patch && make && cd /home/stego-gen
-
-    ### WIP
-
-    # hstego
-    COPY ./patches/hstego.patch /opt/hstego.patch
-    RUN git clone https://github.com/daniellerch/hstego /opt/hstego \
-        && cd /opt/hstego && git apply /opt/hstego.patch \
-        && . /home/stego-gen/venv/bin/activate && pip3 install . && deactivate && cd /home/stego-gen
 
     # create entrypoint
     RUN echo "#!/bin/bash">/home/entrypoint.sh

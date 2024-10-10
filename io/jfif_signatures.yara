@@ -24,3 +24,11 @@ rule jsteg : main {
     condition:
         is_jpeg and #expected_structure == 0
 }
+
+// stegosuite-manipulated images feature of an obvious comment of the used encoder
+rule stegosuite : main {
+    strings:
+        $encoder_notice = { FF FE 00 41 4A 50 45 47 20 45 6E 63 6F 64 65 72 20 43 6F 70 79 72 69 67 68 74 20 31 39 39 38 2C 20 4A 61 6D 65 73 20 52 2E 20 57 65 65 6B 73 20 61 6E 64 20 42 69 6F 45 6C 65 63 74 72 6F 4D 65 63 68 2E }
+    condition:
+        is_jpeg and #encoder_notice > 0
+}

@@ -2,10 +2,14 @@
 
 final_test() {
     # cleanup & fresh build
-    #docker compose down
-    #sudo rm -drf io/_* io/test/_* io/db 
-    #docker compose build
-    #docker compose up --detach
+    docker compose down
+    sudo rm -drf io/_* io/test/_* io/db 
+    docker compose build
+    docker compose up --detach
+
+    MONGODB_CONNECTION="mongodb://admin:admin@mongo-db:27017"
+    DB_ID="test"
+    LOGGING="--log warning"
 
     STEGO_MSG_A="io/test/messageA.txt" # 36 chars
     STEGO_KEY_A="password" # 8 chars
@@ -14,41 +18,54 @@ final_test() {
     STEGO_KEY_B="this_password_is_ominous" # 24 chars
     STEGO_TIMEOUT_B=30 # 30 seconds
 
-    # jfif stego generators
+    ################################################################################
+    # JFIF TESTS // JSON PIPELINE TESTS // YARA PIPELINE TESTS
+
+    # prepare jfif cover files (333x)
+    ./container-metrics $MONGODB_CONNECTION $DB_ID "jfif-cover" scan io/test/cover/jfif --recursive $LOGGING
+    ./container-metrics $MONGODB_CONNECTION $DB_ID "jfif-cover" json "*" -rrd -outid=jfif-cover $LOGGING
+    ./container-metrics $MONGODB_CONNECTION $DB_ID "jfif-cover" yara io/jfif_signatures.yara -outid=jfif-cover $LOGGING
+
+    # automatic stego generators: f5, hstego, jsteg
     #./stego-gen f5 io/test/cover/jfif io/test/_f5-36-8-20 $STEGO_MSG_A $STEGO_KEY_A -deo -t $STEGO_TIMEOUT_A
     #./stego-gen f5 io/test/cover/jfif io/test/_f5-396-24-30 $STEGO_MSG_B $STEGO_KEY_B -deo -t $STEGO_TIMEOUT_B
-    ./stego-gen hstego io/test/cover/jfif io/test/_hstego-36-8-30 $STEGO_MSG_A $STEGO_KEY_A -deo -t $STEGO_TIMEOUT_B
-    ./stego-gen hstego io/test/cover/jfif io/test/_hstego-396-24-30 $STEGO_MSG_B $STEGO_KEY_B -deo -t $STEGO_TIMEOUT_B
+    #./stego-gen hstego io/test/cover/jfif io/test/_hstego-36-8-30 $STEGO_MSG_A $STEGO_KEY_A -deo -t $STEGO_TIMEOUT_B
+    #./stego-gen hstego io/test/cover/jfif io/test/_hstego-396-24-30 $STEGO_MSG_B $STEGO_KEY_B -deo -t $STEGO_TIMEOUT_B
     #./stego-gen jsteg io/test/cover/jfif io/test/_jsteg-36-20 $STEGO_MSG_A -deo -t $STEGO_TIMEOUT_A
     #./stego-gen jsteg io/test/cover/jfif io/test/_jsteg-396-30 $STEGO_MSG_B -deo -t $STEGO_TIMEOUT_B
+    #./stego-gen stegosuite io/test/cover/jfif io/test/_stegosuite-36-8-20 $STEGO_MSG_A $STEGO_KEY_A -deo -t $STEGO_TIMEOUT_A
+    #./stego-gen stegosuite io/test/cover/jfif io/test/_stegosuite-396-24-30 $STEGO_MSG_B $STEGO_KEY_B -deo -t $STEGO_TIMEOUT_B
+
+    # alternatively, load pre-computed stego files from tar archives to skip long waiting times
+    for i in "f5" "hstego" "jsteg" "stegosuite"; do
+        tar -xzf "io/test/$i-stego.tar.gz" -C "io/test/."
+        rm -f io/test/_*/*.json
+    done
+
+    # yara rule evaluation and json export (loop stego file sets)
+    for i in "f5-36-8-20" "f5-396-24-30" "hstego-36-8-30" "hstego-396-24-30" "jsteg-36-20" "jsteg-396-30" "stegosuite-36-8-20" "stegosuite-396-24-30"; do
+        ./container-metrics $MONGODB_CONNECTION $DB_ID "jfif-stego-$i" scan io/test/_$i --recursive $LOGGING
+        ./container-metrics $MONGODB_CONNECTION $DB_ID "jfif-stego-$i" json "data[0].content.jpeg_segments[].[offset,length,raw]" -rrd -outid=jfif-stego-$i $LOGGING
+        ./container-metrics $MONGODB_CONNECTION $DB_ID "jfif-stego-$i" yara io/jfif_signatures.yara -outid=jfif-stego-$i $LOGGING
+    done
+
+    ################################################################################
+    # MP3 TESTS // SVG PIPELINE TESTS // ARFF PIPELINE TESTS // YARA PIPELINE TESTS
 
     exit
 
+
+    ################################################################################
+    # PDF TESTS // XML PIPELINE TESTS // CSV PIPELINE TESTS // YARA PIPELINE TESTS
+
+    # todo...
     #./stego-gen boobytrappdf io/test/cover/pdf io/test/_boobytrappdf $STEGO_MSG -deo -t 16
     #./stego-gen mp3stego io/test/cover/wav io/test/_mp3stego $STEGO_MSG $STEGO_KEY -deo -t 16
     #./stego-gen pdfhide io/test/cover/pdf io/test/_pdfhide $STEGO_MSG $STEGO_KEY -deo -t 16
     #./stego-gen pdfstego io/test/cover/pdf io/test/_pdfstego $STEGO_MSG $STEGO_KEY -deo -t 16
 
-    # definitions
-    MONGODB_CONNECTION="mongodb://admin:admin@mongo-db:27017"
-    DB_ID="test"
-    LOGGING="--log warning"
 
-    # process cover files (333 jfif files)
-    ./container-metrics $MONGODB_CONNECTION $DB_ID "jfif-cover" scan io/test/cover/jfif --recursive $LOGGING
-    ./container-metrics $MONGODB_CONNECTION $DB_ID "jfif-cover" yara io/jfif_signatures.yara -outid=jfif-cover $LOGGING
-
-    # load stego files from tar archives
-    for i in "f5-stego.tar.gz" "jsteg-stego.tar.gz"; do
-        tar -xzf "io/test/$i" -C "io/test/."
-        rm -f io/test/_*/*.json
-    done
-
-    for i in "f5-36-8-20" "f5-396-24-30" "jsteg-36-20" "jsteg-396-30"; do
-        echo  # "hstego-36-8-30" "hstego-396-24-30"
-        ./container-metrics $MONGODB_CONNECTION $DB_ID "jfif-stego-$i" scan io/test/_$i --recursive $LOGGING
-        ./container-metrics $MONGODB_CONNECTION $DB_ID "jfif-stego-$i" yara io/jfif_signatures.yara -outid=jfif-stego-$i $LOGGING
-    done
+    
 
     #./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-cover-files" scan io/test/cover/mp3 --recursive $LOGGING
     #./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover-files" scan io/test/cover/pdf --recursive $LOGGING
@@ -66,10 +83,9 @@ final_test() {
     # json pipeline
     #./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover-files" \
     #    json "*" $LOGGING -rrd
-    ./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover-files" \
-        yara io/signatures.yara -outid=default $LOGGING
+    #./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover-files" \
+    #    yara io/signatures.yara -outid=default $LOGGING
 
-    exit
     # arff pipeline: stegonaut training example
     jmesq_arff_cover="data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[header.private,header.copyright,header.original] \
     | [map(&to_string([0]), @), map(&to_string([1]), @), map(&to_string([2]), @)] \
