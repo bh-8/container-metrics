@@ -5,6 +5,7 @@ stego_gen.py
 
 from alive_progress import alive_bar
 import argparse
+import mp3stego
 from pathlib import Path
 import os
 import shutil
@@ -13,7 +14,17 @@ import sys
 import time
 import json
 
-
+class ToolMp3StegoLib():
+    def __init__(self) -> None:
+        self.stego = mp3stego.Steganography(quiet=True)
+    def embed(self, cover: Path, stego: Path, message: Path) -> bool:
+        try:
+            with open(message, "r") as handle:
+                self.stego.hide_message(str(cover), str(stego), handle.read())
+                handle.close()
+                return True
+        except:
+            return False
 
 class StegoTool():
     def __init__(self, stego_tool: str, executable: str, parameters: list[str], context_path: Path = Path("/home/stego-gen"), outfile_extension: str | None = None) -> None:
@@ -23,7 +34,7 @@ class StegoTool():
         self.__context_path: Path = context_path
         self.__outfile_extension: str | None = outfile_extension
 
-        if not Path(self.__executable).exists():
+        if (self.__executable is not None) and (not Path(self.__executable).exists()):
             raise FileNotFoundError("executable path does not exist")
         if not self.__context_path.exists():
             raise FileNotFoundError("context path does not exist")
@@ -44,6 +55,9 @@ class StegoTool():
     def key_required(self) -> bool:
         return "<KEY>" in self.__parameters
     @property
+    def internal_tool(self) -> bool:
+        return self.executable is None
+    @property
     def outfile_extension(self) -> str | None:
         return self.__outfile_extension
 STEGO_TOOLS=[
@@ -52,9 +66,11 @@ STEGO_TOOLS=[
     StegoTool("hstego", "/home/stego-gen/venv/bin/python3", ["/opt/hstego/hstego.py", "embed", "<MESSAGE>", "<INPUT>", "<OUTPUT>", "<KEY>"], context_path=Path("/opt/hstego")),
     StegoTool("jsteg", "/opt/jsteg-linux-amd64", ["hide", "<INPUT>", "<MESSAGE>", "<OUTPUT>"]),
     StegoTool("mp3stego", "/usr/bin/wine", ["/opt/Encode.exe", "-E", "<MESSAGE>", "-P", "<KEY>", "<INPUT>", "<OUTPUT>"], outfile_extension=".mp3"),
+    #StegoTool("mp3stegolib", None, ["<INPUT>", "<OUTPUT>", "<MESSAGE>"]),
     StegoTool("pdfhide", "/opt/pdf_hide/pdf_hide", ["-o", "<OUTPUT>", "-k", "<KEY>", "embed", "<MESSAGE>", "<INPUT>"]),
     StegoTool("pdfstego", "/opt/PDFStego/pdfstego", ["-e", "-c", "<INPUT>", "-m", "<MESSAGE>", "-p", "<KEY>", "-s", "<OUTPUT>"]),
-    StegoTool("stegosuite", "/usr/bin/xvfb-run", ["-a", "/usr/bin/stegosuite", "embed", "-o", "<OUTPUT>", "-f", "<MESSAGE>", "-k", "<KEY>", "<INPUT>"])
+    StegoTool("stegosuite", "/usr/bin/xvfb-run", ["-a", "/usr/bin/stegosuite", "embed", "-o", "<OUTPUT>", "-f", "<MESSAGE>", "-k", "<KEY>", "<INPUT>"]),
+    StegoTool("tamp3r", "/opt/tamp3r/tamp3r", ["-s", "<MESSAGE_STR>", "-o", "<OUTPUT>", "<INPUT>"])
 ]
 
 parser = argparse.ArgumentParser(
@@ -136,6 +152,10 @@ if not Path(args.output).is_dir():
 message_file: Path = Path(args.message).resolve()
 if not message_file.is_file():
     raise FileNotFoundError(f"could not find message file at '{message_file}'")
+message_str: str = None
+with open(message_file, "r") as handle:
+    message_str = handle.read()
+    handle.close()
 
 stego_tool: StegoTool = [i for i in STEGO_TOOLS if i.stego_tool == args.stego_tool][0]
 
@@ -162,37 +182,52 @@ with alive_bar(len(input_files), title=f"stego-gen/{args.stego_tool}") as pbar:
             "error": None
         }
 
-        exec_str: str = stego_tool.exec_str
         output_file: str = str(output_files[i]) + ("" if stego_tool.outfile_extension is None else stego_tool.outfile_extension)
-        exec_str = exec_str.replace("<INPUT>", str(input_files[i]))
-        exec_str = exec_str.replace("<MESSAGE>", str(message_file))
-        exec_str = exec_str.replace("<OUTPUT>", output_file)
-        if args.key is not None:
-            exec_str = exec_str.replace("<KEY>", args.key)
-        try:
-            subprocess.check_output(exec_str, stderr=subprocess.STDOUT, timeout=args.timeout, shell=True)
-            if Path(output_file).is_file() and os.stat(output_file).st_size > 0:
+
+        if stego_tool.internal_tool:
+            # assuming the only internal tool is ToolMp3StegoLib
+            mp3stegolib: ToolMp3StegoLib = ToolMp3StegoLib()
+            if mp3stegolib.embed(input_files[i], Path(output_file), message_file) and Path(output_file).is_file() and os.stat(output_file).st_size > 0:
                 log_item["stego"] = output_file
             else:
-                stegosuite_path: Path = Path(input_files[i]).parent / f"{Path(input_files[i]).stem}_embed.{Path(input_files[i]).name.split('.')[-1]}"
-                if stegosuite_path.is_file() and os.stat(str(stegosuite_path)).st_size > 0:
-                    shutil.move(stegosuite_path, output_file)
+                log_item["error"] = "Output of stego tool was null."
+                if args.discard_error_outfile:
+                    try:
+                        os.remove(output_file)
+                    except FileNotFoundError:
+                        pass
+        else:
+            exec_str: str = stego_tool.exec_str
+            exec_str = exec_str.replace("<INPUT>", str(input_files[i]))
+            exec_str = exec_str.replace("<MESSAGE>", str(message_file))
+            exec_str = exec_str.replace("<MESSAGE_STR>", message_str)
+            exec_str = exec_str.replace("<OUTPUT>", output_file)
+            if args.key is not None:
+                exec_str = exec_str.replace("<KEY>", args.key)
+            try:
+                subprocess.check_output(exec_str, stderr=subprocess.STDOUT, timeout=args.timeout, shell=True)
+                if Path(output_file).is_file() and os.stat(output_file).st_size > 0:
                     log_item["stego"] = output_file
                 else:
-                    raise FileNotFoundError("Output of stego tool was null.")
+                    stegosuite_path: Path = Path(input_files[i]).parent / f"{Path(input_files[i]).stem}_embed.{Path(input_files[i]).name.split('.')[-1]}"
+                    if stegosuite_path.is_file() and os.stat(str(stegosuite_path)).st_size > 0:
+                        shutil.move(stegosuite_path, output_file)
+                        log_item["stego"] = output_file
+                    else:
+                        raise FileNotFoundError("Output of stego tool was null.")
 
-        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError) as e:
-            print(f"{stego_tool.stego_tool}-Error: {e}")
-            log_item["error"] = str(e)
-            if args.discard_error_outfile:
+            except (subprocess.CalledProcessError, subprocess.TimeoutExpired, FileNotFoundError) as e:
+                print(f"{stego_tool.stego_tool}-Error: {e}")
+                log_item["error"] = str(e)
+                if args.discard_error_outfile:
+                    try:
+                        os.remove(output_file)
+                    except FileNotFoundError:
+                        pass
                 try:
-                    os.remove(output_file)
+                    os.remove(str(input_files[i]) + ".qdf")
                 except FileNotFoundError:
                     pass
-            try:
-                os.remove(str(input_files[i]) + ".qdf")
-            except FileNotFoundError:
-                pass
 
         log_data["stego_gen"].append(log_item)
         with open(log_file, "w") as handle:

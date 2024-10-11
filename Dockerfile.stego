@@ -37,14 +37,17 @@ FROM debian AS container-metrics
     RUN python3 -m venv /home/stego-gen/venv
     RUN . /home/stego-gen/venv/bin/activate && pip3 install \
         alive-progress \
+        bitarray \
         fpdf \
         imageio \
+        mp3stego-lib \
         numba \
         numpy \
         Pillow \
         pycryptodome \
         PyPDF4 \
         scipy \
+        tqdm \
         && deactivate
 
     # boobytrappdf
@@ -81,6 +84,9 @@ FROM debian AS container-metrics
     COPY ./patches/pdfstego.patch /opt/pdfstego.patch
     RUN git clone https://github.com/aagallag/PDFStego /opt/PDFStego \
         && cd /opt/PDFStego && git apply /opt/pdfstego.patch && make && cd /home/stego-gen
+
+    RUN git clone https://github.com/philronan/tamp3r /opt/tamp3r \
+        && cd /opt/tamp3r && make && cd /home/stego-gen
 
     # create entrypoint
     RUN echo "#!/bin/bash">/home/entrypoint.sh
