@@ -22,10 +22,9 @@ rule mp3stegolib : main {
         is_mp3 and cm.jmesq_i(mdb_url, mdb_pjt, mdb_set, mdb_oid, "data[?mime_type=='audio/mpeg'].content.mpeg_frames[0].side_info.granule_info[].part2_3_length[] | [0]") == 3056
 }
 
-// mp3stego
+// mp3stego leaves traces in part2_3_length values; rule uses 1st derivative of those values to determine whether a manipulation can be assumed
 rule mp3stego_derivative {
     condition:
-        // "avg(map(&((@ - avg($)) * (@ - avg($))), @))" berechnet standardabweichung: ABER: in Regel kann $ nicht genutzt werden; es fehlt Zugriff auf parent-node; $ ist Root-Node, @ ist Current-Node!
         is_mp3 and cm.jmesq_f(mdb_url, mdb_pjt, mdb_set, mdb_oid, "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length] | map(&[], @) | zip(@[0:-1], @[1:]) | map(&zip(@[0], @[1]), @) | map(&map(&(@[1] - @[0]), @), @) | [] | ((sum(map(&abs(@), @[:512:1]))) / (sum(map(&abs(@), @[:-513:-1]))))") > 4.8
 }
 rule mp3stego : main {
