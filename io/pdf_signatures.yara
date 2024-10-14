@@ -40,3 +40,4 @@ rule boobytrappdf : main {
 //    condition:
 //        is_pdf and #lf > 0 and #cr > 0 and console.log("openpuff_pdf (if value is greater than 10!?) = ", math.abs(#lf - #cr))
 //}
+// Regel wäre möglich basierend auf Whitespace-Daten-Export, dann Zählen der Whitespaces und Abgleich...; Daten sind aber nicht verfügbar -> Auslagern in zuk. Arbeiten..?
