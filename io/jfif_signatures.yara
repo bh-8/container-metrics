@@ -9,9 +9,10 @@ rule is_jpeg {
         #jpeg_magic_number > 0 and @jpeg_magic_number[1] == 0
 }
 
+// rule hits when the corresponding jfif-section does not completely cover the file size
 rule eof_appending : main {
     condition:
-        is_jpeg and cm.jmesq_i(mdb_url, mdb_pjt, mdb_set, mdb_oid, "data[?mime_type=='image/jpeg'].content.jpeg_segments[-1].offset | [0]") + 2 < cm.jmesq_i(mdb_url, mdb_pjt, mdb_set, mdb_oid, "meta.file.size")
+        is_jpeg and cm.jmesq_i(mdb_url, mdb_pjt, mdb_set, mdb_oid, "data[?mime_type=='image/jpeg'].length | [0]") < cm.jmesq_i(mdb_url, mdb_pjt, mdb_set, mdb_oid, "meta.file.size")
 }
 
 // f5-manipulated images feature of a very specific quantization table

@@ -10,9 +10,10 @@ rule is_mp3 {
         (#id3v2_header > 0 and @id3v2_header[1] == 0 and #mpeg_sync_word > 0) or (#mpeg_sync_word > 0 and @mpeg_sync_word[1] == 0)
 }
 
+// rule hits when the corresponding mp3-section does not completely cover the file size
 rule eof_appending : main {
     condition:
-        is_mp3 and (cm.jmesq_i(mdb_url, mdb_pjt, mdb_set, mdb_oid, "data[?mime_type=='audio/mpeg'].content.mpeg_frames[-1].[offset,length] | [] | sum(@)") + cm.jmesq_i(mdb_url, mdb_pjt, mdb_set, mdb_oid, "data[?mime_type=='audio/mpeg'].content.id3v1[0].length | [0]")) < cm.jmesq_i(mdb_url, mdb_pjt, mdb_set, mdb_oid, "meta.file.size")
+        is_mp3 and cm.jmesq_i(mdb_url, mdb_pjt, mdb_set, mdb_oid, "data[?mime_type=='audio/mpeg'].length | [0]") < cm.jmesq_i(mdb_url, mdb_pjt, mdb_set, mdb_oid, "meta.file.size")
 }
 
 // rule fires whenever a mp3 file is encoded using a constant bitrate
