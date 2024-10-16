@@ -55,23 +55,24 @@ final_test() {
 
     # prepare mp3 cover files (333x)
     #./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-cover" scan io/test/cover/mp3 --recursive $LOGGING
-    #./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-cover" yara io/mp3_signatures.yara -outid=mp3-cover $LOGGING
-
+    ./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-cover" scan io/test/default-stego/cat-mp3 --recursive $LOGGING
+    ./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-cover" yara io/mp3_signatures.yara -outid=mp3-cover $LOGGING
+    #./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-cover" json "*" -rrd -outid=mp3-cover $LOGGING
     # automatic stego generators: mp3stego, mp3stegolib, tamp3r
     #./stego-gen mp3stego io/test/cover/wav io/test/_mp3stego-36-8-20 $STEGO_MSG_A $STEGO_KEY_A -deo -t $STEGO_TIMEOUT_A
     #./stego-gen mp3stego io/test/cover/wav io/test/_mp3stego-396-24-30 $STEGO_MSG_B $STEGO_KEY_B -deo -t $STEGO_TIMEOUT_B
-    ./stego-gen tamp3r io/test/cover/mp3 io/test/_tamp3r-36-8-20 $STEGO_MSG_A -deo -t $STEGO_TIMEOUT_A
-    ./stego-gen tamp3r io/test/cover/mp3 io/test/_tamp3r-396-24-30 $STEGO_MSG_B -deo -t $STEGO_TIMEOUT_B
+    #./stego-gen tamp3r io/test/cover/mp3 io/test/_tamp3r-36-8-20 $STEGO_MSG_A -deo -t $STEGO_TIMEOUT_A
+    #./stego-gen tamp3r io/test/cover/mp3 io/test/_tamp3r-396-24-30 $STEGO_MSG_B -deo -t $STEGO_TIMEOUT_B
 
     # alternatively, load pre-computed stego files from tar archives to skip long waiting times
-    tar -xzf "io/test/mp3stego-stego.tar.gz" -C "io/test/."
-    sudo rm -f io/test/_*/*.json
+    #tar -xzf "io/test/mp3stego-stego.tar.gz" -C "io/test/."
+    #sudo rm -f io/test/_*/*.json
 
     # yara rule evaluation and json export (loop stego file sets) "mp3stego-36-8-20" "mp3stego-396-24-30" "tamp3r-36-8-20" "tamp3r-396-24-30"
-    for i in "tamp3r-396-24-30"; do
-        ./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-stego-$i" scan io/test/_$i --recursive $LOGGING
-        ./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-stego-$i" yara io/mp3_signatures.yara -outid=mp3-stego-$i $LOGGING
-    done
+    #for i in "tamp3r-396-24-30"; do
+    #    ./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-stego-$i" scan io/test/_$i --recursive $LOGGING
+    #    ./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-stego-$i" yara io/mp3_signatures.yara -outid=mp3-stego-$i $LOGGING
+    #done
     #./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-stego-mp3stegz" scan io/test/default-stego/mp3stegz $LOGGING
     #./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-stego-mp3stegz" yara io/mp3_signatures.yara -outid=mp3-stego-mp3stegz $LOGGING
     #./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-stego-stegonaut" scan io/test/default-stego/stegonaut $LOGGING
