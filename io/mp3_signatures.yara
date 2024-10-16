@@ -12,7 +12,7 @@ rule is_mp3 {
 
 rule eof_appending : main {
     condition:
-        is_mp3 and console.log("test = ", cm.jmesq_i(mdb_url, mdb_pjt, mdb_set, mdb_oid, "data[?mime_type=='audio/mpeg'].content.mpeg_frames[-1].[offset,length] | [] | sum(@)")) and console.log("test2 = ", cm.jmesq_i(mdb_url, mdb_pjt, mdb_set, mdb_oid, "data[?mime_type=='audio/mpeg'].content.id3v1[0].length | [0]"))
+        is_mp3 and (cm.jmesq_i(mdb_url, mdb_pjt, mdb_set, mdb_oid, "data[?mime_type=='audio/mpeg'].content.mpeg_frames[-1].[offset,length] | [] | sum(@)") + cm.jmesq_i(mdb_url, mdb_pjt, mdb_set, mdb_oid, "data[?mime_type=='audio/mpeg'].content.id3v1[0].length | [0]")) < cm.jmesq_i(mdb_url, mdb_pjt, mdb_set, mdb_oid, "meta.file.size")
 }
 
 // rule fires whenever a mp3 file is encoded using a constant bitrate
@@ -34,7 +34,7 @@ rule mp3stego_derivative {
 }
 rule mp3stego : main {
     condition:
-        is_mp3 and is_mp3_cbr and mp3stego_derivative and cm.jmesq_s(mdb_url, mdb_pjt, mdb_set, mdb_oid, "(data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[offset,length] | [-1:][] | sum(@)) > meta.file.size") == "true"
+        is_mp3 and is_mp3_cbr and mp3stego_derivative and cm.jmesq_s(mdb_url, mdb_pjt, mdb_set, mdb_oid, "(data[?mime_type=='audio/mpeg'].content.mpeg_frames[-1].[offset,length] | [] | sum(@)) > meta.file.size") == "true"
 }
 
 // mp3stegz-manipulated files can be recognized by the sequence 'XXXX' right after the side info field of the first manipulated frame
