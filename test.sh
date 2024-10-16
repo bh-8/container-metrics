@@ -56,7 +56,9 @@ final_test() {
 
     # prepare mp3 cover files (333x)
     #./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-cover" scan io/test/cover/mp3 --recursive $LOGGING
-    ./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-cover" scan io/test/default-stego/cat-mp3 --recursive $LOGGING
+    #./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-cover" scan io/test/default-stego/cat-mp3 --recursive $LOGGING
+    tar -xzf "io/test/mp3stego-stego.tar.gz" -C "io/test/."
+    ./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-cover" scan io/test/_mp3stego-36-8-20 --recursive $LOGGING
     ./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-cover" yara io/mp3_signatures.yara -outid=mp3-cover $LOGGING
     #./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-cover" json "*" -rrd -outid=mp3-cover $LOGGING
     # automatic stego generators: mp3stego, mp3stegolib, tamp3r

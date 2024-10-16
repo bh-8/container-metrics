@@ -19,7 +19,7 @@ rule eof_appending : main {
 // rule fires whenever a mp3 file is encoded using a constant bitrate
 rule is_mp3_cbr {
     condition:
-        cm.jmesq_s(mdb_url, mdb_pjt, mdb_set, mdb_oid, "(data[?mime_type=='audio/mpeg'].content.mpeg_frames[].header.bitrate | min(@)) == (data[?mime_type=='audio/mpeg'].content.mpeg_frames[].header.bitrate | max(@))") == "true"
+        cm.jmesq_s(mdb_url, mdb_pjt, mdb_set, mdb_oid, "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].header.bitrate | [min(@),max(@)] | [0] == [1]") == "true"
 }
 
 // mp3steganography-lib
