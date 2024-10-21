@@ -113,6 +113,10 @@ class PdfTokenizer():
             # search for potential end of token
             pos_end: int = self.__read_token(pos)
             if pos_end == -1:
+                # special case: no whitespace or newline following last %%EOF!
+                if pos + 5 <= len(self.__pdf_data):
+                    if self.__pdf_data[pos:pos+5] == b"\x25\x25EOF":
+                        self.__token_list.append(PdfToken(pos, self.__pdf_data[pos:pos+5]))
                 break
 
             # read new token
@@ -122,6 +126,11 @@ class PdfTokenizer():
             if token.startswith(b"%PDF-") and len(token) >= 8:
                 self.__token_list.append(PdfToken(pos, token[:8]))   
                 pos = pos + 8
+                continue
+            # eof
+            if token.startswith(b"\x25\x25EOF") and len(token) >= 5:
+                self.__token_list.append(PdfToken(pos, token[:5]))   
+                pos = pos + 5
                 continue
 
             # stream
@@ -225,7 +234,7 @@ class PdfTokenizer():
                     else:
                         # case hex string
                         _hex_string_end = self.__pdf_data.find(b">", pos) + 1
-                        if _hex_string_end == -1:
+                        if _hex_string_end == 0:
                             log.warning(f"hex string in pdf file has no closing bracket")
                             pos = pos + len(token)
                             continue
@@ -289,7 +298,6 @@ class PdfTokenizer():
                     pos = pos + 1
 
             continue
-
     # searches for the next whitespace occurance
     def __read_token(self, offset: int) -> int:
         match = WHITESPACE_PATTERN.search(self.__pdf_data, offset)

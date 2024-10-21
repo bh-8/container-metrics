@@ -56,10 +56,8 @@ final_test() {
 
     # prepare mp3 cover files (333x)
     #./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-cover" scan io/test/cover/mp3 --recursive $LOGGING
-    #./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-cover" scan io/test/default-stego/cat-mp3 --recursive $LOGGING
-    tar -xzf "io/test/mp3stego-stego.tar.gz" -C "io/test/."
-    ./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-cover" scan io/test/_mp3stego-36-8-20 --recursive $LOGGING
-    ./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-cover" yara io/mp3_signatures.yara -outid=mp3-cover $LOGGING
+    #tar -xzf "io/test/mp3stego-stego.tar.gz" -C "io/test/."
+    #./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-cover" yara io/mp3_signatures.yara -outid=mp3-cover $LOGGING
     #./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-cover" json "*" -rrd -outid=mp3-cover $LOGGING
     # automatic stego generators: mp3stego, mp3stegolib, tamp3r
     #./stego-gen mp3stego io/test/cover/wav io/test/_mp3stego-36-8-20 $STEGO_MSG_A $STEGO_KEY_A -deo -t $STEGO_TIMEOUT_A
@@ -80,37 +78,40 @@ final_test() {
     #./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-stego-mp3stegz" yara io/mp3_signatures.yara -outid=mp3-stego-mp3stegz $LOGGING
     #./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-stego-stegonaut" scan io/test/default-stego/stegonaut $LOGGING
     #./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-stego-stegonaut" yara io/mp3_signatures.yara -outid=mp3-stego-stegonaut $LOGGING
-    exit
 
     ################################################################################
     # PDF TESTS // XML PIPELINE TESTS // CSV PIPELINE TESTS // YARA PIPELINE TESTS
 
-    # todo...
-    #./stego-gen boobytrappdf io/test/cover/pdf io/test/_boobytrappdf $STEGO_MSG -deo -t 16
-    #./stego-gen pdfhide io/test/cover/pdf io/test/_pdfhide $STEGO_MSG $STEGO_KEY -deo -t 16
-    #./stego-gen pdfstego io/test/cover/pdf io/test/_pdfstego $STEGO_MSG $STEGO_KEY -deo -t 16
+    # prepare pdf cover files (333x)
+    ./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover" scan io/test/cover/pdf --recursive $LOGGING
+    #./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover" scan io/test/default-stego/cat-pdf --recursive $LOGGING
+    ./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover" yara io/pdf_signatures.yara -outid=pdf-cover $LOGGING
+    #./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover" json "*" -outid=pdf-cover $LOGGING
 
+    #./stego-gen boobytrappdf io/test/cover/pdf io/test/_boobytrappdf-36-20 $STEGO_MSG_A -deo -t $STEGO_TIMEOUT_A
+    #./stego-gen boobytrappdf io/test/cover/pdf io/test/_boobytrappdf-396-30 $STEGO_MSG_B -deo -t $STEGO_TIMEOUT_B
+    #./stego-gen pdfhide io/test/cover/pdf io/test/_pdfhide-36-8-20 $STEGO_MSG_A $STEGO_KEY_A -deo -t $STEGO_TIMEOUT_A
+    #./stego-gen pdfhide io/test/cover/pdf io/test/_pdfhide-396-24-30 $STEGO_MSG_B $STEGO_KEY_B -deo -t $STEGO_TIMEOUT_B
+    #./stego-gen pdfstego io/test/cover/pdf io/test/_pdfstego-36-8-20 $STEGO_MSG_A $STEGO_KEY_A -deo -t $STEGO_TIMEOUT_A
+    #./stego-gen pdfstego io/test/cover/pdf io/test/_pdfstego-396-24-30 $STEGO_MSG_B $STEGO_KEY_B -deo -t $STEGO_TIMEOUT_B
+
+    # alternatively, load pre-computed stego files from tar archives to skip long waiting times
+    #tar -xzf "io/test/pdfhide-stego.tar.gz" -C "io/test/."
+    #sudo rm -f io/test/_*/*.json
+
+    # yara rule evaluation and json export (loop stego file sets)
+    #for i in "pdfstego-396-24-30"; do
+    #    ./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-stego-$i" scan io/test/_$i --recursive $LOGGING
+    #    ./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-stego-$i" yara io/pdf_signatures.yara -outid=mp3-stego-$i $LOGGING
+    #done
+    exit
 
     
 
-    #./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-cover-files" scan io/test/cover/mp3 --recursive $LOGGING
-    #./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover-files" scan io/test/cover/pdf --recursive $LOGGING
-    #./container-metrics $MONGODB_CONNECTION $DB_ID "default-stego-files" scan io/test/default-stego/ --recursive $LOGGING
-    #./container-metrics $MONGODB_CONNECTION $DB_ID "boobytrappdf-stego-files" scan io/test/_boobytrappdf/ --recursive $LOGGING
-    #./container-metrics $MONGODB_CONNECTION $DB_ID "pdfhide-stego-files" scan io/test/_pdfhide/ --recursive $LOGGING
-    #./container-metrics $MONGODB_CONNECTION $DB_ID "pdfstego-stego-files" scan io/test/_pdfstego/ --recursive $LOGGING
-
-    #./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover-files" \
-    #    yara io/signatures.yara -outid=cover $LOGGING
-    #./container-metrics $MONGODB_CONNECTION $DB_ID "pdfstego-stego-files" \
-    #    yara io/signatures.yara -outid=stego $LOGGING
 
 
-    # json pipeline
-    #./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover-files" \
-    #    json "*" $LOGGING -rrd
-    #./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover-files" \
-    #    yara io/signatures.yara -outid=default $LOGGING
+
+
 
     # arff pipeline: stegonaut training example
     jmesq_arff_cover="data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[header.private,header.copyright,header.original] \
