@@ -83,7 +83,7 @@ final_test() {
     # PDF TESTS // XML PIPELINE TESTS // CSV PIPELINE TESTS // YARA PIPELINE TESTS
 
     # prepare pdf cover files (333x)
-    ./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover" scan io/test/cover/pdf --recursive $LOGGING
+    ./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover" scan io/test/default-stego/cat-pdf --recursive $LOGGING
     #./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover" scan io/test/default-stego/cat-pdf --recursive $LOGGING
     ./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover" yara io/pdf_signatures.yara -outid=pdf-cover $LOGGING
     #./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover" json "*" -outid=pdf-cover $LOGGING

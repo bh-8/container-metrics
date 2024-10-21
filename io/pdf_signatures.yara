@@ -12,7 +12,7 @@ rule is_pdf {
 // rule hits when the corresponding pdf-section does not completely cover the file size
 rule eof_appending : main {
     condition:
-        is_pdf and cm.jmesq_i(mdb_url, mdb_pjt, mdb_set, mdb_oid, "data[?mime_type=='application/pdf'].[position,length] | [0] | sum(@)") < cm.jmesq_i(mdb_url, mdb_pjt, mdb_set, mdb_oid, "meta.file.size") and console.log("calculated = ", cm.jmesq_s(mdb_url, mdb_pjt, mdb_set, mdb_oid, "[meta.file.[name,size],data[?mime_type=='application/pdf'].[position,length]]"))
+        is_pdf and cm.jmesq_i(mdb_url, mdb_pjt, mdb_set, mdb_oid, "data[?mime_type=='application/pdf'].[position,length] | [0] | sum(@)") < cm.jmesq_i(mdb_url, mdb_pjt, mdb_set, mdb_oid, "meta.file.size")
 }
 
 // rule hits whenever a specific copyright comment appears and there is specific stream content
