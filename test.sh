@@ -23,10 +23,10 @@ final_test() {
 
     # prepare jfif cover files (333x)
     #./container-metrics $MONGODB_CONNECTION $DB_ID "jfif-cover" scan io/test/cover/jfif --recursive $LOGGING
-    #./container-metrics $MONGODB_CONNECTION $DB_ID "jfif-cover" scan io/test/default-stego/camouflage --recursive $LOGGING
     #./container-metrics $MONGODB_CONNECTION $DB_ID "jfif-cover" yara io/jfif_signatures.yara -outid=jfif-cover $LOGGING
-
     #./container-metrics $MONGODB_CONNECTION $DB_ID "jfif-cover" json "*" -rrd -outid=jfif-cover $LOGGING
+    #./container-metrics $MONGODB_CONNECTION $DB_ID "jfif-cover" svg hist "jpeg segments" "amount" \
+    #    "data[?mime_type=='image/jpeg'].content.jpeg_segments[].name" -outid=histogram $LOGGING
 
     # automatic stego generators: f5, hstego, jsteg, stegosuite
     #./stego-gen f5 io/test/cover/jfif io/test/_f5-36-8-20 $STEGO_MSG_A $STEGO_KEY_A -deo -t $STEGO_TIMEOUT_A
@@ -55,11 +55,11 @@ final_test() {
     # MP3 TESTS // SVG PIPELINE TESTS // ARFF PIPELINE TESTS // YARA PIPELINE TESTS
 
     # prepare mp3 cover files (333x)
-    #./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-cover" scan io/test/cover/mp3 --recursive $LOGGING
-    #tar -xzf "io/test/mp3stego-stego.tar.gz" -C "io/test/."
+    ./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-cover" scan io/test/cover/mp3 --recursive $LOGGING
     #./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-cover" yara io/mp3_signatures.yara -outid=mp3-cover $LOGGING
     #./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-cover" json "*" -rrd -outid=mp3-cover $LOGGING
-    # automatic stego generators: mp3stego, mp3stegolib, tamp3r
+
+    # automatic stego generators: mp3stego, tamp3r
     #./stego-gen mp3stego io/test/cover/wav io/test/_mp3stego-36-8-20 $STEGO_MSG_A $STEGO_KEY_A -deo -t $STEGO_TIMEOUT_A
     #./stego-gen mp3stego io/test/cover/wav io/test/_mp3stego-396-24-30 $STEGO_MSG_B $STEGO_KEY_B -deo -t $STEGO_TIMEOUT_B
     #./stego-gen tamp3r io/test/cover/mp3 io/test/_tamp3r-36-8-20 $STEGO_MSG_A -deo -t $STEGO_TIMEOUT_A
@@ -76,16 +76,47 @@ final_test() {
     #done
     #./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-stego-mp3stegz" scan io/test/default-stego/mp3stegz $LOGGING
     #./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-stego-mp3stegz" yara io/mp3_signatures.yara -outid=mp3-stego-mp3stegz $LOGGING
-    #./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-stego-stegonaut" scan io/test/default-stego/stegonaut $LOGGING
+    ./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-stego-stegonaut" scan io/test/default-stego/stegonaut $LOGGING
     #./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-stego-stegonaut" yara io/mp3_signatures.yara -outid=mp3-stego-stegonaut $LOGGING
+
+    # svg
+    #tar -xzf "io/test/mp3stego-stego.tar.gz" -C "io/test/."
+    #./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-stego-mp3stego" scan io/test/_mp3stego-36-8-20 --recursive $LOGGING
+    #./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-stego-mp3stego" scan io/test/_mp3stego-396-24-30 --recursive $LOGGING
+
+    #./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-stego-mp3stego" svg plot "mpeg frames" "part2_3_length" \
+    #    "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length] | map(&[], @)" \
+    #    --width=16 -outid=p23l $LOGGING
+    #./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-stego-mp3stego" svg plot "mpeg frames" "part2_3_length 1st derivative" \
+    #    "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length] | map(&[], @) | zip(@[0:-1], @[1:]) | map(&zip(@[0], @[1]), @) | map(&map(&(@[1] - @[0]), @), @)" \
+    #    --width=16 -outid=p23lderiv1 $LOGGING
+
+    # arff pipeline: stegonaut training example
+    jmesq_arff_cover="data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[header.private,header.copyright,header.original] \
+    | [map(&to_string([0]), @), map(&to_string([1]), @), map(&to_string([2]), @)] \
+    | [[length([@[0] | [?@ == 'true']] | []), length([@[0] | [?@ == 'false']] | []), length([@[1] | [?@ == 'true']] | []), \
+      length([@[1] | [?@ == 'false']] | []), length([@[2] | [?@ == 'true']] | []), length([@[2] | [?@ == 'false']] | []), \
+      'false']]"
+    ./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-cover" arff "private set,private unset,copyright set,copyright unset,original set,original unset,is stego" "${jmesq_arff_cover}" --categorical=7 $LOGGING -outid=stegonaut-cover
+
+    jmesq_arff_stego="data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[header.private,header.copyright,header.original] \
+    | [map(&to_string([0]), @), map(&to_string([1]), @), map(&to_string([2]), @)] \
+    | [[length([@[0] | [?@ == 'true']] | []), length([@[0] | [?@ == 'false']] | []), length([@[1] | [?@ == 'true']] | []), \
+      length([@[1] | [?@ == 'false']] | []), length([@[2] | [?@ == 'true']] | []), length([@[2] | [?@ == 'false']] | []), \
+      'true']]"
+    ./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-stego-stegonaut" arff "private set,private unset,copyright set,copyright unset,original set,original unset,is stego" "${jmesq_arff_stego}" --categorical=7 $LOGGING -outid=stegonaut-stego
+    ./merge_arff.sh && sudo rm -f io/_arff/*.arff io/_stegonaut.arff && mv io/_combined.arff io/_stegonaut.arff
+        # -> fix io/_stegonaut.arff before further processing in weka!
+
+    exit
 
     ################################################################################
     # PDF TESTS // XML PIPELINE TESTS // CSV PIPELINE TESTS // YARA PIPELINE TESTS
 
     # prepare pdf cover files (333x)
-    ./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover" scan io/test/default-stego/cat-pdf --recursive $LOGGING
     #./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover" scan io/test/default-stego/cat-pdf --recursive $LOGGING
-    ./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover" yara io/pdf_signatures.yara -outid=pdf-cover $LOGGING
+    #./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover" scan io/test/default-stego/cat-pdf --recursive $LOGGING
+    #./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover" yara io/pdf_signatures.yara -outid=pdf-cover $LOGGING
     #./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover" json "*" -outid=pdf-cover $LOGGING
 
     #./stego-gen boobytrappdf io/test/cover/pdf io/test/_boobytrappdf-36-20 $STEGO_MSG_A -deo -t $STEGO_TIMEOUT_A
@@ -113,24 +144,6 @@ final_test() {
 
 
 
-    # arff pipeline: stegonaut training example
-    jmesq_arff_cover="data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[header.private,header.copyright,header.original] \
-    | [map(&to_string([0]), @), map(&to_string([1]), @), map(&to_string([2]), @)] \
-    | [[length([@[0] | [?@ == 'true']] | []), length([@[0] | [?@ == 'false']] | []), length([@[1] | [?@ == 'true']] | []), \
-      length([@[1] | [?@ == 'false']] | []), length([@[2] | [?@ == 'true']] | []), length([@[2] | [?@ == 'false']] | []), \
-      'false']]"
-    ./container-metrics $MONGODB_CONNECTION $DB_ID "mp3-cover-files" \
-        arff "private set,private unset,copyright set,copyright unset,original set,original unset,is stego" "${jmesq_arff_cover}" --categorical=7 $LOGGING -outid=stegonaut-cover
-    jmesq_arff_stego="data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[header.private,header.copyright,header.original] \
-    | [map(&to_string([0]), @), map(&to_string([1]), @), map(&to_string([2]), @)] \
-    | [[length([@[0] | [?@ == 'true']] | []), length([@[0] | [?@ == 'false']] | []), length([@[1] | [?@ == 'true']] | []), \
-      length([@[1] | [?@ == 'false']] | []), length([@[2] | [?@ == 'true']] | []), length([@[2] | [?@ == 'false']] | []), \
-      'true']]"
-    ./container-metrics $MONGODB_CONNECTION $DB_ID "default-stego-files" \
-        arff "private set,private unset,copyright set,copyright unset,original set,original unset,is stego" "${jmesq_arff_stego}" --categorical=7 $LOGGING -outid=stegonaut-stego
-    ./merge_arff.sh && sudo rm -f io/_arff/*.arff io/_stegonaut.arff && mv io/_combined.arff io/_stegonaut.arff
-        # -> fix io/_stegonaut.arff before further processing in weka!
-
 
     # csv pipeline
     ./container-metrics $MONGODB_CONNECTION $DB_ID "default-stego-files" \
@@ -141,24 +154,6 @@ final_test() {
         csv "part2_3_length granule 0,part2_3_length granule 1" \
         "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length]" \
         -outid=part23length $LOGGING
-
-    # svg pipeline
-    ./container-metrics $MONGODB_CONNECTION $DB_ID "jfif-cover-files" \
-        svg hist "jpeg segments" "amount" \
-        "data[?mime_type=='image/jpeg'].content.jpeg_segments[].name" \
-        -outid=histogram $LOGGING
-    ./container-metrics $MONGODB_CONNECTION $DB_ID "default-stego-files" \
-        svg plot "mpeg frames" "part2_3_length" \
-        "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length] | map(&[], @)" \
-        --width=16 -outid=p23l $LOGGING
-    ./container-metrics $MONGODB_CONNECTION $DB_ID "default-stego-files" \
-        svg plot "mpeg frames" "part2_3_length 1st derivative" \
-        "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length] | map(&[], @) | zip(@[0:-1], @[1:]) | map(&zip(@[0], @[1]), @) | map(&map(&(@[1] - @[0]), @), @)" \
-        --width=16 -outid=p23lderiv1 $LOGGING
-    ./container-metrics $MONGODB_CONNECTION $DB_ID "default-stego-files" \
-        svg plot "mpeg frames" "part2_3_length 2nd derivative" \
-        "data[?mime_type=='audio/mpeg'].content.mpeg_frames[].[side_info.granule_info[0].part2_3_length,side_info.granule_info[1].part2_3_length] | map(&[], @) | zip(@[0:-1], @[1:]) | map(&zip(@[0], @[1]), @) | map(&map(&(@[1] - @[0]), @), @) | zip(@[0:-1], @[1:]) | map(&zip(@[0], @[1]), @) | map(&map(&(@[1] - @[0]), @), @)" \
-        --width=16 -outid=p23lderiv2 $LOGGING
 
     # xml pipeline
     ./container-metrics $MONGODB_CONNECTION $DB_ID "default-stego-files" \
