@@ -22,14 +22,14 @@ final_test() {
     # JFIF TESTS // JSON PIPELINE TESTS // YARA PIPELINE TESTS
 
     # prepare jfif cover files (333x)
-    ./container-metrics $MONGODB_CONNECTION $DB_ID "jfif-cover" scan io/test/cover/jfif --recursive $LOGGING
+    #./container-metrics $MONGODB_CONNECTION $DB_ID "jfif-cover" scan io/test/cover/jfif --recursive $LOGGING
     #./container-metrics $MONGODB_CONNECTION $DB_ID "jfif-cover" yara io/jfif_signatures.yara -outid=jfif-cover $LOGGING
     #./container-metrics $MONGODB_CONNECTION $DB_ID "jfif-cover" json "*" -rrd -outid=jfif-cover $LOGGING
     #./container-metrics $MONGODB_CONNECTION $DB_ID "jfif-cover" svg hist "jpeg segments" "amount" \
     #    "data[?mime_type=='image/jpeg'].content.jpeg_segments[].name" -outid=histogram $LOGGING
-    ./container-metrics $MONGODB_CONNECTION $DB_ID "jfif-cover" json "data[?mime_type=='image/jpeg'].content.jpeg_segments[].name" -outid=jsegs $LOGGING
-    ./container-metrics $MONGODB_CONNECTION $DB_ID "jfif-cover" xml "data[?mime_type=='image/jpeg'].content.jpeg_segments[].[{id: sid, n: name}] | {seg: @}" -outid=jsegs $LOGGING
-    ./container-metrics $MONGODB_CONNECTION $DB_ID "jfif-cover" csv "name,offset,length" "data[?mime_type=='image/jpeg'].content.jpeg_segments[].[name,offset,length]" -outid=jsegs $LOGGING
+    #./container-metrics $MONGODB_CONNECTION $DB_ID "jfif-cover" json "data[?mime_type=='image/jpeg'].content.jpeg_segments[].name" -outid=jsegs $LOGGING
+    #./container-metrics $MONGODB_CONNECTION $DB_ID "jfif-cover" xml "data[?mime_type=='image/jpeg'].content.jpeg_segments[].[{id: sid, n: name}] | {seg: @}" -outid=jsegs $LOGGING
+    #./container-metrics $MONGODB_CONNECTION $DB_ID "jfif-cover" csv "name,offset,length" "data[?mime_type=='image/jpeg'].content.jpeg_segments[].[name,offset,length]" -outid=jsegs $LOGGING
 
     # automatic stego generators: f5, hstego, jsteg, stegosuite
     #./stego-gen f5 io/test/cover/jfif io/test/_f5-36-8-20 $STEGO_MSG_A $STEGO_KEY_A -deo -t $STEGO_TIMEOUT_A
@@ -111,13 +111,11 @@ final_test() {
     #./merge_arff.sh && sudo rm -f io/_arff/*.arff io/_stegonaut.arff && mv io/_combined.arff io/_stegonaut.arff
         # -> fix io/_stegonaut.arff before further processing in weka!
 
-    exit
-
     ################################################################################
     # PDF TESTS // XML PIPELINE TESTS // CSV PIPELINE TESTS // YARA PIPELINE TESTS
 
     # prepare pdf cover files (333x)
-    #./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover" scan io/test/default-stego/cat-pdf --recursive $LOGGING
+    #./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover" scan io/test/cover/pdf --recursive $LOGGING
     #./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover" scan io/test/default-stego/cat-pdf --recursive $LOGGING
     #./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover" yara io/pdf_signatures.yara -outid=pdf-cover $LOGGING
     #./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-cover" json "*" -outid=pdf-cover $LOGGING
@@ -126,7 +124,7 @@ final_test() {
     #./stego-gen boobytrappdf io/test/cover/pdf io/test/_boobytrappdf-396-30 $STEGO_MSG_B -deo -t $STEGO_TIMEOUT_B
     #./stego-gen pdfhide io/test/cover/pdf io/test/_pdfhide-36-8-20 $STEGO_MSG_A $STEGO_KEY_A -deo -t $STEGO_TIMEOUT_A
     #./stego-gen pdfhide io/test/cover/pdf io/test/_pdfhide-396-24-30 $STEGO_MSG_B $STEGO_KEY_B -deo -t $STEGO_TIMEOUT_B
-    #./stego-gen pdfstego io/test/cover/pdf io/test/_pdfstego-36-8-20 $STEGO_MSG_A $STEGO_KEY_A -deo -t $STEGO_TIMEOUT_A
+    ./stego-gen pdfstego io/test/cover/pdf io/test/_pdfstego-36-8-20 $STEGO_MSG_A $STEGO_KEY_A -deo -t $STEGO_TIMEOUT_A
     #./stego-gen pdfstego io/test/cover/pdf io/test/_pdfstego-396-24-30 $STEGO_MSG_B $STEGO_KEY_B -deo -t $STEGO_TIMEOUT_B
 
     # alternatively, load pre-computed stego files from tar archives to skip long waiting times
@@ -134,10 +132,10 @@ final_test() {
     #sudo rm -f io/test/_*/*.json
 
     # yara rule evaluation and json export (loop stego file sets)
-    #for i in "pdfstego-396-24-30"; do
-    #    ./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-stego-$i" scan io/test/_$i --recursive $LOGGING
-    #    ./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-stego-$i" yara io/pdf_signatures.yara -outid=mp3-stego-$i $LOGGING
-    #done
+    for i in "pdfstego-36-8-20"; do
+        ./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-stego-$i" scan io/test/_$i --recursive $LOGGING
+        ./container-metrics $MONGODB_CONNECTION $DB_ID "pdf-stego-$i" yara io/pdf_signatures.yara -outid=mp3-stego-$i $LOGGING
+    done
     exit
 
     
