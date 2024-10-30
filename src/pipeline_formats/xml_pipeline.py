@@ -38,5 +38,5 @@ class XmlPipeline(AbstractPipeline):
         xml_file: Path = self.get_outfile_path(self.pipeline_parameters['outid'])
         with open(xml_file, "w") as handle:
             log.info(f"writing output to '{xml_file}'...")
-            handle.write(dict2xml(out_dict))
+            handle.write(dict2xml(out_dict, wrap="xml"))
             handle.close()
