@@ -1,4 +1,3 @@
-import "console"
 import "cm"
 
 // rule hits whenever MP3 magic number is found at the beginning of a file
@@ -13,7 +12,7 @@ rule is_mp3 {
 // rule hits when the corresponding mp3-section does not completely cover the file size
 rule eof_appending : main {
     condition:
-        is_mp3 and cm.jmesq_i(mdb_url, mdb_pjt, mdb_set, mdb_oid, "data[?mime_type=='audio/mpeg'].length | [0]") < cm.jmesq_i(mdb_url, mdb_pjt, mdb_set, mdb_oid, "meta.file.size")
+        is_mp3 and cm.jmesq_i(mdb_url, mdb_pjt, mdb_set, mdb_oid, "data[?mime_type=='audio/mpeg'].[position,length] | [0] | sum(@)") < cm.jmesq_i(mdb_url, mdb_pjt, mdb_set, mdb_oid, "meta.file.size")
 }
 
 // rule fires whenever a mp3 file is encoded using a constant bitrate

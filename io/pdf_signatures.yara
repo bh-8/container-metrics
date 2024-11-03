@@ -1,4 +1,3 @@
-import "console"
 import "cm"
 
 // rule hits whenever PDF magic number is found in a file
@@ -40,13 +39,3 @@ rule boobytrappdf : main {
     condition:
         is_pdf and #copyright_comment > 0 and @copyright_comment[1] == 9 and #sus_token1 > 0 and #sus_token2 > 0 and cm.jmesq_s(mdb_url, mdb_pjt, mdb_set, mdb_oid, "data[?mime_type=='application/pdf'].content.header[].version | [0]") == "1.3"
 }
-
-//25 E2 E3 CF D3 0A
-//rule openpuff_pdf : main {
-//    strings:
-//        $lf = { 0A }
-//        $cr = { 0D }
-//    condition:
-//        is_pdf and #lf > 0 and #cr > 0 and console.log("openpuff_pdf (if value is greater than 10!?) = ", math.abs(#lf - #cr))
-//}
-// Regel wäre möglich basierend auf Whitespace-Daten-Export, dann Zählen der Whitespaces und Abgleich...; Daten sind aber nicht verfügbar -> Auslagern in zuk. Arbeiten..?

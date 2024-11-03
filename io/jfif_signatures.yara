@@ -1,4 +1,3 @@
-import "console"
 import "cm"
 
 // rule hits whenever JPEG magic number is found at the beginning of a file
@@ -12,7 +11,7 @@ rule is_jpeg {
 // rule hits when the corresponding jfif-section does not completely cover the file size
 rule eof_appending : main {
     condition:
-        is_jpeg and cm.jmesq_i(mdb_url, mdb_pjt, mdb_set, mdb_oid, "data[?mime_type=='image/jpeg'].length | [0]") < cm.jmesq_i(mdb_url, mdb_pjt, mdb_set, mdb_oid, "meta.file.size")
+        is_jpeg and cm.jmesq_i(mdb_url, mdb_pjt, mdb_set, mdb_oid, "data[?mime_type=='image/jpeg'].[position,length] | [0] | sum(@)") < cm.jmesq_i(mdb_url, mdb_pjt, mdb_set, mdb_oid, "meta.file.size")
 }
 
 // f5-manipulated images feature of a very specific quantization table
